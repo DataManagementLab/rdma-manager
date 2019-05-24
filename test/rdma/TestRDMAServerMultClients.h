@@ -9,9 +9,9 @@
 #ifndef SRC_TEST_NET_TestRDMAServerMultClients_H_
 #define SRC_TEST_NET_TestRDMAServerMultClients_H_
 
-#include "../utils/Config.h"
-#include "../../net/rdma/RDMAServer.h"
-#include "../../net/rdma/RDMAClient.h"
+#include "../../src/utils/Config.h"
+#include "../../src/rdma/RDMAServer.h"
+#include "../../src/rdma/RDMAClient.h"
 
 
 using namespace rdma;

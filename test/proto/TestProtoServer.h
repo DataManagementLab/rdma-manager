@@ -9,9 +9,9 @@
 #ifndef SRC_TEST_NET_TestProtoServer_H_
 #define SRC_TEST_NET_TestProtoServer_H_
 
-#include "../utils/Config.h"
-#include "../../net/proto/ProtoServer.h"
-#include "../../net/proto/ProtoClient.h"
+#include "../../src/utils/Config.h"
+#include "../../src/proto/ProtoServer.h"
+#include "../../src//proto/ProtoClient.h"
 
 #include <string>
 

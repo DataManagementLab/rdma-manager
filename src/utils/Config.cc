@@ -9,36 +9,6 @@ using namespace rdma;
 //TEST
 int Config::HELLO_PORT = 4001;
 
-//DPI
-string Config::DPI_REGISTRY_SERVER = "10.116.60.16";
-// string Config::DPI_REGISTRY_SERVER = "127.0.0.1";
-uint32_t Config::DPI_REGISTRY_PORT = 5300;
-uint32_t Config::DPI_REGISTRY_RMDA_MEM = 1024;
-uint32_t Config::DPI_NODE_PORT = 5400;
-
-
-/**
- * @brief Config::DPI_NODES collects the IP adress of each node participating
- * NOTE: The index of the vector corresponds to nodeid - 1
- * i.e., each node gets a node id starting at 1 therefore the corresponding
- * IP is Config::DPI_NODES[(nodeid:1) - 1] => use the function
- * getIPFromNodeId(1) to retrieve the IP
- */
-// vector<string> Config::DPI_NODES = {  "127.0.0.1:"
-//     + to_string(Config::DPI_NODE_PORT) };
-vector<string> Config::DPI_NODES = {  "10.116.60.16:"
-    + to_string(Config::DPI_NODE_PORT) };
-
-
-uint32_t Config::DPI_INTERNAL_BUFFER_SIZE = 1024 * 1024 * 4;
-uint32_t Config::DPI_SEGMENT_SIZE = (1024 * 1024 * 64) + sizeof(Config::DPI_SEGMENT_HEADER_t);
-uint32_t Config::DPI_SEGMENTS_PER_RING = 10;
-
-
-string Config::getBufferName(string& flowName, NodeID node_id){
-  return flowName + to_string(node_id);
-}
-
 
 //RDMA
 size_t Config::RDMA_MEMSIZE = 1024ul * 1024 * 1024 * 5;  //1GB
@@ -52,8 +22,7 @@ uint32_t Config::RDMA_MAX_WR = 4096;
 uint32_t Config::CACHELINE_SIZE = 64;
 
 //THREADING
-// vector<int> Config::THREAD_CPUS = { 1,2,3,4,5,6,7,8,9,10,11,12,13,14};
-vector<int> Config::THREAD_CPUS = { 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39 };
+vector<int> Config::THREAD_CPUS = { 1,2,3,4,5,6,7,8,9,10,11,12,13,14};
 
 //LOGGING
 int Config::LOGGING_LEVEL = 3;
@@ -112,7 +81,7 @@ void Config::load(const string& prog_name) {
   } else {
     conf_file = prog_name.substr(0, prog_name.find_last_of("/"));
   }
-  conf_file += "/conf/DPI.conf";
+  conf_file += "/conf/rdma.conf";
 
   ifstream file(conf_file.c_str());
 
@@ -157,23 +126,10 @@ void Config::set(string key, string value) {
     Config::RDMA_IBPORT = stoi(value);
   } else if (key.compare("THREAD_CPUS") == 0) {
     init_vector(Config::THREAD_CPUS, value);
-  } else if (key.compare("DPI_REGISTRY_SERVER") == 0) {
-    Config::DPI_REGISTRY_SERVER = value;
-  } else if (key.compare("DPI_REGISTRY_PORT") == 0) {
-    Config::DPI_REGISTRY_PORT = stoi(value);
-  }else if (key.compare("DPI_NODES") == 0) {
-    init_vector(Config::DPI_NODES, value);
   }else if (key.compare("LOGGING_LEVEL") == 0) {
     Config::LOGGING_LEVEL = stoi(value);
   }else if (key.compare("CACHELINE_SIZE") == 0) {
     Config::CACHELINE_SIZE = stoi(value);
-  }else if (key.compare("DPI_INTERNAL_BUFFER_SIZE") == 0) {
-    Config::DPI_INTERNAL_BUFFER_SIZE = stoi(value);
-  }else if (key.compare("DPI_SEGMENT_SIZE") == 0) {
-    Config::DPI_SEGMENT_SIZE = stoi(value);
-  }else if (key.compare("DPI_SEGMENTS_PER_RING") == 0) {
-    Config::DPI_SEGMENTS_PER_RING = stoi(value);
-  }
 }
 
 
