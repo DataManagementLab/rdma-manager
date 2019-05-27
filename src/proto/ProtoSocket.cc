@@ -8,7 +8,7 @@ ProtoSocket::ProtoSocket(string addr, int port, int sockType)
     : m_sockType(sockType),
       m_isOpen(false) {
 
-  m_pCtx = new zmq::context_t(1, Config::DPI_MAX_SOCKETS);
+  m_pCtx = new zmq::context_t(1, Config::PROTO_MAX_SOCKETS);
 
   m_pSock = new zmq::socket_t(*m_pCtx, m_sockType);
   int hwm = 0;

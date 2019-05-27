@@ -65,6 +65,6 @@ class Logging {
   }
 };
 
-}  // end namespace dpi
+}  // end namespace rdma
 
 #endif /* LOGGING_HPP_ */

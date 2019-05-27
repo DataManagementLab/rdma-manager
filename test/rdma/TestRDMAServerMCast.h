@@ -9,7 +9,7 @@
 #ifndef SRC_TEST_NET_TestRDMAServerMCast_H_
 #define SRC_TEST_NET_TestRDMAServerMCast_H_
 
-#include "../../utils/Config.h"
+#include "../../src/utils/Config.h"
 #include "../../src/rdma/RDMAServer.h"
 #include "../../src/rdma/RDMAClient.h"
 

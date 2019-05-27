@@ -106,7 +106,7 @@ typedef unsigned long long uint128_t;
 typedef uint64_t NodeID;
 // typedef uint64_t Offset;
 
-namespace dpi
+namespace rdma
 {
 
 //Constants
@@ -132,7 +132,10 @@ class Config
     static uint32_t RDMA_MAX_WR;
     const static uint32_t RDMA_MAX_SGE = 1;
     const static size_t RDMA_UD_OFFSET = 40;
+    const static int RDMA_SLEEP_INTERVAL = 100 * 1000;
     
+    const static int PROTO_MAX_SOCKETS = 1024;
+
     //SYSTEM
     static uint32_t CACHELINE_SIZE;
 
@@ -145,8 +148,8 @@ class Config
     //TEST
     static int HELLO_PORT;
 
-    static string& getIPFromNodeId(NodeID& nodeid);
-    static string& getIPFromNodeId(const NodeID& nodeid);
+    // static string& getIPFromNodeId(NodeID& nodeid);
+    // static string& getIPFromNodeId(const NodeID& nodeid);
 
   private:
     static void load(const string& exec_path);
@@ -159,6 +162,6 @@ class Config
     static string getIP();
 };
 
-} // end namespace dpi
+} // end namespace rdma
 
 #endif /* CONFIG_HPP_ */

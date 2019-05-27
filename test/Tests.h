@@ -9,6 +9,7 @@
 #include "rdma/TestSimpleUD.h"
 #include "rdma/TestRDMAServerMultClients.h"
 #include "thread/TestThread.h"
+#include "utils/TestConfig.h"
 #endif /* TESTS_H_ */
 
 

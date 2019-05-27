@@ -27,12 +27,12 @@ vector<int> Config::THREAD_CPUS = { 1,2,3,4,5,6,7,8,9,10,11,12,13,14};
 //LOGGING
 int Config::LOGGING_LEVEL = 3;
 
-string& Config::getIPFromNodeId(NodeID& node_id){
-  return Config::DPI_NODES.at(node_id -1);
-}
-string& Config::getIPFromNodeId(const NodeID& node_id){
-  return Config::DPI_NODES.at(node_id -1);
-}
+// string& Config::getIPFromNodeId(NodeID& node_id){
+//   return Config::DPI_NODES.at(node_id -1);
+// }
+// string& Config::getIPFromNodeId(const NodeID& node_id){
+//   return Config::DPI_NODES.at(node_id -1);
+// }
 
 
 inline string trim(string str) {
@@ -81,7 +81,7 @@ void Config::load(const string& prog_name) {
   } else {
     conf_file = prog_name.substr(0, prog_name.find_last_of("/"));
   }
-  conf_file += "/conf/rdma.conf";
+  conf_file += "/conf/RDMA.conf";
 
   ifstream file(conf_file.c_str());
 
@@ -130,10 +130,11 @@ void Config::set(string key, string value) {
     Config::LOGGING_LEVEL = stoi(value);
   }else if (key.compare("CACHELINE_SIZE") == 0) {
     Config::CACHELINE_SIZE = stoi(value);
+  }
 }
 
 
-string dpi::Config::getIP() {
+string Config::getIP() {
   int fd;
   struct ifreq ifr;
   fd = socket(AF_INET, SOCK_DGRAM, 0);

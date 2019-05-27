@@ -1,5 +1,5 @@
 syntax = "proto3";
-package dpi;
+package rdma;
 
 message MemoryResourceResponse {
     uint64 offset = 1;

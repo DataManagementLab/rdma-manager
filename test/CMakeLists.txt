@@ -4,6 +4,7 @@ enable_testing()
 add_subdirectory(proto)
 add_subdirectory(rdma)
 add_subdirectory(thread)
+add_subdirectory(utils)
 
 set(TEST_SRC
 	Tests.h
@@ -21,12 +22,13 @@ SET_TARGET_PROPERTIES(rdma_tests PROPERTIES
    PREFIX ""
    LINK_FLAGS "-Wl,--no-as-needed"
 )
-	
+
 target_link_libraries(rdma_tests 
 	${CPPUNIT_LIBRARY}
 	test_rdma_proto
 	test_rdma
 	test_thread
+	test_utils
 )
 	
 target_link_libraries(test_lib 
@@ -34,5 +36,12 @@ target_link_libraries(test_lib
 	test_rdma_proto
 	test_rdma
 	test_thread
+	test_utils
+)
+
+
+add_executable(rdma_test Main.cc)
+target_link_libraries(rdma_test
+	test_lib
 )
 	

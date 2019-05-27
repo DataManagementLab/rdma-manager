@@ -11,7 +11,7 @@
 
 #include "../utils/Config.h"
 
-#include "./RDMAManager.h"
+#include "RDMAManager.h"
 
 #include <rdma/rdma_verbs.h>
 #include <arpa/inet.h>

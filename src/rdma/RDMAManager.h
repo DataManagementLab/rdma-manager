@@ -434,8 +434,7 @@ class RDMAManager {
     unordered_map<size_t, rdma_mem_t> m_usedRdmaMem;
 
     static rdma_mem_t s_nillmem;
-}
-;
+};
 
 }
 

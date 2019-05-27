@@ -19,7 +19,7 @@
 #include <google/protobuf/message.h>
 using google::protobuf::Any;
 
-namespace dpi
+namespace rdma
 {
 
 enum MessageTypesEnum : int
@@ -68,6 +68,6 @@ public:
   }
 };
 // end class
-} // end namespace dpi
+} // end namespace rdma
 
 #endif /* MESSAGETYPES_H_ */

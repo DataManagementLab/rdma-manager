@@ -51,6 +51,6 @@ class ProtoSocket {
   zmq::socket_t* m_pSock;
 };
 
-}  // end namespace dpi
+}  // end namespace rdma
 
 #endif

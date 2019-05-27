@@ -1,6 +1,8 @@
 
 
-#include "./RDMAManagerUD.h"
+#include "RDMAManagerUD.h"
+
+using namespace rdma;
 
 /********** constructor and destructor **********/
 RDMAManagerUD::RDMAManagerUD(size_t mem_size)
@@ -702,7 +704,7 @@ bool RDMAManagerUD::modifyQPToRTS(struct ibv_qp *qp, const uint32_t psn) {
   return true;
 }
 
-bool dpi::RDMAManagerUD::remoteFetchAndAdd(struct ib_addr_t& ibAddr, size_t offset,
+bool rdma::RDMAManagerUD::remoteFetchAndAdd(struct ib_addr_t& ibAddr, size_t offset,
                                                const void* memAddr, size_t value_to_add,
                                                size_t size, bool signaled) {
     (void) (ibAddr);

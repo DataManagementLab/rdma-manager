@@ -47,36 +47,36 @@ bool RDMAClient::localFree(const void* ptr) {
 }
 
 
-//DPI specific function
-bool RDMAClient::remoteAllocSegments(const string& connection, const string& bufferName, const size_t segmentsCount, 
-                                     const size_t segmentsSize, size_t& offset, BufferHandle::Buffertype buffertype, bool cacheAlign)
-{
-  if (!connect(connection)) {
-    return false;
-  }
-  ProtoClient* client = m_clients[connection];
+// //DPI specific function
+// bool RDMAClient::remoteAllocSegments(const string& connection, const string& bufferName, const size_t segmentsCount, 
+//                                      const size_t segmentsSize, size_t& offset, BufferHandle::Buffertype buffertype, bool cacheAlign)
+// {
+//   if (!connect(connection)) {
+//     return false;
+//   }
+//   ProtoClient* client = m_clients[connection];
 
-  // std::cout << "RDMAClient::remoteAllocSegments segmentsCount: " << segmentsCount << '\n';
+//   // std::cout << "RDMAClient::remoteAllocSegments segmentsCount: " << segmentsCount << '\n';
 
-  Any sendAny = MessageTypes::createDPIAllocSegmentsRequest(bufferName, segmentsCount, segmentsSize, buffertype, cacheAlign);
-  Any rcvAny;
-  if (!client->send(&sendAny, &rcvAny)) {
-    Logging::error(__FILE__, __LINE__, "cannot send message");
-    return false;
-  }
+//   Any sendAny = MessageTypes::createDPIAllocSegmentsRequest(bufferName, segmentsCount, segmentsSize, buffertype, cacheAlign);
+//   Any rcvAny;
+//   if (!client->send(&sendAny, &rcvAny)) {
+//     Logging::error(__FILE__, __LINE__, "cannot send message");
+//     return false;
+//   }
 
-  if (rcvAny.Is<DPIAllocSegmentsResponse>()) {
-    Logging::debug(__FILE__, __LINE__, "Received DPIAllocSegmentsResponse");
-    DPIAllocSegmentsResponse resResp;
-    rcvAny.UnpackTo(&resResp);
-    if (resResp.return_() == MessageErrors::NO_ERROR) {
-      offset = resResp.offset();
-      return true;
-    }
-    Logging::warn("RDMAClient: Got error code " + to_string(resResp.return_()));
-  }
-  return false;
-}
+//   if (rcvAny.Is<DPIAllocSegmentsResponse>()) {
+//     Logging::debug(__FILE__, __LINE__, "Received DPIAllocSegmentsResponse");
+//     DPIAllocSegmentsResponse resResp;
+//     rcvAny.UnpackTo(&resResp);
+//     if (resResp.return_() == MessageErrors::NO_ERROR) {
+//       offset = resResp.offset();
+//       return true;
+//     }
+//     Logging::warn("RDMAClient: Got error code " + to_string(resResp.return_()));
+//   }
+//   return false;
+// }
 
 
 bool RDMAClient::remoteAlloc(const string& connection, const size_t size,
@@ -613,7 +613,7 @@ bool RDMAClient::pollReceiveMCast(struct ib_addr_t ibAddr) {
 }
 
 [[deprecated]]
-bool dpi::RDMAClient::fetchAndAdd(const string& connection, size_t remoteOffset,
+bool rdma::RDMAClient::fetchAndAdd(const string& connection, size_t remoteOffset,
                                       void* localData, size_t value_to_add, size_t size,
                                       bool signaled) {
     signaled = checkSignaled(signaled);
@@ -624,7 +624,7 @@ bool dpi::RDMAClient::fetchAndAdd(const string& connection, size_t remoteOffset,
 
 }
 
-bool dpi::RDMAClient::fetchAndAdd(const NodeID& nodeid, size_t remoteOffset, void* localData,
+bool rdma::RDMAClient::fetchAndAdd(const NodeID& nodeid, size_t remoteOffset, void* localData,
                                       size_t value_to_add, size_t size, bool signaled) {
     signaled = checkSignaled(signaled, nodeid);
     return m_rdmaManager->remoteFetchAndAdd(m_nodeIDsIBaddr[nodeid], remoteOffset, localData,value_to_add, size,

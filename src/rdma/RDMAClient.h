@@ -8,9 +8,9 @@
 #define RDMAClient_H_
 
 #include "../utils/Config.h"
-#include "./RDMAManager.h"
-#include "./RDMAManagerUD.h"
-#include "./RDMAManagerRC.h"
+#include "RDMAManager.h"
+#include "RDMAManagerUD.h"
+#include "RDMAManagerRC.h"
 #include "../proto/ProtoClient.h"
 
 #include <unordered_map>
@@ -48,8 +48,8 @@ size_t write_count[8] = {0};
   void* getBuffer(const size_t offset = 0);
 
   // DPI
-  bool remoteAllocSegments(const string& connection, const string& bufferName, const size_t segmentsCount, 
-                           const size_t fullSegmentsSize, size_t& offset, BufferHandle::Buffertype buffertype = BufferHandle::Buffertype::BW, bool cacheAlign = false);
+  // bool remoteAllocSegments(const string& connection, const string& bufferName, const size_t segmentsCount, 
+  //                          const size_t fullSegmentsSize, size_t& offset, BufferHandle::Buffertype buffertype = BufferHandle::Buffertype::BW, bool cacheAlign = false);
 
   // one-sided
   // ip interface

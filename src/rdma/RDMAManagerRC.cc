@@ -1,6 +1,8 @@
 
 
-#include "./RDMAManagerRC.h"
+#include "RDMAManagerRC.h"
+
+using namespace rdma;
 
 /********** constructor and destructor **********/
 RDMAManagerRC::RDMAManagerRC(size_t mem_size)
@@ -571,7 +573,7 @@ bool RDMAManagerRC::modifyQPToRTS(struct ibv_qp *qp) {
     return true;
 }
 
-bool dpi::RDMAManagerRC::remoteFetchAndAdd(struct ib_addr_t& ibAddr, size_t offset,
+bool rdma::RDMAManagerRC::remoteFetchAndAdd(struct ib_addr_t& ibAddr, size_t offset,
                                                const void* memAddr, size_t value_to_add,
                                                size_t size, bool signaled) {
 

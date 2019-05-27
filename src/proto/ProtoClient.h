@@ -34,6 +34,6 @@ class ProtoClient {
   ProtoSocket* m_pSocket;bool m_isConnected;
 };
 
-}  // end namespace dpi
+}  // end namespace rdma
 
 #endif /* CLIENT_H_ */

@@ -22,6 +22,7 @@ target_link_libraries(net_rdma ${NUMA_LIBRARY})
 
 target_link_libraries(net_rdma
   ${RDMA_LINKER_FLAGS}
+  utils
   net_message
-  net_proto
+  rdma_proto
 )

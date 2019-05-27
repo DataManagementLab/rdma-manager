@@ -1,5 +1,5 @@
 syntax = "proto3";
-package dpi;
+package rdma;
 
 message RDMAConnResponseMgmt {
     uint64 buffer = 1;

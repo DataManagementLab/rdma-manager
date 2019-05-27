@@ -17,7 +17,7 @@
 #include "zmq.hpp"
 #include "ProtoSocket.h"
 #include "../message/MessageTypes.h"
-#include "../../thread/Thread.h"
+#include "../thread/Thread.h"
 #include "../utils/Network.h"
 
 using google::protobuf::Any;
@@ -44,6 +44,6 @@ class ProtoServer : public Thread {
   mutex m_handleLock;
 };
 
-}  // end namespace dpi
+}  // end namespace rdma
 
 #endif /* NET_PROTOSERVER_H_ */

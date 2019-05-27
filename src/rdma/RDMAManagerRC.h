@@ -11,7 +11,7 @@
 
 #include "../utils/Config.h"
 
-#include "./RDMAManager.h"
+#include "RDMAManager.h"
 
 namespace rdma {
 

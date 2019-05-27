@@ -55,6 +55,6 @@ class Thread {
   bool m_running;
 };
 
-}  // end namespace dpi
+}  // end namespace rdma
 
 #endif /* THREAD_HPP_ */
