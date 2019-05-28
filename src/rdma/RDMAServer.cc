@@ -210,10 +210,27 @@ bool RDMAServer::connectQueue(RDMAConnRequest* connRequest,
 
   //create local QP
   struct ib_addr_t ibAddr;
-  if (!m_rdmaManager->initQP(ibAddr)) {
-    lck.unlock();
-    return false;
+
+  //Check if SRQ is active
+  if (m_currentSRQ == SIZE_MAX)
+  {
+  Logging::debug(__FILE__, __LINE__, "RDMAServer: initializing queue pair - " + to_string(ibAddr.conn_key));
+    if (!m_rdmaManager->initQP(ibAddr)) {
+      lck.unlock();
+      return false;
+    }
   }
+  else
+  {
+  Logging::debug(__FILE__, __LINE__, "RDMAServer: initializing queue pair with srq id: " + to_string(m_currentSRQ) + " - " + to_string(ibAddr.conn_key));
+    if (!m_rdmaManager->initQP(m_currentSRQ, ibAddr)) {
+      lck.unlock();
+      return false;
+    }
+  }
+  
+
+  
   m_addr.push_back(ibAddr);
 
   // set remote connection data

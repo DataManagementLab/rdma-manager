@@ -1,11 +1,17 @@
 
-#include "TestRDMAServerMultClients.h"
+#include "TestRDMAServerSRQ.h"
 
-void TestRDMAServerMultClients::setUp() {
+void TestRDMAServerSRQ::setUp() {
   Config::RDMA_MEMSIZE = 1024 * 1024;
-  
+
   m_rdmaServer = new RDMAServer();
   CPPUNIT_ASSERT(m_rdmaServer->startServer());
+
+
+  //Create SRQ
+  CPPUNIT_ASSERT(m_rdmaServer->createSRQ(m_srq_id));
+
+  m_rdmaServer->activateSRQ(m_srq_id);
 
   m_connection = "127.0.0.1:" + to_string(Config::RDMA_PORT);
   m_rdmaClient_0 = new RDMAClient();
@@ -14,7 +20,7 @@ void TestRDMAServerMultClients::setUp() {
   CPPUNIT_ASSERT(m_rdmaClient_1->connect(m_connection));
 }
 
-void TestRDMAServerMultClients::tearDown() {
+void TestRDMAServerSRQ::tearDown() {
   if (m_rdmaServer != nullptr) {
     m_rdmaServer->stopServer();
     delete m_rdmaServer;
@@ -31,9 +37,9 @@ void TestRDMAServerMultClients::tearDown() {
   }
 }
 
-void TestRDMAServerMultClients::testSendRecieve() {
+void TestRDMAServerSRQ::testSendRecieve() {
 
-  Logging::debug("TestRDMASerevrMultClients started", __LINE__, __FILE__);
+  Logging::debug("TestRDMAServerSRQ started", __LINE__, __FILE__);
 
   testMsg* localstruct1 = (testMsg*) m_rdmaClient_0->localAlloc(
       sizeof(testMsg));
@@ -53,19 +59,14 @@ void TestRDMAServerMultClients::testSendRecieve() {
   CPPUNIT_ASSERT(remotestruct != nullptr);
   CPPUNIT_ASSERT(remotestruct2 != nullptr);
 
-  CPPUNIT_ASSERT(
-      m_rdmaServer->receive(connKeys[0], (void* ) remotestruct,
-                            sizeof(testMsg)));
-  CPPUNIT_ASSERT(
-      m_rdmaServer->receive(connKeys[1], (void* ) remotestruct2,
-                            sizeof(testMsg)));
-  CPPUNIT_ASSERT(
-      m_rdmaClient_0->send(m_connection, (void*) localstruct1, sizeof(testMsg), false));
-  CPPUNIT_ASSERT(
-      m_rdmaClient_1->send(m_connection, (void*) localstruct2, sizeof(testMsg), false));
+  CPPUNIT_ASSERT(m_rdmaServer->receive(m_srq_id, (void* ) remotestruct, sizeof(testMsg)));
+  CPPUNIT_ASSERT(m_rdmaServer->receive(m_srq_id, (void* ) remotestruct2, sizeof(testMsg)));
+  
+  CPPUNIT_ASSERT(m_rdmaClient_0->send(m_connection, (void*) localstruct1, sizeof(testMsg), false));
+  CPPUNIT_ASSERT(m_rdmaClient_1->send(m_connection, (void*) localstruct2, sizeof(testMsg), false));
 
-  CPPUNIT_ASSERT(m_rdmaServer->pollReceive(connKeys[0]));
-  CPPUNIT_ASSERT(m_rdmaServer->pollReceive(connKeys[1]));
+  ib_addr_t ret_ib_addr;
+  CPPUNIT_ASSERT(m_rdmaServer->pollReceive(m_srq_id, ret_ib_addr));
 
   CPPUNIT_ASSERT_EQUAL(localstruct1->id, remotestruct->id);
   CPPUNIT_ASSERT_EQUAL(localstruct1->a, remotestruct->a);

@@ -135,19 +135,17 @@ class RDMAManager {
         (void) memAddr;
         (void) size;
         return false;
-    }
-    ;
-    virtual bool pollReceive(size_t srq_id, ib_addr_t& ret_qp_num) {
+    };
+    virtual bool pollReceive(size_t srq_id, ib_addr_t& ret_qp_num, bool doPoll) {
         (void) srq_id;
         (void) ret_qp_num;
+        (void) doPoll;
         return false;
-    }
-    ;
+    };
     virtual bool createSharedReceiveQueue(size_t& ret_srq_id) {
         (void) ret_srq_id;
         return false;
-    }
-    ;
+    };
     //srq
 
     virtual bool pollSend(struct ib_addr_t& ibAddr, bool doPoll = true) = 0;
@@ -411,7 +409,6 @@ class RDMAManager {
     bool createCQ(ibv_cq*& send_cq, ibv_cq*& rcv_cq);
     bool destroyCQ(ibv_cq*& send_cq, ibv_cq*& rcv_cq);
     virtual bool createQP(struct ib_qp_t *qp) = 0;
-
     ibv_qp_type m_qpType;
     size_t m_memSize;
     int m_numaRegion;

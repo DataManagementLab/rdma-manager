@@ -30,6 +30,7 @@ static void usage()
     cout << "102: \t rdma/TestRDMAServerMultipleClients" << endl;
     cout << "103: \t rdma/TestSimpleUD" << endl;
     cout << "104: \t rdma/TestRDMAServerMCast" << endl;
+    cout << "105: \t rdma/TestRDMAServerSRQ" << endl;
     
     //MISC
     cout << "201: \t utils/TestConfig" << endl;
@@ -80,6 +81,9 @@ static void runtest(int t)
         break;
     case 104:
         runner.addTest(TestRDMAServerMCast::suite());
+        break;
+    case 105:
+        runner.addTest(TestRDMAServerSRQ::suite());
         break;
 
     //MISC

@@ -2,6 +2,8 @@
 #include "TestRDMAServer.h"
 
 void TestRDMAServer::setUp() {
+  Config::RDMA_MEMSIZE = 1024 * 1024;
+
   m_rdmaServer = new RDMAServer();
   CPPUNIT_ASSERT(m_rdmaServer->startServer());
 

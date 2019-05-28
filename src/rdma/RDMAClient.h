@@ -23,7 +23,7 @@ class RDMAClient {
 #if RDMA_TRANSPORT==0
   RDMAClient(size_t mem_size = Config::RDMA_MEMSIZE, rdma_transport_t transport = rc);
 #elif RDMA_TRANSPORT==1
-  RDMAClient(rdma_transport_t transport = ud );
+  RDMAClient(size_t mem_size = Config::RDMA_MEMSIZE, rdma_transport_t transport = ud);
 #endif
 
   ~RDMAClient();

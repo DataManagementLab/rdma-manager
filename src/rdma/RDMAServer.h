@@ -29,11 +29,11 @@ class RDMAServer : public ProtoServer {
 #if RDMA_TRANSPORT==0
     RDMAServer(int port = Config::RDMA_PORT, rdma_transport_t transport = rc);
     RDMAServer(string name, int port = Config::RDMA_PORT, uint64_t memsize = Config::RDMA_MEMSIZE, rdma_transport_t transport = rc);
-    RDMAServer(string name, int port, bool newFunc);
 #elif RDMA_TRANSPORT==1
     RDMAServer(int port = Config::RDMA_PORT, rdma_transport_t transport = ud );
-    RDMAServer(string name, int port = Config::RDMA_PORT, rdma_transport_t transport = ud );
+    RDMAServer(string name, int port = Config::RDMA_PORT, uint64_t memsize = Config::RDMA_MEMSIZE, rdma_transport_t transport = ud);
 #endif
+    RDMAServer(string name, int port, bool newFunc);
 
     ~RDMAServer();
 
@@ -73,7 +73,40 @@ class RDMAServer : public ProtoServer {
     bool receiveMCast(struct ib_addr_t ibAddr, const void* memAddr, size_t size);
     bool pollReceiveMCast(struct ib_addr_t ibAddr);
 
-// protected:
+
+
+    //Shared Receive Queue
+    bool receive(size_t srq_id, const void* memAddr,
+                 size_t size){
+        return m_rdmaManager->receive(srq_id,memAddr,size);
+    };
+    bool pollReceive(size_t srq_id,  ib_addr_t& ret_ib_addr) {
+        return m_rdmaManager->pollReceive(srq_id,ret_ib_addr, true);
+    };
+
+    bool createSRQ(size_t& ret_srq_id){
+        return m_rdmaManager->createSharedReceiveQueue(ret_srq_id);
+    };
+
+    bool initQP(size_t srq_id, struct ib_addr_t& reIbAddr) {
+        return m_rdmaManager->initQP(srq_id,reIbAddr);
+    };
+
+    void activateSRQ(size_t srqID){
+        Logging::debug(__FILE__, __LINE__, "setCurrentSRQ: assigned to " + to_string(srqID));
+        m_currentSRQ = srqID;
+    }
+
+    void deactiveSRQ()
+    {
+        m_currentSRQ = SIZE_MAX;
+    }
+
+    size_t getCurrentSRQ(){
+        return m_currentSRQ;
+    }
+
+protected:
     // memory management
     bool addMemoryResource(size_t size);
     MessageErrors requestMemoryResource(size_t size, size_t& offset);
@@ -105,6 +138,8 @@ class RDMAServer : public ProtoServer {
     // Locks for multiple clients accessing server
     mutex m_connLock;
     mutex m_memLock;
+
+    size_t m_currentSRQ = SIZE_MAX;
 };
 
 }

@@ -2,6 +2,8 @@
 #include "TestSimpleUD.h"
 
 void TestSimpleUD::setUp() {
+  Config::RDMA_MEMSIZE = 1024 * 1024;
+
   // run two servers
   m_rdmaServer1 = new RDMAServer(Config::RDMA_PORT);
   m_rdmaServer2 = new RDMAServer(Config::RDMA_PORT + 1);

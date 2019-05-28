@@ -5,6 +5,8 @@ set(TEST_RDMA_SRC
   TestRDMAServer.h
   TestRDMAServerMultClients.cc
   TestRDMAServerMultClients.h
+  TestRDMAServerSRQ.cc
+  TestRDMAServerSRQ.h
   TestSimpleUD.h 
   TestSimpleUD.cc
   ) # Adding headers required for portability reasons http://voices.canonical.com/jussi.pakkanen/2013/03/26/a-list-of-common-cmake-antipatterns/

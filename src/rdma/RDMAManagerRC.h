@@ -15,6 +15,13 @@
 
 namespace rdma {
 
+
+struct sharedrq_t{
+    ibv_srq* shared_rq;
+    ibv_cq* recv_cq;
+};
+
+
 class RDMAManagerRC : public RDMAManager {
 
  public:
@@ -53,6 +60,15 @@ class RDMAManagerRC : public RDMAManager {
     bool sendMCast(struct ib_addr_t ibAddr, const void* memAddr, size_t size, bool signaled);
     bool receiveMCast(struct ib_addr_t ibAddr, const void* memAddr, size_t size);
     bool pollReceiveMCast(struct ib_addr_t ibAddr);
+
+    //Shared Receive Queue
+    vector<ib_addr_t> getIbAddrs(size_t srq_id);
+    bool initQP(size_t srq_id, struct ib_addr_t& reIbAddr) override;
+
+    bool receive(size_t srq_id, const void* memAddr,
+                 size_t size) override;
+    bool pollReceive(size_t srq_id, ib_addr_t& ret_ibaddr, bool doPoll) override;
+    bool createSharedReceiveQueue(size_t& ret_srq_id) override;
 
  protected:
     // RDMA operations
@@ -114,9 +130,17 @@ class RDMAManagerRC : public RDMAManager {
 
     virtual void destroyQPs();
     bool createQP(struct ib_qp_t *qp);
+    bool createQP(size_t srq_id, struct ib_qp_t& qp);
     bool modifyQPToInit(struct ibv_qp *qp);
     bool modifyQPToRTR(struct ibv_qp *qp, uint32_t remote_qpn, uint16_t dlid, uint8_t *dgid);
     bool modifyQPToRTS(struct ibv_qp *qp);
+
+
+    //shared receive queues
+    map<size_t,sharedrq_t> m_srqs;
+    size_t m_srqCounter = 0;
+    map<size_t,vector<ib_addr_t>> m_connectedQPs;
+
 };
 
 }

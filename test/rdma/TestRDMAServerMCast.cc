@@ -2,6 +2,7 @@
 #include "TestRDMAServerMCast.h"
 
 void TestRDMAServerMCast::setUp() {
+  Config::RDMA_MEMSIZE = 1024 * 1024;
   m_mCastAddr = "192.168.1.1";
 
   m_rdmaServer = new RDMAServer();
