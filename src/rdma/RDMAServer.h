@@ -12,8 +12,8 @@
 #include "../utils/Config.h"
 #include "../proto/ProtoServer.h"
 #include "../rdma/RDMAManager.h"
-#include "./RDMAManagerUD.h"
-#include "./RDMAManagerRC.h"
+#include "RDMAManagerUD.h"
+#include "RDMAManagerRC.h"
 #include "../message/MessageTypes.h"
 #include "../message/MessageErrors.h"
 
