@@ -6,4 +6,4 @@ set(TEST_UTILS_SRC
 add_library(test_utils ${TEST_UTILS_SRC})
 
 target_include_directories(test_utils PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(test_utils thread)
+target_link_libraries(test_utils thread rdma_utils)

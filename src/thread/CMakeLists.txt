@@ -10,7 +10,7 @@ add_library(thread ${THREAD_SRCS})
 target_include_directories(thread PUBLIC ${CMAKE_CURRENT_BINARY_PATH})
 target_link_libraries(thread
   ${CMAKE_THREAD_LIBS_INIT}
-  utils
+  rdma_utils
   )
 
 

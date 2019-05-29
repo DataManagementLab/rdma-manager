@@ -1,4 +1,4 @@
-set(UTILS_SRC
+set(RDMA_UTILS_SRC
   StringHelper.h
   Filehelper.h
   Config.h
@@ -7,5 +7,5 @@ set(UTILS_SRC
   Timer.h
   Network.h
   ) # Adding headers required for portability reasons http://voices.canonical.com/jussi.pakkanen/2013/03/26/a-list-of-common-cmake-antipatterns/
-add_library(utils ${UTILS_SRC})
-target_include_directories(utils PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
+add_library(rdma_utils ${RDMA_UTILS_SRC})
+target_include_directories(rdma_utils PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
