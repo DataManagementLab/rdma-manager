@@ -21,6 +21,7 @@ DPI_UNIT_TEST_SUITE (TestRDMAServer);
   DPI_UNIT_TEST_RC(testRemoteAlloc);
   DPI_UNIT_TEST_RC(testRemoteFree);
   DPI_UNIT_TEST_RC(testSendRecieve);
+  DPI_UNIT_TEST_RC(testAtomics);
   DPI_UNIT_TEST_UD (testSendRecieve);
   DPI_UNIT_TEST_SUITE_END()
   ;
@@ -33,6 +34,7 @@ DPI_UNIT_TEST_SUITE (TestRDMAServer);
   void testRemoteAlloc();
   void testRemoteFree();
   void testSendRecieve();
+  void testAtomics();
 
  private:
   RDMAServer* m_rdmaServer;
