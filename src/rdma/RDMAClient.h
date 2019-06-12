@@ -28,64 +28,56 @@ class RDMAClient {
 
   ~RDMAClient();
 
-size_t signaled_count[8] = {0};
-size_t write_count[8] = {0};
-
-  // connection
-  bool connect(const string& connection, bool managementQueue = false);
-// use whith nodeIDs: improves performance since nodeids are used
+  /**
+   * @brief connects to an RDMAServer
+   * Don't use arbitraty high NodeIDs, since NodeIDs are internally used for array indexing
+   */
   bool connect(const string& connection, const NodeID nodeID ,bool managementQueue = false);
-  bool connect(const string& connection, struct ib_addr_t& retIbAddr,
-               bool managementQueue = false);
+
 
   // memory management
   void* localAlloc(const size_t& size);
   bool localFree(const void* ptr);
   bool remoteAlloc(const string& connection, const size_t size, size_t& offset);
-  // bool remoteAlloc(const NodeID nodeID, const size_t size, size_t& offset);
+  bool remoteAlloc(const NodeID nodeID, const size_t size, size_t& offset);
   bool remoteFree(const string& connection, const size_t size, const size_t offset);
-  // bool remoteFree(const NodeID nodeID, const size_t size, const size_t offset);
+  bool remoteFree(const NodeID nodeID, const size_t size, const size_t offset);
   void* getBuffer(const size_t offset = 0);
-
-  // DPI
-  // bool remoteAllocSegments(const string& connection, const string& bufferName, const size_t segmentsCount, 
-  //                          const size_t fullSegmentsSize, size_t& offset, BufferHandle::Buffertype buffertype = BufferHandle::Buffertype::BW, bool cacheAlign = false);
 
   // one-sided
   // ip interface
-  bool write(const string& connection, size_t remoteOffset, void* localData,
-             size_t size, bool signaled);
-  bool read(const string& connection, size_t remoteOffset, void* localData,
-            size_t size, bool signaled);
-  bool requestRead(const string& connection, size_t remoteOffset,
-                   void* localData, size_t size);
+  // bool write(const string& connection, size_t remoteOffset, void* localData,
+  //            size_t size, bool signaled);
+  // bool read(const string& connection, size_t remoteOffset, void* localData,
+  //           size_t size, bool signaled);
+  // bool requestRead(const string& connection, size_t remoteOffset,
+  //                  void* localData, size_t size);
 
-  bool fetchAndAdd(const string& connection, size_t remoteOffset,
-                   void* localData, size_t size, bool signaled);
+  // bool fetchAndAdd(const string& connection, size_t remoteOffset,
+  //                  void* localData, size_t size, bool signaled);
 
-  bool fetchAndAdd(const string& connection, size_t remoteOffset,
-                   void* localData, size_t value_to_add ,size_t size, bool signaled);
+  // bool fetchAndAdd(const string& connection, size_t remoteOffset,
+  //                  void* localData, size_t value_to_add ,size_t size, bool signaled);
 
-  bool compareAndSwap(const string& connection, size_t remoteOffset,
-                      void* localData, int toCompare, int toSwap, size_t size,
-                      bool signaled);
+  // bool compareAndSwap(const string& connection, size_t remoteOffset,
+  //                     void* localData, int toCompare, int toSwap, size_t size,
+  //                     bool signaled);
 
   // ib_addr_t interface
-  bool write(ib_addr_t& ibAddr, size_t remoteOffset, void* localData,
-             size_t size, bool signaled);
-  bool requestRead(ib_addr_t& ibAddr, size_t remoteOffset, void* localData,
-                   size_t size);
-  bool read(ib_addr_t& ibAddr, size_t remoteOffset, void* localData,
-            size_t size, bool signaled);
-  bool fetchAndAdd(ib_addr_t& ibAddr, size_t remoteOffset, void* localData,
-                   size_t size, bool signaled);
-  bool compareAndSwap(ib_addr_t& ibAddr, size_t remoteOffset, void* localData,
-                      int toCompare, int toSwap, size_t size, bool signaled);
+  // bool write(ib_addr_t& ibAddr, size_t remoteOffset, void* localData,
+  //            size_t size, bool signaled);
+  // bool requestRead(ib_addr_t& ibAddr, size_t remoteOffset, void* localData,
+  //                  size_t size);
+  // bool read(ib_addr_t& ibAddr, size_t remoteOffset, void* localData,
+  //           size_t size, bool signaled);
+  // bool fetchAndAdd(ib_addr_t& ibAddr, size_t remoteOffset, void* localData,
+  //                  size_t size, bool signaled);
+  // bool compareAndSwap(ib_addr_t& ibAddr, size_t remoteOffset, void* localData,
+  //                     int toCompare, int toSwap, size_t size, bool signaled);
 
 
   //onesided
   // nodeid interface
-
   bool fetchAndAdd(const NodeID& nodeid, size_t remoteOffset,
                    void* localData, size_t value_to_add ,size_t size, bool signaled);
   bool requestRead(const NodeID& nodeid, size_t remoteOffset, void* localData,
@@ -107,7 +99,6 @@ size_t write_count[8] = {0};
 
   //two-sided
   // nodeid
-
   bool receive(const NodeID& nodeid, void* localData, size_t size);
   bool send(const NodeID& nodeid, void* localData, size_t size, bool signaled);
   bool pollReceive(const NodeID& nodeid);
@@ -122,10 +113,10 @@ size_t write_count[8] = {0};
   bool pollSend(const string& connection);
 
   // ib_addr_t interface
-  bool receive(ib_addr_t& ib_addr, void* localData, size_t size);
-  bool send(ib_addr_t& ib_addr, void* localData, size_t size, bool signaled);
-  bool pollReceive(ib_addr_t &ib_addr);
-  bool pollSend(ib_addr_t &ib_addr);
+  // bool receive(ib_addr_t& ib_addr, void* localData, size_t size);
+  // bool send(ib_addr_t& ib_addr, void* localData, size_t size, bool signaled);
+  // bool pollReceive(ib_addr_t &ib_addr);
+  // bool pollSend(ib_addr_t &ib_addr);
 
   ib_addr_t getMgmtQueue(const string& connection) {
     return m_mgmt_addr.at(connection);
@@ -151,6 +142,11 @@ size_t write_count[8] = {0};
 
 
  protected:
+
+  bool connect(const string& connection, struct ib_addr_t& retIbAddr,
+               bool managementQueue = false);
+  bool connect(const string& connection, bool managementQueue = false);
+
   bool createManagementQueue(const string& connection,
                              const uint64_t qpNumServer);
 
@@ -184,6 +180,7 @@ size_t write_count[8] = {0};
 
   // Mapping from nodeID to ibaddr
   vector<ib_addr_t> m_nodeIDsIBaddr;
+  vector<string> m_nodeIDsConnection;
   vector<size_t> m_countWR;
 
 };

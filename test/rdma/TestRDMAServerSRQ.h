@@ -33,6 +33,8 @@ DPI_UNIT_TEST_SUITE (TestRDMAServerSRQ);
   RDMAClient* m_rdmaClient_1;
   RDMAClient* m_rdmaClient_2;
   RDMAClient* m_rdmaClient_3;
+  
+  NodeID m_nodeId = 0;
 
   string m_connection;
   size_t m_srq_id;

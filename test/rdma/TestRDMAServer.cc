@@ -3,15 +3,13 @@
 
 void TestRDMAServer::setUp() {
   Config::RDMA_MEMSIZE = 1024 * 1024;
-
+  m_nodeId = 0;
   m_rdmaServer = new RDMAServer();
   CPPUNIT_ASSERT(m_rdmaServer->startServer());
 
-  NodeID node_id = 0;
-
   m_connection = "127.0.0.1:" + to_string(Config::RDMA_PORT);
   m_rdmaClient = new RDMAClient();
-  CPPUNIT_ASSERT(m_rdmaClient->connect(m_connection, node_id));
+  CPPUNIT_ASSERT(m_rdmaClient->connect(m_connection, m_nodeId));
 }
 
 void TestRDMAServer::tearDown() {
@@ -41,7 +39,7 @@ void TestRDMAServer::testWrite() {
   //write to remote machine
   localValues[0] = 1;
   localValues[1] = 2;
-  m_rdmaClient->write(m_connection, remoteOffset, localValues, memSize, true);
+  m_rdmaClient->write(m_nodeId, remoteOffset, localValues, memSize, true);
 
   //read from remote machine
   int* remoteVals = (int*) m_rdmaServer->getBuffer(remoteOffset);
@@ -80,7 +78,7 @@ void TestRDMAServer::testSendRecieve() {
   CPPUNIT_ASSERT(
       m_rdmaServer->receive(ibAddr, (void* )remotestruct, sizeof(testMsg)));
   CPPUNIT_ASSERT(
-      m_rdmaClient->send(m_connection,(void*)localstruct,sizeof(testMsg),true));
+      m_rdmaClient->send(m_nodeId,(void*)localstruct,sizeof(testMsg),true));
   CPPUNIT_ASSERT(m_rdmaServer->pollReceive(ibAddr));
 
   CPPUNIT_ASSERT_EQUAL(localstruct->id, remotestruct->id);
@@ -101,8 +99,8 @@ void TestRDMAServer::testAtomics() {
 
   //write to remote machine
   localValues[0] = 1;
-  CPPUNIT_ASSERT(m_rdmaClient->fetchAndAdd(0,remoteOffset,localValues, sizeof(uint64_t), true));
-  CPPUNIT_ASSERT(m_rdmaClient->fetchAndAdd(0,remoteOffset,localValues, sizeof(uint64_t), true));
+  CPPUNIT_ASSERT(m_rdmaClient->fetchAndAdd(m_nodeId,remoteOffset,localValues, sizeof(uint64_t), true));
+  CPPUNIT_ASSERT(m_rdmaClient->fetchAndAdd(m_nodeId,remoteOffset,localValues, sizeof(uint64_t), true));
 
 //       inline  int64_t setInitialAtomicCounter(int number) {
 //         // node id -1 since partitions are mapped to 0
@@ -117,10 +115,10 @@ void TestRDMAServer::testAtomics() {
   CPPUNIT_ASSERT_EQUAL(remoteVals[0], 2);
   
   // Compare and swap to zero
-  CPPUNIT_ASSERT(m_rdmaClient->compareAndSwap(0,remoteOffset,localValues,2,0, sizeof(uint64_t), true));
+  CPPUNIT_ASSERT(m_rdmaClient->compareAndSwap(m_nodeId,remoteOffset,localValues,2,0, sizeof(uint64_t), true));
   CPPUNIT_ASSERT_EQUAL(remoteVals[0], 0);
 
-  CPPUNIT_ASSERT(m_rdmaClient->fetchAndAdd(0,remoteOffset,localValues,10,sizeof(uint64_t), true));
+  CPPUNIT_ASSERT(m_rdmaClient->fetchAndAdd(m_nodeId,remoteOffset,localValues,10,sizeof(uint64_t), true));
   CPPUNIT_ASSERT_EQUAL(remoteVals[0], 10);
 
   //remote free

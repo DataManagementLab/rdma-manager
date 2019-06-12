@@ -37,7 +37,7 @@
 
 using namespace std;
 
-#define RDMA_TRANSPORT 0 //0=RC, 1=UD
+#define RDMA_TRANSPORT 1 //0=RC, 1=UD
 
 #if RDMA_TRANSPORT == 0
 #define DPI_UNIT_TEST_RC(test) CPPUNIT_TEST(test)

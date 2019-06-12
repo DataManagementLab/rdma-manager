@@ -3,15 +3,15 @@
 
 void TestRDMAServerMultClients::setUp() {
   Config::RDMA_MEMSIZE = 1024 * 1024;
-  
+  m_nodeId = 0;
   m_rdmaServer = new RDMAServer();
   CPPUNIT_ASSERT(m_rdmaServer->startServer());
 
   m_connection = "127.0.0.1:" + to_string(Config::RDMA_PORT);
   m_rdmaClient_0 = new RDMAClient();
-  CPPUNIT_ASSERT(m_rdmaClient_0->connect(m_connection));
+  CPPUNIT_ASSERT(m_rdmaClient_0->connect(m_connection, m_nodeId));
   m_rdmaClient_1 = new RDMAClient();
-  CPPUNIT_ASSERT(m_rdmaClient_1->connect(m_connection));
+  CPPUNIT_ASSERT(m_rdmaClient_1->connect(m_connection, m_nodeId));
 }
 
 void TestRDMAServerMultClients::tearDown() {
@@ -60,9 +60,9 @@ void TestRDMAServerMultClients::testSendRecieve() {
       m_rdmaServer->receive(connKeys[1], (void* ) remotestruct2,
                             sizeof(testMsg)));
   CPPUNIT_ASSERT(
-      m_rdmaClient_0->send(m_connection, (void*) localstruct1, sizeof(testMsg), false));
+      m_rdmaClient_0->send(m_nodeId, (void*) localstruct1, sizeof(testMsg), false));
   CPPUNIT_ASSERT(
-      m_rdmaClient_1->send(m_connection, (void*) localstruct2, sizeof(testMsg), false));
+      m_rdmaClient_1->send(m_nodeId, (void*) localstruct2, sizeof(testMsg), false));
 
   CPPUNIT_ASSERT(m_rdmaServer->pollReceive(connKeys[0]));
   CPPUNIT_ASSERT(m_rdmaServer->pollReceive(connKeys[1]));

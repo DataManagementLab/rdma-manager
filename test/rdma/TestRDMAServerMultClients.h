@@ -35,6 +35,7 @@ DPI_UNIT_TEST_SUITE (TestRDMAServerMultClients);
   RDMAClient* m_rdmaClient_3;
 
   string m_connection;
+  NodeID m_nodeId = 0;
 
   struct testMsg {
   int id;

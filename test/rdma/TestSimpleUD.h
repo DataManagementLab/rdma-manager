@@ -19,7 +19,7 @@ class TestSimpleUD : public CppUnit::TestFixture
 {
     DPI_UNIT_TEST_SUITE(TestSimpleUD);
     DPI_UNIT_TEST_UD(testSendRecieve);
-    DPI_UNIT_TEST_UD(testSendRecieveMgmt);
+    // DPI_UNIT_TEST_UD(testSendRecieveMgmt);
     DPI_UNIT_TEST_SUITE_END();
 
   public:
@@ -38,6 +38,9 @@ class TestSimpleUD : public CppUnit::TestFixture
 
     string m_connection1;
     string m_connection2;
+
+    NodeID m_s1_nodeId = 0;
+    NodeID m_s2_nodeId = 1;
 
     struct testMsg
     {

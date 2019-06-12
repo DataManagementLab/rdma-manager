@@ -46,6 +46,10 @@ bool RDMAClient::localFree(const void* ptr) {
   return m_rdmaManager->localFree(ptr);
 }
 
+bool RDMAClient::remoteAlloc(const NodeID nodeID, const size_t size, size_t& offset) {
+  return remoteAlloc(m_nodeIDsConnection[nodeID], size, offset);
+}
+
 bool RDMAClient::remoteAlloc(const string& connection, const size_t size,
                              size_t& offset) {
   if (!connect(connection)) {
@@ -70,6 +74,10 @@ bool RDMAClient::remoteAlloc(const string& connection, const size_t size,
     Logging::warn("RDMAClient: Got error code " + to_string(resResp.return_()));
   }
   return false;
+}
+
+bool RDMAClient::remoteFree(const NodeID nodeID, const size_t size, const size_t offset) {
+  return remoteFree(m_nodeIDsConnection[nodeID], size, offset);
 }
 
 bool RDMAClient::remoteFree(const string& connection, const size_t size,
@@ -109,24 +117,27 @@ bool RDMAClient::connect(const string& connection, bool managementQueue) {
 bool RDMAClient::connect(const string& connection, const NodeID nodeID,
                                   bool managementQueue) {
     struct ib_addr_t retIbAddr;
-    auto ret =  connect(connection, retIbAddr, managementQueue);
+    auto ret = connect(connection, retIbAddr, managementQueue);
     if(ret){
         if(nodeID >= m_nodeIDsIBaddr.size() ){
             m_countWR.resize(nodeID+1);
             m_countWR[nodeID] = 0;
             m_nodeIDsIBaddr.resize(nodeID+1);
             m_nodeIDsIBaddr[nodeID] = retIbAddr;
+            m_nodeIDsConnection.resize(nodeID+1);
+            m_nodeIDsConnection[nodeID] = connection;
+            
         }else{
             m_countWR[nodeID] = 0;
             m_nodeIDsIBaddr[nodeID] = retIbAddr;
+            m_nodeIDsConnection[nodeID] = connection;
         }
        
     }
     return ret;
 }
 
-bool RDMAClient::connect(const string& connection, struct ib_addr_t& ibAddr,
-bool managementQueue) {
+bool RDMAClient::connect(const string& connection, struct ib_addr_t& ibAddr, bool managementQueue) {
   //check if client is connected to data node
   if (isConnected(connection)) {
     ibAddr = m_addr[connection];
@@ -226,19 +237,6 @@ uint64_t RDMAClient::getStartRdmaAddrForNode(NodeID nodeid) {
 bool RDMAClient::writeRC(const NodeID& nodeid, size_t remoteOffset,
                                 void* localData, size_t size, bool signaled) {
   signaled = checkSignaled(signaled, nodeid);
-  // this->write_since_signal_count[nodeid-1]++;
-  // if (signaled)
-  // {
-  //   this->signaled_count[nodeid-1]++;
-  //   // this->write_since_signal_count[nodeid-1] = 0;
-  // }
-  // this->write_count[nodeid-1]++;
-  // if (nodeid == 5)
-  // {
-  //   std::cout << "Writing to nodeid 5!" << '\n';
-  //   std::cout << "IBAddr: " << m_nodeIDsIBaddr[nodeid].conn_key << '\n';
-  // }
-  // std::cout << "m_rdmaManager addr: " << (size_t)m_rdmaManager << " points to buf: " << (size_t)m_rdmaManager->getBuffer() <<  '\n';
   return (RDMAManagerRC*)m_rdmaManager->remoteWrite(m_nodeIDsIBaddr[nodeid], remoteOffset, localData, size,
                                     signaled);
 }
@@ -358,155 +356,158 @@ bool RDMAClient::createManagementQueue(const string& connection,
   return true;
 }
 
-[[deprecated]]
-bool RDMAClient::write(ib_addr_t& ibAddr, size_t remoteOffset, void* localData,
-                       size_t size, bool signaled) {
-  signaled = checkSignaled(signaled);
+// [[deprecated]]
+// bool RDMAClient::write(ib_addr_t& ibAddr, size_t remoteOffset, void* localData,
+//                        size_t size, bool signaled) {
+//   signaled = checkSignaled(signaled);
 
-  //struct ib_addr_t ibAddr = m_addr[connection];
-  return m_rdmaManager->remoteWrite(ibAddr, remoteOffset, localData, size,
-                                    signaled);
-}
+//   //struct ib_addr_t ibAddr = m_addr[connection];
+//   return m_rdmaManager->remoteWrite(ibAddr, remoteOffset, localData, size,
+//                                     signaled);
+// }
 
-[[deprecated]]
-bool RDMAClient::write(const string& connection, size_t remoteOffset,
-                       void* localData, size_t size, bool signaled) {
-  signaled = checkSignaled(signaled);
+// [[deprecated]]
+// bool RDMAClient::write(const string& connection, size_t remoteOffset,
+//                        void* localData, size_t size, bool signaled) {
+//   signaled = checkSignaled(signaled);
 
-  struct ib_addr_t ibAddr = m_addr[connection];
-  return m_rdmaManager->remoteWrite(ibAddr, remoteOffset, localData, size,
-                                    signaled);
-}
+//   struct ib_addr_t ibAddr = m_addr[connection];
+//   return m_rdmaManager->remoteWrite(ibAddr, remoteOffset, localData, size,
+//                                     signaled);
+// }
 
-bool RDMAClient::requestRead(ib_addr_t& ibAddr, size_t remoteOffset,
-                             void* localData, size_t size) {
-  return m_rdmaManager->requestRead(ibAddr, remoteOffset, localData, size);
-}
+// bool RDMAClient::requestRead(ib_addr_t& ibAddr, size_t remoteOffset,
+//                              void* localData, size_t size) {
+//   return m_rdmaManager->requestRead(ibAddr, remoteOffset, localData, size);
+// }
 
-bool RDMAClient::requestRead(const string& connection, size_t remoteOffset,
-                             void* localData, size_t size) {
-  struct ib_addr_t ibAddr = m_addr[connection];
-  return m_rdmaManager->requestRead(ibAddr, remoteOffset, localData, size);
-}
-bool RDMAClient::requestRead(const NodeID& nid, size_t remoteOffset,
-                             void* localData, size_t size) {
-  return m_rdmaManager->requestRead(m_nodeIDsIBaddr[nid], remoteOffset,
-                                    localData, size);
-}
+// bool RDMAClient::requestRead(const string& connection, size_t remoteOffset,
+//                              void* localData, size_t size) {
+//   struct ib_addr_t ibAddr = m_addr[connection];
+//   return m_rdmaManager->requestRead(ibAddr, remoteOffset, localData, size);
+// }
+// bool RDMAClient::requestRead(const NodeID& nid, size_t remoteOffset,
+//                              void* localData, size_t size) {
+//   return m_rdmaManager->requestRead(m_nodeIDsIBaddr[nid], remoteOffset,
+//                                     localData, size);
+// }
 
-[[deprecated]]
-bool RDMAClient::read(ib_addr_t& ibAddr, size_t remoteOffset, void* localData,
-                      size_t size, bool signaled) {
-  signaled = checkSignaled(signaled);
+// [[deprecated]]
+// bool RDMAClient::read(ib_addr_t& ibAddr, size_t remoteOffset, void* localData,
+//                       size_t size, bool signaled) {
+//   signaled = checkSignaled(signaled);
 
-  return m_rdmaManager->remoteRead(ibAddr, remoteOffset, localData, size,
-                                   signaled);
-}
+//   return m_rdmaManager->remoteRead(ibAddr, remoteOffset, localData, size,
+//                                    signaled);
+// }
 
-[[deprecated]]
-bool RDMAClient::read(const string& connection, size_t remoteOffset,
-                      void* localData, size_t size, bool signaled) {
+// [[deprecated]]
+// bool RDMAClient::read(const string& connection, size_t remoteOffset,
+//                       void* localData, size_t size, bool signaled) {
 
-  signaled = checkSignaled(signaled);
-  struct ib_addr_t ibAddr = m_addr[connection];
-  return m_rdmaManager->remoteRead(ibAddr, remoteOffset, localData, size,
-                                   signaled);
-}
+//   signaled = checkSignaled(signaled);
+//   struct ib_addr_t ibAddr = m_addr[connection];
+//   return m_rdmaManager->remoteRead(ibAddr, remoteOffset, localData, size,
+//                                    signaled);
+// }
 
-[[deprecated]]
-bool RDMAClient::fetchAndAdd(ib_addr_t& ibAddr, size_t remoteOffset,
-                             void* localData, size_t size, bool signaled) {
-  signaled = checkSignaled(signaled);
+// [[deprecated]]
+// bool RDMAClient::fetchAndAdd(ib_addr_t& ibAddr, size_t remoteOffset,
+//                              void* localData, size_t size, bool signaled) {
+//   signaled = checkSignaled(signaled);
 
-  return m_rdmaManager->remoteFetchAndAdd(ibAddr, remoteOffset, localData, size,
-                                          signaled);
-}
+//   return m_rdmaManager->remoteFetchAndAdd(ibAddr, remoteOffset, localData, size,
+//                                           signaled);
+// }
 
-[[deprecated]]
-bool RDMAClient::fetchAndAdd(const string& connection, size_t remoteOffset,
-                             void* localData, size_t size, bool signaled) {
-  signaled = checkSignaled(signaled);
+// [[deprecated]]
+// bool RDMAClient::fetchAndAdd(const string& connection, size_t remoteOffset,
+//                              void* localData, size_t size, bool signaled) {
+//   signaled = checkSignaled(signaled);
 
-  struct ib_addr_t ibAddr = m_addr[connection];
-  return m_rdmaManager->remoteFetchAndAdd(ibAddr, remoteOffset, localData, size,
-                                          signaled);
-}
+//   struct ib_addr_t ibAddr = m_addr[connection];
+//   return m_rdmaManager->remoteFetchAndAdd(ibAddr, remoteOffset, localData, size,
+//                                           signaled);
+// }
 
-[[deprecated]]
-bool RDMAClient::compareAndSwap(ib_addr_t& ibAddr, size_t remoteOffset,
-                                void* localData, int toCompare, int toSwap,
-                                size_t size,
-                                bool signaled) {
-  signaled = checkSignaled(signaled);
+// [[deprecated]]
+// bool RDMAClient::compareAndSwap(ib_addr_t& ibAddr, size_t remoteOffset,
+//                                 void* localData, int toCompare, int toSwap,
+//                                 size_t size,
+//                                 bool signaled) {
+//   signaled = checkSignaled(signaled);
 
-  if (m_rdmaManager->remoteCompareAndSwap(ibAddr, remoteOffset, localData,
-                                          toCompare, toSwap, size, signaled)) {
-    return true;
-  }
-  return false;
-}
+//   if (m_rdmaManager->remoteCompareAndSwap(ibAddr, remoteOffset, localData,
+//                                           toCompare, toSwap, size, signaled)) {
+//     return true;
+//   }
+//   return false;
+// }
 
-[[deprecated]]
-bool RDMAClient::compareAndSwap(const string& connection, size_t remoteOffset,
-                                void* localData, int toCompare, int toSwap,
-                                size_t size,
-                                bool signaled) {
-  signaled = checkSignaled(signaled);
+// [[deprecated]]
+// bool RDMAClient::compareAndSwap(const string& connection, size_t remoteOffset,
+//                                 void* localData, int toCompare, int toSwap,
+//                                 size_t size,
+//                                 bool signaled) {
+//   signaled = checkSignaled(signaled);
 
-  struct ib_addr_t ibAddr = m_addr[connection];
-  if (m_rdmaManager->remoteCompareAndSwap(ibAddr, remoteOffset, localData,
-                                          toCompare, toSwap, size, signaled)) {
-    return true;
-  }
-  return false;
-}
+//   struct ib_addr_t ibAddr = m_addr[connection];
+//   if (m_rdmaManager->remoteCompareAndSwap(ibAddr, remoteOffset, localData,
+//                                           toCompare, toSwap, size, signaled)) {
+//     return true;
+//   }
+//   return false;
+// }
 
-bool RDMAClient::receive(const string& connection, void* localData,
-                         size_t size) {
-  struct ib_addr_t ibAddr = m_addr[connection];
-  return m_rdmaManager->receive(ibAddr, localData, size);
-}
+// bool RDMAClient::receive(const string& connection, void* localData,
+//                          size_t size) {
+//   struct ib_addr_t ibAddr = m_addr[connection];
+//   return m_rdmaManager->receive(ibAddr, localData, size);
+// }
 
-[[deprecated]]
-bool RDMAClient::send(const string& connection, void* localData, size_t size,
-bool signaled) {
-  signaled = checkSignaled(signaled);
+// [[deprecated]]
+// bool RDMAClient::send(const string& connection, void* localData, size_t size,
+// bool signaled) {
+//   signaled = checkSignaled(signaled);
 
-  struct ib_addr_t ibAddr = m_addr[connection];
-  return m_rdmaManager->send(ibAddr, localData, size, signaled);
-}
+//   struct ib_addr_t ibAddr = m_addr[connection];
+//   return m_rdmaManager->send(ibAddr, localData, size, signaled);
+// }
 
-bool RDMAClient::pollReceive(const string& connection) {
-  struct ib_addr_t ibAddr = m_addr[connection];
-  return m_rdmaManager->pollReceive(ibAddr);
-}
+// bool RDMAClient::pollReceive(const string& connection) {
+//   struct ib_addr_t ibAddr = m_addr[connection];
+//   return m_rdmaManager->pollReceive(ibAddr);
+// }
 
-bool RDMAClient::pollSend(const string& connection) {
-  struct ib_addr_t ibAddr = m_addr[connection];
-  return m_rdmaManager->pollSend(ibAddr);
-}
+// bool RDMAClient::pollSend(const string& connection) {
+//   struct ib_addr_t ibAddr = m_addr[connection];
+//   return m_rdmaManager->pollSend(ibAddr);
+// }
 bool RDMAClient::pollSend(const NodeID& nid) {
   return m_rdmaManager->pollSend(m_nodeIDsIBaddr[nid]);
 }
 
-bool RDMAClient::receive(ib_addr_t& ib_addr, void* localAddr, size_t size) {
-  return m_rdmaManager->receive(ib_addr, localAddr, size);
-}
+// bool RDMAClient::receive(ib_addr_t& ib_addr, void* localAddr, size_t size) {
+//   return m_rdmaManager->receive(ib_addr, localAddr, size);
+// }
 
-[[deprecated]]
-bool RDMAClient::send(ib_addr_t& ib_addr, void* localAddr, size_t size,
-bool signaled) {
-  signaled = checkSignaled(signaled);
-  return m_rdmaManager->send(ib_addr, localAddr, size, signaled);
-}
+// [[deprecated]]
+// bool RDMAClient::send(ib_addr_t& ib_addr, void* localAddr, size_t size,
+// bool signaled) {
+//   signaled = checkSignaled(signaled);
+//   return m_rdmaManager->send(ib_addr, localAddr, size, signaled);
+// }
 
-bool RDMAClient::pollReceive(ib_addr_t& ib_addr) {
-  return m_rdmaManager->pollReceive(ib_addr);
-}
+// bool RDMAClient::pollReceive(ib_addr_t& ib_addr) {
+//   return m_rdmaManager->pollReceive(ib_addr);
+// }
 
-bool RDMAClient::pollSend(ib_addr_t& ib_addr) {
-  return m_rdmaManager->pollSend(ib_addr);
-}
+// bool RDMAClient::pollSend(ib_addr_t& ib_addr) {
+//   return m_rdmaManager->pollSend(ib_addr);
+// }
+
+
+// ------------------------ MULTICAST ------------------------
 
 bool RDMAClient::joinMCastGroup(string mCastAddress) {
   struct ib_addr_t retIbAddr;
@@ -579,17 +580,17 @@ bool RDMAClient::pollReceiveMCast(struct ib_addr_t ibAddr) {
   return m_rdmaManager->pollReceiveMCast(ibAddr);
 }
 
-[[deprecated]]
-bool rdma::RDMAClient::fetchAndAdd(const string& connection, size_t remoteOffset,
-                                      void* localData, size_t value_to_add, size_t size,
-                                      bool signaled) {
-    signaled = checkSignaled(signaled);
+// [[deprecated]]
+// bool rdma::RDMAClient::fetchAndAdd(const string& connection, size_t remoteOffset,
+//                                       void* localData, size_t value_to_add, size_t size,
+//                                       bool signaled) {
+//     signaled = checkSignaled(signaled);
 
-    struct ib_addr_t ibAddr = m_addr[connection];
-    return m_rdmaManager->remoteFetchAndAdd(ibAddr, remoteOffset, localData,value_to_add, size,
-                                            signaled);
+//     struct ib_addr_t ibAddr = m_addr[connection];
+//     return m_rdmaManager->remoteFetchAndAdd(ibAddr, remoteOffset, localData,value_to_add, size,
+//                                             signaled);
 
-}
+// }
 
 bool rdma::RDMAClient::fetchAndAdd(const NodeID& nodeid, size_t remoteOffset, void* localData,
                                       size_t value_to_add, size_t size, bool signaled) {
