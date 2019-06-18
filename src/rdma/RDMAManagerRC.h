@@ -67,7 +67,7 @@ class RDMAManagerRC : public RDMAManager {
 
     bool receive(size_t srq_id, const void* memAddr,
                  size_t size) override;
-    bool pollReceive(size_t srq_id, ib_addr_t& ret_ibaddr, bool doPoll) override;
+    bool pollReceive(size_t srq_id, ib_addr_t& ret_ibaddr, bool & doPoll) override;
     bool createSharedReceiveQueue(size_t& ret_srq_id) override;
 
  protected:

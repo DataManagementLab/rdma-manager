@@ -11,6 +11,7 @@
 #include "rdma/TestRDMAServerSRQ.h"
 #include "thread/TestThread.h"
 #include "utils/TestConfig.h"
+#include "RPC/TestRPC.h"
 #endif /* TESTS_H_ */
 
 

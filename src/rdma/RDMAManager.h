@@ -136,7 +136,7 @@ class RDMAManager {
         (void) size;
         return false;
     };
-    virtual bool pollReceive(size_t srq_id, ib_addr_t& ret_qp_num, bool doPoll) {
+    virtual bool pollReceive(size_t srq_id, ib_addr_t& ret_qp_num, bool& doPoll) {
         (void) srq_id;
         (void) ret_qp_num;
         (void) doPoll;

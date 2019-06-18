@@ -5,10 +5,11 @@ add_subdirectory(proto)
 add_subdirectory(rdma)
 add_subdirectory(thread)
 add_subdirectory(utils)
+add_subdirectory(RPC)
 
 set(TEST_SRC
 	Tests.h
-)
+		)
 
 add_library(test_lib ${TEST_SRC})
 
@@ -29,6 +30,7 @@ target_link_libraries(rdma_tests
 	test_rdma
 	test_thread
 	test_utils
+	test_rpc
 )
 	
 target_link_libraries(test_lib 
@@ -37,6 +39,7 @@ target_link_libraries(test_lib
 	test_rdma
 	test_thread
 	test_utils
+	test_rpc
 )
 
 

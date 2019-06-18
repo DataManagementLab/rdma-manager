@@ -680,7 +680,7 @@ bool RDMAManagerRC::receive(size_t srq_id, const void *memAddr, size_t size)
   return true;
 }
 
-bool RDMAManagerRC::pollReceive(size_t srq_id, ib_addr_t &ret_ibaddr, bool doPoll)
+bool RDMAManagerRC::pollReceive(size_t srq_id, ib_addr_t &ret_ibaddr, bool & doPoll)
 {
   int ne;
   struct ibv_wc wc;

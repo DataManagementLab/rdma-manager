@@ -25,6 +25,7 @@ int main(int argc, char **argv) {
   runner.addTest(TestRDMAServerSRQ::suite());
   runner.addTest(TestSimpleUD::suite());
   runner.addTest(TestConfig::suite());
+  runner.addTest(TestRPC::suite());
 
   // Change the default outputter to a compiler error format outputter
   runner.setOutputter(

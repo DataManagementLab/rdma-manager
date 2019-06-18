@@ -43,3 +43,7 @@ CMakeFiles/
 # vscode
 .vscode/
 build/
+.idea
+cmake-build-debug
+cmake-build-debug-remote-host-dm
+cmake-build-debug-remote-host-docker

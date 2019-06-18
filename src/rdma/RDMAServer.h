@@ -57,6 +57,7 @@ class RDMAServer : public ProtoServer {
     bool receive(ib_addr_t& ibAddr, void* localData, size_t size);
     bool send(ib_addr_t& ibAddr, void* localData, size_t size, bool signaled);
     bool pollReceive(ib_addr_t& ibAddr, bool doPoll = true);
+
     bool pollReceive(ib_addr_t& ibAddr, uint32_t& ret_qp_num);
 
     // multicast
@@ -81,7 +82,12 @@ class RDMAServer : public ProtoServer {
         return m_rdmaManager->receive(srq_id,memAddr,size);
     };
     bool pollReceive(size_t srq_id,  ib_addr_t& ret_ib_addr) {
-        return m_rdmaManager->pollReceive(srq_id,ret_ib_addr, true);
+        bool poll = true;
+        return m_rdmaManager->pollReceive(srq_id,ret_ib_addr, poll);
+    };
+
+    bool pollReceive(size_t srq_id,  ib_addr_t& ret_ib_addr,bool &poll){
+        return m_rdmaManager->pollReceive(srq_id,ret_ib_addr, poll);
     };
 
     bool createSRQ(size_t& ret_srq_id){
