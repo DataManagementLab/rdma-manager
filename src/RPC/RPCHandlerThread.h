@@ -59,6 +59,26 @@ namespace rdma
 
         };
 
+        //constructor without rpcbuffer and without srqID
+        RPCHandlerThread(RDMAServer *rdmaServer,
+                         size_t maxNumberMsgs
+        )
+                : m_rdmaServer(rdmaServer),
+                  m_msgSize(sizeof(MessageType)),
+                  m_maxNumberMsgs(maxNumberMsgs),
+                  m_rpcMemory((char*)m_rdmaServer->localAlloc(sizeof(MessageType) * maxNumberMsgs), sizeof(MessageType),maxNumberMsgs),
+                  m_freeInClass(true)
+
+        {
+
+            rdmaServer->createSRQ(m_srqID);
+            rdmaServer->activateSRQ(m_srqID);
+            m_intermediateRspBuffer = (MessageType *)m_rdmaServer->localAlloc(sizeof(MessageType));
+            initMemory();
+
+
+        };
+
 
 
         ~RPCHandlerThread(){
@@ -168,6 +188,8 @@ namespace rdma
 
         const bool m_freeInClass;
     };
+
+   
 
 } /* namespace rdma */
 

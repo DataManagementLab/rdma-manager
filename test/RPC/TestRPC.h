@@ -44,6 +44,12 @@ public:
                                                                         maxNumberMsgs)
     { }
 
+    TestRPCHandlerThread(RDMAServer *rdmaServer,
+                         size_t maxNumberMsgs):RPCHandlerThread<testMsg>
+                                                       (rdmaServer,
+                                                        maxNumberMsgs)
+    { }
+
 
 
     void handleRDMARPC(testMsg* msg, ib_addr_t &returnAdd){

@@ -31,9 +31,15 @@ void TestRPC::setUp() {
 
 
     //Create SRQ
+    /*
     CPPUNIT_ASSERT(m_rdmaServer->createSRQ(m_srq_id));
 
     m_rdmaServer->activateSRQ(m_srq_id);
+
+    the = new TestRPCHandlerThread(m_rdmaServer, m_srq_id,
+                                   MAX_NUM_RPC_MSG);*/
+    the = new TestRPCHandlerThread(m_rdmaServer,MAX_NUM_RPC_MSG);
+
 
     m_connection = "127.0.0.1:" + to_string(Config::RDMA_PORT);
     m_rdmaClient_0 = new RDMAClient();
@@ -44,8 +50,7 @@ void TestRPC::setUp() {
 
 
 
-    the = new TestRPCHandlerThread(m_rdmaServer, m_srq_id,
-                                              MAX_NUM_RPC_MSG);
+
     localresp = (testMsg*) m_rdmaClient_0->localAlloc(sizeof(testMsg));
     localstruct = (testMsg*) m_rdmaClient_0->localAlloc(sizeof(testMsg));
 
