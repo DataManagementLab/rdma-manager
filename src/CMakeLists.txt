@@ -17,5 +17,5 @@ target_link_libraries(rdma_lib
 
 file(COPY
     ${CMAKE_CURRENT_SOURCE_DIR}/conf/RDMA.conf
-    DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/bin/conf/
+    DESTINATION ${CMAKE_BINARY_DIR}/bin/conf/
 )
