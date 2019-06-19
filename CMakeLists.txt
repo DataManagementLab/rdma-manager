@@ -20,8 +20,3 @@ MESSAGE( STATUS "CMAKE_CXX_FLAGS: " ${CMAKE_CXX_FLAGS} )
 
 add_subdirectory(src)
 add_subdirectory(test)
-
-file(COPY
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/conf/RDMA.conf
-    DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/bin/conf/
-)
