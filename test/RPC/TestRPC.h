@@ -57,6 +57,8 @@ public:
         m_intermediateRspBuffer->id= msg->id+1;
         m_intermediateRspBuffer->a = msg->a - 1;
 
+
+
         m_rdmaServer->send(returnAdd, (void *)m_intermediateRspBuffer,
                             sizeof(testMsg), true);
 
