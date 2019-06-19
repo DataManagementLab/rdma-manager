@@ -17,39 +17,18 @@ using namespace rdma;
 
 void TestRPC::setUp() {
 
-
-
-
-
-
     const static size_t MAX_NUM_RPC_MSG = 32;  // Number of RDMA send MSGs RPCHandler can recv
 
-
+    Config::RDMA_MEMSIZE = 1024 * 1024 * 16;
 
     m_rdmaServer = new RDMAServer();
     CPPUNIT_ASSERT(m_rdmaServer->startServer());
 
-
-    //Create SRQ
-    /*
-    CPPUNIT_ASSERT(m_rdmaServer->createSRQ(m_srq_id));
-
-    m_rdmaServer->activateSRQ(m_srq_id);
-
-    the = new TestRPCHandlerThread(m_rdmaServer, m_srq_id,
-                                   MAX_NUM_RPC_MSG);*/
     the = new TestRPCHandlerThread(m_rdmaServer,MAX_NUM_RPC_MSG);
-
 
     m_connection = "127.0.0.1:" + to_string(Config::RDMA_PORT);
     m_rdmaClient_0 = new RDMAClient();
     CPPUNIT_ASSERT(m_rdmaClient_0->connect(m_connection, m_nodeId));
-
-
-
-
-
-
 
     localresp = (testMsg*) m_rdmaClient_0->localAlloc(sizeof(testMsg));
     localstruct = (testMsg*) m_rdmaClient_0->localAlloc(sizeof(testMsg));
