@@ -68,7 +68,8 @@ public:
 
 class TestRPC : public CppUnit::TestFixture {
 DPI_UNIT_TEST_SUITE (TestRPC);
-        DPI_UNIT_TEST_RC(testRPC);DPI_UNIT_TEST_UD (testSendRecieve);DPI_UNIT_TEST_SUITE_END ()
+        DPI_UNIT_TEST_RC(testRPC);
+DPI_UNIT_TEST_SUITE_END ()
     ;
 
 public:

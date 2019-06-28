@@ -3,10 +3,10 @@
 
 void TestRDMAServerMCast::setUp() {
   Config::RDMA_MEMSIZE = 1024 * 1024;
-  m_mCastAddr = "192.168.1.1";
+  m_mCastAddr = "172.18.94.11"; //Multicast address must be a valid IP of one of the RNICs
 
   m_rdmaServer = new RDMAServer();
-  //CPPUNIT_ASSERT(rdmaServer->startServer());
+  // CPPUNIT_ASSERT(m_rdmaServer->startServer());
   CPPUNIT_ASSERT(m_rdmaServer->joinMCastGroup(m_mCastAddr, m_addrServer));
 
   m_rdmaClient = new RDMAClient();
@@ -28,6 +28,7 @@ void TestRDMAServerMCast::tearDown() {
 }
 
 void TestRDMAServerMCast::testSendReceive() {
+  std::cout << "Running test!" << std::endl;
   testMsg* localstruct = (testMsg*) m_rdmaClient->localAlloc(sizeof(testMsg));
   localstruct->a = 'a';
   localstruct->id = 1;

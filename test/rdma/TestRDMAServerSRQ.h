@@ -18,7 +18,9 @@ using namespace rdma;
 
 class TestRDMAServerSRQ : public CppUnit::TestFixture {
 DPI_UNIT_TEST_SUITE (TestRDMAServerSRQ);
-  DPI_UNIT_TEST_RC(testSendRecieve);DPI_UNIT_TEST_UD (testSendRecieve);DPI_UNIT_TEST_SUITE_END ()
+  DPI_UNIT_TEST_RC(testSendRecieve);
+  // DPI_UNIT_TEST_UD(testSendRecieve); SRQ not implemented for UD yet...
+DPI_UNIT_TEST_SUITE_END ()
   ;
 
  public:
