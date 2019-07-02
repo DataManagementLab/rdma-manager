@@ -16,5 +16,5 @@ add_library(perftest ${PERFTEST_SRC})
 target_include_directories(perftest PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
   
 target_link_libraries(
-  perftest net_rdma db_utils
+  perftest rdma_lib db_utils
 )

@@ -14,4 +14,4 @@ set(TEST_RDMA_SRC
 add_library(test_rdma ${TEST_RDMA_SRC})
 
 target_include_directories(test_rdma PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(test_rdma net_rdma)
+target_link_libraries(test_rdma rdma_lib)
