@@ -99,6 +99,9 @@ private:
     testMsg* localresp;
     testMsg* localstruct;
 
+    testMsg* localresp_1;
+    testMsg* localstruct_1;
+
 
 
 };

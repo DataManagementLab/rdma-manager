@@ -96,8 +96,8 @@ namespace rdma
         }
 
 
-
-        virtual bool startServer(){
+        //todo umbenenen
+        virtual bool startHandler(){
             start();
 
             stringstream ss;
@@ -116,7 +116,8 @@ namespace rdma
 
         };
 
-        virtual void stopServer(){
+        //todo umbenenen
+        virtual void stopHandler(){
             stringstream ss;
 
             if (m_processing) {
@@ -125,7 +126,7 @@ namespace rdma
                 stop();
 
 
-                //locks right now
+
                 join();
             }
             ss << "RPC handler Thread" << " stopping done \n";

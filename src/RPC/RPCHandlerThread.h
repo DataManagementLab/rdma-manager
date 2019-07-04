@@ -52,8 +52,7 @@ namespace rdma
         RPCHandlerThread(RDMAServer *rdmaServer,
                          size_t maxNumberMsgs
         )
-                :
-                  RPCVoidHandlerThread(rdmaServer,sizeof(MessageType),maxNumberMsgs)
+                :RPCVoidHandlerThread(rdmaServer,sizeof(MessageType),maxNumberMsgs)
 
         {
             m_intermediateRspBuffer = static_cast<MessageType*>(m_intermediateRspBufferVoid);
@@ -69,11 +68,12 @@ namespace rdma
 
 
 
-        //This Message needs to be implemented in subclass to handle the messages
+
         void  handleRDMARPCVoid(void *message, ib_addr_t &returnAdd){
             handleRDMARPC(static_cast<MessageType*>(message),returnAdd);
         }
 
+        //This Message needs to be implemented in subclass to handle the messages
         void virtual handleRDMARPC(MessageType* message,ib_addr_t & returnAdd) =0;
 
 
