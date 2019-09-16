@@ -18,10 +18,10 @@ using namespace rdma;
 class TestRDMAServerMCast : public CppUnit::TestFixture {
 
 
-DPI_UNIT_TEST_SUITE (TestRDMAServerMCast);
-  DPI_UNIT_TEST_UD (testSendReceive);
-  DPI_UNIT_TEST_UD (testSendReceiveWithIbAdress);
-  DPI_UNIT_TEST_SUITE_END()
+RDMA_UNIT_TEST_SUITE (TestRDMAServerMCast);
+  RDMA_UNIT_TEST_UD (testSendReceive);
+  RDMA_UNIT_TEST_UD (testSendReceiveWithIbAdress);
+  RDMA_UNIT_TEST_SUITE_END()
   ;
 
  public:

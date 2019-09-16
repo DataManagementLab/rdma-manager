@@ -12,9 +12,9 @@ using namespace rdma;
 
 class TestConfig : public CppUnit::TestFixture
 {
-  DPI_UNIT_TEST_SUITE(TestConfig);
-  DPI_UNIT_TEST(loadConfigFile);
-  DPI_UNIT_TEST_SUITE_END();
+  RDMA_UNIT_TEST_SUITE(TestConfig);
+  RDMA_UNIT_TEST(loadConfigFile);
+  RDMA_UNIT_TEST_SUITE_END();
 
 public:
   void setUp();

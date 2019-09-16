@@ -17,24 +17,26 @@
 using namespace rdma;
 
 class TestRDMAServerSRQ : public CppUnit::TestFixture {
-DPI_UNIT_TEST_SUITE (TestRDMAServerSRQ);
-  DPI_UNIT_TEST_RC(testSendRecieve);
-  // DPI_UNIT_TEST_UD(testSendRecieve); SRQ not implemented for UD yet...
-DPI_UNIT_TEST_SUITE_END ()
+RDMA_UNIT_TEST_SUITE (TestRDMAServerSRQ);
+  RDMA_UNIT_TEST_RC(testSendReceive);
+  RDMA_UNIT_TEST_RC(testPollReceiveBatch);
+  // RDMA_UNIT_TEST_UD(testSendReceive); SRQ not implemented for UD yet...
+RDMA_UNIT_TEST_SUITE_END ()
   ;
 
  public:
   void setUp();
   void tearDown();
 
-  void testSendRecieve();
+  void testSendReceive();
+  void testPollReceiveBatch();
 
  private:
   RDMAServer* m_rdmaServer;
   RDMAClient* m_rdmaClient_0;
   RDMAClient* m_rdmaClient_1;
-  RDMAClient* m_rdmaClient_2;
-  RDMAClient* m_rdmaClient_3;
+  // RDMAClient* m_rdmaClient_2;
+  // RDMAClient* m_rdmaClient_3;
   
   NodeID m_nodeId = 0;
 
@@ -44,6 +46,7 @@ DPI_UNIT_TEST_SUITE_END ()
   struct testMsg {
   int id;
   char a;
+  testMsg() = default;
   testMsg(int n, char t)
       : id(n),
         a(t)  // Create an object of type _book.

@@ -17,8 +17,8 @@
 using namespace rdma;
 
 class TestRDMAServerMultClients : public CppUnit::TestFixture {
-DPI_UNIT_TEST_SUITE (TestRDMAServerMultClients);
-  DPI_UNIT_TEST_RC(testSendRecieve);DPI_UNIT_TEST_UD (testSendRecieve);DPI_UNIT_TEST_SUITE_END ()
+RDMA_UNIT_TEST_SUITE (TestRDMAServerMultClients);
+  RDMA_UNIT_TEST_RC(testSendRecieve);RDMA_UNIT_TEST_UD (testSendRecieve);RDMA_UNIT_TEST_SUITE_END ()
   ;
 
  public:

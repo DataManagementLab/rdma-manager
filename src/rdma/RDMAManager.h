@@ -142,6 +142,12 @@ class RDMAManager {
         (void) doPoll;
         return false;
     };
+    virtual bool pollReceiveBatch(size_t srq_id, size_t &num_completed, bool& doPoll) {
+        (void) srq_id;
+        (void) num_completed;
+        (void) doPoll;
+        return false;
+    };
     virtual bool createSharedReceiveQueue(size_t& ret_srq_id) {
         (void) ret_srq_id;
         return false;

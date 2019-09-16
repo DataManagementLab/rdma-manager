@@ -40,11 +40,11 @@ using namespace std;
 #define RDMA_TRANSPORT 0 //0=RC, 1=UD
 
 #if RDMA_TRANSPORT == 0
-#define DPI_UNIT_TEST_RC(test) CPPUNIT_TEST(test)
-#define DPI_UNIT_TEST_UD(test)
+#define RDMA_UNIT_TEST_RC(test) CPPUNIT_TEST(test)
+#define RDMA_UNIT_TEST_UD(test)
 #elif RDMA_TRANSPORT == 1
-#define DPI_UNIT_TEST_RC(test)
-#define DPI_UNIT_TEST_UD(test) CPPUNIT_TEST(test)
+#define RDMA_UNIT_TEST_RC(test)
+#define RDMA_UNIT_TEST_UD(test) CPPUNIT_TEST(test)
 #endif
 
 //#define DEBUGCODEANOTHER
@@ -81,7 +81,7 @@ using namespace std;
 
 
 // #define DEBUGCODE
-#if defined(DEBUGCODE)
+#if defined(DEBUG)
 #define DebugCode(code_fragment) \
     {                            \
         code_fragment            \
@@ -93,9 +93,9 @@ using namespace std;
 
 //To be implemented MACRO
 #define TO_BE_IMPLEMENTED(code_fragment)
-#define DPI_UNIT_TEST_SUITE(suite) CPPUNIT_TEST_SUITE(suite)
-#define DPI_UNIT_TEST(test) CPPUNIT_TEST(test)
-#define DPI_UNIT_TEST_SUITE_END() CPPUNIT_TEST_SUITE_END()
+#define RDMA_UNIT_TEST_SUITE(suite) CPPUNIT_TEST_SUITE(suite)
+#define RDMA_UNIT_TEST(test) CPPUNIT_TEST(test)
+#define RDMA_UNIT_TEST_SUITE_END() CPPUNIT_TEST_SUITE_END()
 
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE

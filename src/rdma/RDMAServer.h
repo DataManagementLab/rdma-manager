@@ -85,6 +85,10 @@ class RDMAServer : public ProtoServer {
         bool poll = true;
         return m_rdmaManager->pollReceive(srq_id,ret_ib_addr, poll);
     };
+    bool pollReceiveBatch(size_t srq_id, size_t &num_completed) {
+        bool poll = true;
+        return m_rdmaManager->pollReceiveBatch(srq_id, num_completed, poll);
+    };
 
     bool pollReceive(size_t srq_id,  ib_addr_t& ret_ib_addr,bool &poll){
         return m_rdmaManager->pollReceive(srq_id,ret_ib_addr, poll);
