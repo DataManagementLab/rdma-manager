@@ -9,8 +9,10 @@
 #define PERFTESTS_H_
 
 #include "RemoteMemoryPerf.h"
-#include "RemoteScanPerf.h"
+
+#include "RPCPerf.h"
 /*
+ * #include "RemoteScanPerf.h"
 #include "MulticastPerf.h"
 #include "SwMulticastPerf.h"*/
 

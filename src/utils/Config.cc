@@ -22,7 +22,7 @@ uint32_t Config::RDMA_MAX_WR = 4096;
 uint32_t Config::CACHELINE_SIZE = 64;
 
 //THREADING
-vector<int> Config::THREAD_CPUS = { 1,2,3,4,5,6,7,8,9,10,11,12,13,14};
+vector<int> Config::THREAD_CPUS = { 0,1,2,3,4,5,6,7,8,9,10,11,12,13};
 
 //LOGGING
 int Config::LOGGING_LEVEL = 3;

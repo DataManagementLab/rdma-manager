@@ -1,5 +1,6 @@
-#include "../src/perftest/PerfTest.h"
-#include "../src/perftest/RemoteMemoryPerf.h"
+#include "../src/perftest/PerfTests.h"
+//#include "../src/perftest/RemoteMemoryPerf.h"
+
 //
 // Created by Tilo Gaulke on 11.10.19.
 //
@@ -18,6 +19,8 @@ static void printUsage() {
     cout << "102: \t MulticastServer" << endl;
     cout << "103: \t SWMulticastClient" << endl;
     cout << "104: \t SWMulticastServer" << endl;*/
+    cout << "201: \t RPCPerfClient" << endl;
+    cout << "202: \t RPCPerfServer" << endl;
 
 }
 
@@ -48,6 +51,12 @@ rdma::PerfTest* createTest(config_t& config) {
             break;
         case 104:
             //test = new SWMulticastPerf(config, false);
+            break;
+        case 201:
+            test = new RPCPerf(config,true);
+            break;
+        case 202:
+            test = new RPCPerf(config,false);
             break;
     }
 

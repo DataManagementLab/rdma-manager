@@ -67,7 +67,7 @@ public:
 	}
 
 	void printUsage() {
-		cout << "istore2_perftest ... -s #servers ";
+		cout << "perf_test ... -s #servers ";
 		cout << "(-d #dataSize -p #serverPort -t #threadNum)?" << endl;
 	}
 

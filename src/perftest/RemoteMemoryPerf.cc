@@ -35,12 +35,15 @@ rdma::RemoteMemoryPerfThread::RemoteMemoryPerfThread(vector<string>& conns,
 }
 
 rdma::RemoteMemoryPerfThread::~RemoteMemoryPerfThread() {
-	delete m_remOffsets;
+
 	m_client.localFree(m_data);
+
 	for (size_t i = 0; i < m_conns.size(); ++i) {
 		string conn = m_conns[i];
 		m_client.remoteFree(conn, m_remOffsets[i], m_size);
 	}
+    delete m_remOffsets;
+
 }
 
 void rdma::RemoteMemoryPerfThread::run() {
