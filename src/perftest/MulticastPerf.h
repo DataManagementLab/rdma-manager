@@ -9,8 +9,8 @@
 #define MULTICASTPERF_H_
 
 #include "../utils/Config.h"
-#include "../net/rdma/RDMAClient.h"
-#include "../net/rdma/RDMAServer.h"
+#include "../rdma/RDMAClient.h"
+#include "../rdma/RDMAServer.h"
 #include "PerfTest.h"
 
 #include <vector>
@@ -18,6 +18,7 @@
 #include <condition_variable>
 
 namespace istore2 {
+    using namespace rdma;
 
 class MCClientPerfThread: public Thread {
 public:

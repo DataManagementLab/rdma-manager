@@ -47,4 +47,7 @@ add_executable(rdma_test Main.cc)
 target_link_libraries(rdma_test
 	test_lib
 )
+
+add_executable(perf_test MainPerf.cc)
+target_link_libraries(perf_test perftest)
 	

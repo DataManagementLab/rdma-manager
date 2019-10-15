@@ -8,12 +8,13 @@
 #include "MulticastPerf.h"
 #include "../utils/Timer.h"
 
-mutex MulticastPerf::waitLock;
-condition_variable MulticastPerf::waitCv;
-bool MulticastPerf::signaled;
+
+mutex istore2::MulticastPerf::waitLock;
+condition_variable istore2::MulticastPerf::waitCv;
+bool istore2::MulticastPerf::signaled;
 
 /********* client threads *********/
-MCClientPerfThread::MCClientPerfThread(string mcastGroup, size_t size,
+istore2::MCClientPerfThread::MCClientPerfThread(string mcastGroup, size_t size,
 		size_t iter, size_t budget) {
 	//init from parameters
 	m_size = size;
@@ -47,13 +48,13 @@ MCClientPerfThread::MCClientPerfThread(string mcastGroup, size_t size,
 	}
 }
 
-MCClientPerfThread::~MCClientPerfThread() {
+istore2::MCClientPerfThread::~MCClientPerfThread() {
 	//free memory
 	m_client->localFree(m_data);
 	m_client->localFree(m_signal);
 }
 
-void MCClientPerfThread::run() {
+void istore2::MCClientPerfThread::run() {
 	//wait for signal from perftest to start running
 	unique_lock < mutex > lck(MulticastPerf::waitLock);
 	m_ready = true;
@@ -108,7 +109,7 @@ void MCClientPerfThread::run() {
 }
 
 /********* server threads *********/
-MCServerPerfThread::MCServerPerfThread(string mcastGroup, size_t serverPort,
+istore2::MCServerPerfThread::MCServerPerfThread(string mcastGroup, size_t serverPort,
 		size_t size, size_t iter, size_t budget, size_t numThreads) {
 	//init from parameters
 	m_size = size;
@@ -135,13 +136,13 @@ MCServerPerfThread::MCServerPerfThread(string mcastGroup, size_t serverPort,
 	}
 }
 
-MCServerPerfThread::~MCServerPerfThread() {
+istore2::MCServerPerfThread::~MCServerPerfThread() {
 	//free memory
 	m_server->localFree(m_data);
 	m_server->localFree(m_signal);
 }
 
-void MCServerPerfThread::run() {
+void istore2::MCServerPerfThread::run() {
 	//server thread is ready and running
 	m_ready = true;
 
@@ -191,7 +192,7 @@ void MCServerPerfThread::run() {
 	endTimer();
 }
 
-MulticastPerf::MulticastPerf(config_t config, bool isClient) :
+istore2::MulticastPerf::MulticastPerf(config_t config, bool isClient) :
 		MulticastPerf(config.server, config.port, config.data, config.iter,
 				config.threads) {
 	this->isClient(isClient);
@@ -202,7 +203,7 @@ MulticastPerf::MulticastPerf(config_t config, bool isClient) :
 	}
 }
 
-MulticastPerf::MulticastPerf(string& group, size_t serverPort, size_t size,
+istore2::MulticastPerf::MulticastPerf(string& group, size_t serverPort, size_t size,
 		size_t iter, size_t threads) {
 	m_group = group;
 	m_serverPort = serverPort;
@@ -215,7 +216,7 @@ MulticastPerf::MulticastPerf(string& group, size_t serverPort, size_t size,
 	MulticastPerf::signaled = false;
 }
 
-MulticastPerf::~MulticastPerf() {
+istore2::MulticastPerf::~MulticastPerf() {
 	if (m_client != nullptr) {
 		delete m_client;
 	} else if (m_server != nullptr) {
@@ -224,14 +225,14 @@ MulticastPerf::~MulticastPerf() {
 	}
 }
 
-void MulticastPerf::runServer() {
+void istore2::MulticastPerf::runServer() {
 	//start server thread
 	MCServerPerfThread* perfThread = new MCServerPerfThread(m_group,
 			m_serverPort, m_size, m_iter, m_budget * m_numThreads,
 			m_numThreads);
 	perfThread->start();
 	if (!perfThread->ready()) {
-		usleep(Config::ISTORE_SLEEP_INTERVAL);
+		usleep(Config::RDMA_SLEEP_INTERVAL);
 	}
 	m_sthread = perfThread;
 
@@ -240,14 +241,14 @@ void MulticastPerf::runServer() {
 	delete m_sthread;
 }
 
-void MulticastPerf::runClient() {
+void istore2::MulticastPerf::runClient() {
 	//prepare all client threads
 	for (size_t i = 0; i < m_numThreads; i++) {
 		MCClientPerfThread* perfThread = new MCClientPerfThread(m_group, m_size,
 				m_iter, m_budget);
 		perfThread->start();
 		if (!perfThread->ready()) {
-			usleep(Config::ISTORE_SLEEP_INTERVAL);
+			usleep(Config::RDMA_SLEEP_INTERVAL);
 		}
 		m_cthreads.push_back(perfThread);
 	}
@@ -266,7 +267,7 @@ void MulticastPerf::runClient() {
 	}
 }
 
-double MulticastPerf::time() {
+double istore2::MulticastPerf::time() {
 	uint128_t totalTime = 0;
 	for (size_t i = 0; i < m_cthreads.size(); i++) {
 		totalTime += m_cthreads[i]->resultedTime;

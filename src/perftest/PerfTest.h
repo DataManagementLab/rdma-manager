@@ -13,7 +13,7 @@
 #include <getopt.h>
 #include <math.h>
 
-namespace istore2 {
+namespace rdma {
 
 struct config_t {
 	size_t number = 0;

@@ -15,7 +15,7 @@
 #include "SwMulticastPerf.h"
 #include "../utils/Timer.h"
 /********* client threads *********/
-SWMCClientPerfThread::SWMCClientPerfThread(size_t size, size_t iter,
+istore2::SWMCClientPerfThread::SWMCClientPerfThread(size_t size, size_t iter,
 		size_t budget) {
 	//init from parameters
 	m_size = size;
@@ -54,13 +54,13 @@ SWMCClientPerfThread::SWMCClientPerfThread(size_t size, size_t iter,
 	}
 }
 
-SWMCClientPerfThread::~SWMCClientPerfThread() {
+istore2::SWMCClientPerfThread::~SWMCClientPerfThread() {
 	//free memory
 	m_client->localFree(m_data);
 	m_client->localFree(m_signal);
 }
 
-void SWMCClientPerfThread::run() {
+void istore2::SWMCClientPerfThread::run() {
 
 	//prepare perftest to receive signals
 	for (size_t i = 0; i < m_serverConns.size(); ++i) {
@@ -111,7 +111,7 @@ void SWMCClientPerfThread::run() {
 }
 
 /********* server threads *********/
-SWMCServerPerfThread::SWMCServerPerfThread(size_t serverPort, size_t size,
+istore2::SWMCServerPerfThread::SWMCServerPerfThread(size_t serverPort, size_t size,
 		size_t iter, size_t budget, size_t numThreads) {
 	//init from parameters
 	m_size = size;
@@ -135,13 +135,13 @@ SWMCServerPerfThread::SWMCServerPerfThread(size_t serverPort, size_t size,
 	}
 }
 
-SWMCServerPerfThread::~SWMCServerPerfThread() {
+istore2::SWMCServerPerfThread::~SWMCServerPerfThread() {
 	//free memory
 	m_server->localFree(m_data);
 	m_server->localFree(m_signal);
 }
 
-void SWMCServerPerfThread::run() {
+void istore2::SWMCServerPerfThread::run() {
 	//server thread is ready and running
 	m_ready = true;
 
@@ -200,7 +200,7 @@ void SWMCServerPerfThread::run() {
 	endTimer();
 }
 
-SWMulticastPerf::SWMulticastPerf(config_t config, bool isClient) :
+istore2::SWMulticastPerf::SWMulticastPerf(config_t config, bool isClient) :
 		SWMulticastPerf(config.port, config.data, config.iter, config.threads) {
 	this->isClient(isClient);
 
@@ -210,7 +210,7 @@ SWMulticastPerf::SWMulticastPerf(config_t config, bool isClient) :
 	//}
 }
 
-SWMulticastPerf::SWMulticastPerf(size_t serverPort, size_t size, size_t iter,
+istore2::SWMulticastPerf::SWMulticastPerf(size_t serverPort, size_t size, size_t iter,
 		size_t threads) {
 	m_serverPort = serverPort;
 	m_size = size;
@@ -221,7 +221,7 @@ SWMulticastPerf::SWMulticastPerf(size_t serverPort, size_t size, size_t iter,
 	m_numThreads = threads;
 }
 
-SWMulticastPerf::~SWMulticastPerf() {
+istore2::SWMulticastPerf::~SWMulticastPerf() {
 	if (m_client != nullptr) {
 		delete m_client;
 	} else if (m_server != nullptr) {
@@ -230,13 +230,13 @@ SWMulticastPerf::~SWMulticastPerf() {
 	}
 }
 
-void SWMulticastPerf::runServer() {
+void istore2::SWMulticastPerf::runServer() {
 	//start server thread
 	SWMCServerPerfThread* perfThread = new SWMCServerPerfThread(m_serverPort,
 			m_size, m_iter, m_budget * m_numThreads, m_numThreads);
 	perfThread->start();
 	if (!perfThread->ready()) {
-		usleep(Config::ISTORE_SLEEP_INTERVAL);
+		usleep(Config::RDMA_SLEEP_INTERVAL);
 	}
 	m_sthread = perfThread;
 
@@ -245,13 +245,13 @@ void SWMulticastPerf::runServer() {
 	delete m_sthread;
 }
 
-void SWMulticastPerf::runClient() {
+void istore2::SWMulticastPerf::runClient() {
 	// run only one thread
 	SWMCClientPerfThread* perfThread = new SWMCClientPerfThread(m_size, m_iter,
 			m_budget);
 	perfThread->start();
 	if (!perfThread->ready()) {
-		usleep(Config::ISTORE_SLEEP_INTERVAL);
+		usleep(Config::RDMA_SLEEP_INTERVAL);
 	}
 	m_cthreads.push_back(perfThread);
 
@@ -262,7 +262,7 @@ void SWMulticastPerf::runClient() {
 	}
 }
 
-double SWMulticastPerf::time() {
+double istore2::SWMulticastPerf::time() {
 	uint128_t totalTime = 0;
 	for (size_t i = 0; i < m_cthreads.size(); i++) {
 		totalTime += m_cthreads[i]->resultedTime;

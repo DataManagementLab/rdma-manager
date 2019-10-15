@@ -117,6 +117,12 @@ class RDMAManagerRC : public RDMAManager {
                             "RDMA completion event in CQ with error! " + to_string(wc.status));
                     return false;
                 }
+
+                #ifdef BACKOFF
+                if(ne==0){
+                        __asm__ ("pause");
+                }
+                #endif
             } while (ne == 0);
 
             if (ne < 0) {

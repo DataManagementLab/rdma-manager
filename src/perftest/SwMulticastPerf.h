@@ -9,13 +9,16 @@
 #define SWMULTICASTPERF_H_
 
 #include "../utils/Config.h"
-#include "../net/rdma/RDMAClient.h"
-#include "../net/rdma/RDMAServer.h"
+#include "../rdma/RDMAClient.h"
+#include "../rdma/RDMAServer.h"
 #include "PerfTest.h"
+
 
 #include <vector>
 
+
 namespace istore2 {
+    using namespace rdma;
 
 class SWMCClientPerfThread: public Thread {
 public:

@@ -7,11 +7,11 @@
 
 #include "RemoteMemoryPerf.h"
 
-mutex RemoteMemoryPerf::waitLock;
-condition_variable RemoteMemoryPerf::waitCv;
-bool RemoteMemoryPerf::signaled;
+mutex rdma::RemoteMemoryPerf::waitLock;
+condition_variable rdma::RemoteMemoryPerf::waitCv;
+bool rdma::RemoteMemoryPerf::signaled;
 
-RemoteMemoryPerfThread::RemoteMemoryPerfThread(vector<string>& conns,
+rdma::RemoteMemoryPerfThread::RemoteMemoryPerfThread(vector<string>& conns,
 		size_t size, size_t iter) {
 	m_size = size;
 	m_iter = iter;
@@ -19,13 +19,14 @@ RemoteMemoryPerfThread::RemoteMemoryPerfThread(vector<string>& conns,
 	m_remOffsets = new size_t[m_conns.size()];
 
 	for (size_t i = 0; i < m_conns.size(); ++i) {
-		ib_addr_t ibAddr;
+	    NodeID  nodeId = 0;
+		//ib_addr_t ibAddr;
 		string conn = m_conns[i];
-		if (!m_client.connect(conn, ibAddr)) {
+		if (!m_client.connect(conn, nodeId)) {
 			throw invalid_argument(
 					"RemoteMemoryPerfThread connection failed");
 		}
-		m_addr.push_back(ibAddr);
+		m_addr.push_back(nodeId);
 		m_client.remoteAlloc(conn, m_size, m_remOffsets[i]);
 	}
 
@@ -33,7 +34,7 @@ RemoteMemoryPerfThread::RemoteMemoryPerfThread(vector<string>& conns,
 	memset(m_data, 1, m_size);
 }
 
-RemoteMemoryPerfThread::~RemoteMemoryPerfThread() {
+rdma::RemoteMemoryPerfThread::~RemoteMemoryPerfThread() {
 	delete m_remOffsets;
 	m_client.localFree(m_data);
 	for (size_t i = 0; i < m_conns.size(); ++i) {
@@ -42,7 +43,7 @@ RemoteMemoryPerfThread::~RemoteMemoryPerfThread() {
 	}
 }
 
-void RemoteMemoryPerfThread::run() {
+void rdma::RemoteMemoryPerfThread::run() {
 	unique_lock < mutex > lck(RemoteMemoryPerf::waitLock);
 	if (!RemoteMemoryPerf::signaled) {
 		m_ready = true;
@@ -54,13 +55,14 @@ void RemoteMemoryPerfThread::run() {
 	for (size_t i = 0; i < m_iter; ++i) {
 		size_t connIdx = i % m_conns.size();
 		bool signaled = (i == (m_iter - 1));
-		m_client.write(m_conns[connIdx], m_remOffsets[connIdx], m_data, m_size,
-				signaled);
+		m_client.write(m_addr[connIdx],m_remOffsets[connIdx],m_data,m_size,signaled);
+
+
 	}
 	endTimer();
 }
 
-RemoteMemoryPerf::RemoteMemoryPerf(config_t config, bool isClient) :
+rdma::RemoteMemoryPerf::RemoteMemoryPerf(config_t config, bool isClient) :
 		RemoteMemoryPerf(config.server, config.port, config.data, config.iter,
 				config.threads) {
 	this->isClient(isClient);
@@ -73,7 +75,7 @@ RemoteMemoryPerf::RemoteMemoryPerf(config_t config, bool isClient) :
 	}
 }
 
-RemoteMemoryPerf::RemoteMemoryPerf(string& conns, size_t serverPort,
+rdma::RemoteMemoryPerf::RemoteMemoryPerf(string& conns, size_t serverPort,
 		size_t size, size_t iter, size_t threads) {
 	m_conns = StringHelper::split(conns);
 	m_serverPort = serverPort;
@@ -83,7 +85,7 @@ RemoteMemoryPerf::RemoteMemoryPerf(string& conns, size_t serverPort,
 	RemoteMemoryPerf::signaled = false;
 }
 
-RemoteMemoryPerf::~RemoteMemoryPerf() {
+rdma::RemoteMemoryPerf::~RemoteMemoryPerf() {
 	if (this->isClient()) {
 		for (size_t i = 0; i < m_threads.size(); i++) {
 			delete m_threads[i];
@@ -98,25 +100,25 @@ RemoteMemoryPerf::~RemoteMemoryPerf() {
 	}
 }
 
-void RemoteMemoryPerf::runServer() {
+void rdma::RemoteMemoryPerf::runServer() {
 	m_dServer = new RDMAServer(m_serverPort);
 	if (!m_dServer->startServer()) {
 		throw invalid_argument("RemoteMemoryPerf could not start server!");
 	}
 
 	while (m_dServer->isRunning()) {
-		usleep(Config::ISTORE_SLEEP_INTERVAL);
+		usleep(Config::RDMA_SLEEP_INTERVAL);
 	}
 }
 
-void RemoteMemoryPerf::runClient() {
+void rdma::RemoteMemoryPerf::runClient() {
 	//start all client threads
 	for (size_t i = 0; i < m_numThreads; i++) {
 		RemoteMemoryPerfThread* perfThread = new RemoteMemoryPerfThread(m_conns,
 				m_size, m_iter);
 		perfThread->start();
 		if (!perfThread->ready()) {
-			usleep(Config::ISTORE_SLEEP_INTERVAL);
+			usleep(Config::RDMA_SLEEP_INTERVAL);
 		}
 		m_threads.push_back(perfThread);
 	}
@@ -135,7 +137,7 @@ void RemoteMemoryPerf::runClient() {
 	}
 }
 
-double RemoteMemoryPerf::time() {
+double rdma::RemoteMemoryPerf::time() {
 	uint128_t totalTime = 0;
 	for (size_t i = 0; i < m_threads.size(); i++) {
 		totalTime += m_threads[i]->time();

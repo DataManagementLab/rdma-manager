@@ -96,7 +96,7 @@ namespace rdma
         }
 
 
-        //todo umbenenen
+
         virtual bool startHandler(){
             start();
 
@@ -116,7 +116,7 @@ namespace rdma
 
         };
 
-        //todo umbenenen
+
         virtual void stopHandler(){
             stringstream ss;
 

@@ -7,11 +7,11 @@
 
 #include "RemoteScanPerf.h"
 
-mutex RemoteScanPerf::waitLock;
-condition_variable RemoteScanPerf::waitCv;
-bool RemoteScanPerf::signaled;
+mutex istore2::RemoteScanPerf::waitLock;
+condition_variable istore2::RemoteScanPerf::waitCv;
+bool istore2::RemoteScanPerf::signaled;
 
-RemoteScanPerfThread::RemoteScanPerfThread(string& conn, size_t size,
+istore2::RemoteScanPerfThread::RemoteScanPerfThread(string& conn, size_t size,
 		size_t threadId, size_t numThreads) {
 	uint64_t value = 0;
 	m_pageSize = size;
@@ -37,12 +37,12 @@ RemoteScanPerfThread::RemoteScanPerfThread(string& conn, size_t size,
 	memset((void*) m_data, 0, m_pageSize * m_prefetchCount);
 }
 
-RemoteScanPerfThread::~RemoteScanPerfThread() {
+istore2::RemoteScanPerfThread::~RemoteScanPerfThread() {
 	//free local memory
 	m_client.localFree(m_data);
 }
 
-void RemoteScanPerfThread::run() {
+void istore2::RemoteScanPerfThread::run() {
 	unique_lock < mutex > lck(RemoteScanPerf::waitLock);
 	if (!RemoteScanPerf::signaled) {
 		m_ready = true;
@@ -82,7 +82,7 @@ void RemoteScanPerfThread::run() {
 	endTimer();
 }
 
-RemoteScanPerf::RemoteScanPerf(config_t config, bool isClient) :
+istore2::RemoteScanPerf::RemoteScanPerf(config_t config, bool isClient) :
 		RemoteScanPerf(config.server, config.port, config.data, config.iter,
 				config.threads) {
 	this->isClient(isClient);
@@ -95,7 +95,7 @@ RemoteScanPerf::RemoteScanPerf(config_t config, bool isClient) :
 	}
 }
 
-RemoteScanPerf::RemoteScanPerf(string& conn, size_t serverPort, size_t size,
+istore2::RemoteScanPerf::RemoteScanPerf(string& conn, size_t serverPort, size_t size,
 		size_t iter, size_t threads) {
 	m_conn = conn;
 	m_serverPort = serverPort;
@@ -109,7 +109,7 @@ RemoteScanPerf::RemoteScanPerf(string& conn, size_t serverPort, size_t size,
 	}
 }
 
-RemoteScanPerf::~RemoteScanPerf() {
+istore2::RemoteScanPerf::~RemoteScanPerf() {
 
 	if (this->isClient()) {
 		for (size_t i = 0; i < m_threads.size(); i++) {
@@ -125,7 +125,7 @@ RemoteScanPerf::~RemoteScanPerf() {
 	}
 }
 
-void RemoteScanPerf::runServer() {
+void istore2::RemoteScanPerf::runServer() {
 	m_dServer = new RDMAServer(m_serverPort);
 
 	//fill data
@@ -141,18 +141,18 @@ void RemoteScanPerf::runServer() {
 	}
 
 	while (m_dServer->isRunning()) {
-		usleep(Config::ISTORE_SLEEP_INTERVAL);
+		usleep(Config::RDMA_SLEEP_INTERVAL);
 	}
 }
 
-void RemoteScanPerf::runClient() {
+void istore2::RemoteScanPerf::runClient() {
 	//start all client threads
 	for (size_t i = 0; i < m_numThreads; i++) {
 		RemoteScanPerfThread* perfThread = new RemoteScanPerfThread(m_conn,
 				m_size, i, m_numThreads);
 		perfThread->start();
 		if (!perfThread->ready()) {
-			usleep(Config::ISTORE_SLEEP_INTERVAL);
+			usleep(Config::RDMA_SLEEP_INTERVAL);
 		}
 		m_threads.push_back(perfThread);
 	}
@@ -173,7 +173,7 @@ void RemoteScanPerf::runClient() {
 	}
 }
 
-double RemoteScanPerf::time() {
+double istore2::RemoteScanPerf::time() {
 	uint128_t totalTime = 0;
 	for (size_t i = 0; i < m_threads.size(); i++) {
 		totalTime += m_threads[i]->time();

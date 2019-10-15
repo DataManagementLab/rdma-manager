@@ -11,8 +11,8 @@
 #include "../utils/Config.h"
 #include "../utils/StringHelper.h"
 #include "../thread/Thread.h"
-#include "../net/rdma/RDMAClient.h"
-#include "../net/rdma/RDMAServer.h"
+#include "../rdma/RDMAClient.h"
+#include "../rdma/RDMAServer.h"
 #include "PerfTest.h"
 
 #include <vector>
@@ -20,7 +20,8 @@
 #include <condition_variable>
 #include <iostream>
 
-namespace istore2 {
+namespace rdma {
+
 
 class RemoteMemoryPerfThread: public Thread {
 public:
@@ -38,7 +39,7 @@ private:
 	size_t m_size;
 	size_t m_iter;
 	vector<string> m_conns;
-	vector<ib_addr_t> m_addr;
+	vector<NodeID> m_addr;
 	size_t* m_remOffsets;
 };
 
@@ -61,6 +62,8 @@ public:
 		double mops = (((double) m_iter * m_numThreads) / time) / (1e6);
 
 		cout << m_size << "\t" << m_iter << "\t" << bw << "\t" << mops << endl;
+
+		cout <<  time  << "time" << endl;
 	}
 
 	void printUsage() {

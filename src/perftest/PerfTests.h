@@ -10,7 +10,8 @@
 
 #include "RemoteMemoryPerf.h"
 #include "RemoteScanPerf.h"
+/*
 #include "MulticastPerf.h"
-#include "SwMulticastPerf.h"
+#include "SwMulticastPerf.h"*/
 
 #endif /* PERFTESTS_H_ */
