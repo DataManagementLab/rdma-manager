@@ -37,7 +37,7 @@ void TestRDMAServerSRQ::tearDown() {
   }
 }
 
-void TestRDMAServerSRQ::testSendRecieve() {
+void TestRDMAServerSRQ::testSendReceive() {
 
   Logging::debug("TestRDMAServerSRQ started", __LINE__, __FILE__);
 
@@ -62,6 +62,7 @@ void TestRDMAServerSRQ::testSendRecieve() {
   CPPUNIT_ASSERT(m_rdmaServer->receive(m_srq_id, (void* ) remotestruct, sizeof(testMsg)));
   CPPUNIT_ASSERT(m_rdmaServer->receive(m_srq_id, (void* ) remotestruct2, sizeof(testMsg)));
   
+
   CPPUNIT_ASSERT(m_rdmaClient_0->send(m_nodeId, (void*) localstruct1, sizeof(testMsg), false));
   CPPUNIT_ASSERT(m_rdmaClient_1->send(m_nodeId, (void*) localstruct2, sizeof(testMsg), false));
 
@@ -70,4 +71,55 @@ void TestRDMAServerSRQ::testSendRecieve() {
 
   CPPUNIT_ASSERT_EQUAL(localstruct1->id, remotestruct->id);
   CPPUNIT_ASSERT_EQUAL(localstruct1->a, remotestruct->a);
+}
+
+
+void TestRDMAServerSRQ::testPollReceiveBatch() {
+
+  Logging::debug("TestRDMAServerSRQ started", __LINE__, __FILE__);
+
+  testMsg* localstruct1 = (testMsg*) m_rdmaClient_0->localAlloc(
+      sizeof(testMsg));
+  localstruct1->a = 'a';
+  localstruct1->id = 1;
+
+  testMsg* localstruct2 = (testMsg*) m_rdmaClient_1->localAlloc(
+      sizeof(testMsg));
+  localstruct2->a = 'a';
+  localstruct2->id = 1;
+
+  vector<ib_addr_t> connKeys = m_rdmaServer->getQueues();
+
+  const size_t receives = 4;
+
+  testMsg *remotestructs[receives];
+  for (size_t i = 0; i < receives; i++)
+  {
+    remotestructs[i] = (testMsg*) m_rdmaServer->localAlloc(sizeof(testMsg));
+    CPPUNIT_ASSERT(remotestructs[i] != nullptr);
+  }
+
+  for (size_t i = 0; i < receives; i++)
+  {
+    CPPUNIT_ASSERT(m_rdmaServer->receive(m_srq_id, (void* ) remotestructs[i], sizeof(testMsg)));
+  }
+
+  size_t num_received_1 = 0;
+  size_t num_received_2 = 0;
+
+  CPPUNIT_ASSERT(m_rdmaClient_0->send(m_nodeId, (void*) localstruct1, sizeof(testMsg), true));
+  CPPUNIT_ASSERT(m_rdmaClient_1->send(m_nodeId, (void*) localstruct2, sizeof(testMsg), true));
+  CPPUNIT_ASSERT(m_rdmaServer->pollReceiveBatch(m_srq_id, num_received_1));
+
+  CPPUNIT_ASSERT(m_rdmaClient_0->send(m_nodeId, (void*) localstruct1, sizeof(testMsg), true));
+  CPPUNIT_ASSERT(m_rdmaClient_1->send(m_nodeId, (void*) localstruct2, sizeof(testMsg), true));
+  CPPUNIT_ASSERT(m_rdmaServer->pollReceiveBatch(m_srq_id, num_received_2));
+  ib_addr_t ret_ib_addr;
+
+  CPPUNIT_ASSERT_EQUAL(num_received_1 + num_received_2, receives);
+
+  for (size_t i = 0; i < receives; i++) {
+    CPPUNIT_ASSERT_EQUAL(localstruct1->id, remotestructs[i]->id);
+    CPPUNIT_ASSERT_EQUAL(localstruct1->a, remotestructs[i]->a);
+  }
 }

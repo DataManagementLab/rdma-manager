@@ -15,9 +15,9 @@
 using namespace rdma;
 
 class TestThread : public CppUnit::TestFixture {
-DPI_UNIT_TEST_SUITE(TestThread);
-  DPI_UNIT_TEST(testRun);
-  DPI_UNIT_TEST_SUITE_END();
+RDMA_UNIT_TEST_SUITE(TestThread);
+  RDMA_UNIT_TEST(testRun);
+  RDMA_UNIT_TEST_SUITE_END();
  private:
   class TestingThread : public Thread {
    public:

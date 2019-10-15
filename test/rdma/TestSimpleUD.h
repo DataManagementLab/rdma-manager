@@ -17,10 +17,10 @@ using namespace rdma;
 
 class TestSimpleUD : public CppUnit::TestFixture
 {
-    DPI_UNIT_TEST_SUITE(TestSimpleUD);
-    DPI_UNIT_TEST_UD(testSendRecieve);
-    // DPI_UNIT_TEST_UD(testSendRecieveMgmt);
-    DPI_UNIT_TEST_SUITE_END();
+    RDMA_UNIT_TEST_SUITE(TestSimpleUD);
+    RDMA_UNIT_TEST_UD(testSendRecieve);
+    // RDMA_UNIT_TEST_UD(testSendRecieveMgmt);
+    RDMA_UNIT_TEST_SUITE_END();
 
   public:
     void setUp();

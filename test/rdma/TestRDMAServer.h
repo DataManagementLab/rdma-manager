@@ -16,14 +16,14 @@
 using namespace rdma;
 
 class TestRDMAServer : public CppUnit::TestFixture {
-DPI_UNIT_TEST_SUITE (TestRDMAServer);
-  DPI_UNIT_TEST_RC(testWrite);
-  DPI_UNIT_TEST_RC(testRemoteAlloc);
-  DPI_UNIT_TEST_RC(testRemoteFree);
-  DPI_UNIT_TEST_RC(testSendRecieve);
-  DPI_UNIT_TEST_RC(testAtomics);
-  DPI_UNIT_TEST_UD (testSendRecieve);
-  DPI_UNIT_TEST_SUITE_END()
+RDMA_UNIT_TEST_SUITE (TestRDMAServer);
+  RDMA_UNIT_TEST_RC(testWrite);
+  RDMA_UNIT_TEST_RC(testRemoteAlloc);
+  RDMA_UNIT_TEST_RC(testRemoteFree);
+  RDMA_UNIT_TEST_RC(testSendRecieve);
+  RDMA_UNIT_TEST_RC(testAtomics);
+  RDMA_UNIT_TEST_UD (testSendRecieve);
+  RDMA_UNIT_TEST_SUITE_END()
   ;
 
  public:

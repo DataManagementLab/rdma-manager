@@ -47,6 +47,7 @@ class RDMAManagerRC : public RDMAManager {
     bool send(struct ib_addr_t& ibAddr, const void* memAddr, size_t size, bool signaled);
     bool receive(struct ib_addr_t& ibAddr, const void* memAddr, size_t size);
     bool pollReceive(ib_addr_t& ibAddr, bool doPoll);
+    bool pollReceiveBatch(size_t srq_id, size_t &num_completed, bool &doPoll);
     bool pollSend(ib_addr_t& ibAddr, bool doPoll);
 
     void* localAlloc(const size_t& size);
@@ -74,7 +75,12 @@ class RDMAManagerRC : public RDMAManager {
     // RDMA operations
     inline bool __attribute__((always_inline)) remoteAccess(struct ib_addr_t& ibAddr, size_t offset, const void* memAddr,
                              size_t size, bool signaled, bool wait, enum ibv_wr_opcode verb) {
-            
+        DebugCode(
+        if (memAddr < m_res.buffer || (char*)memAddr + size > (char*)m_res.buffer + m_res.mr->length)
+        {
+            Logging::error(__FILE__, __LINE__, "Passed memAddr falls out of buffer addr space");
+        }
+        )
         uint64_t connKey = ibAddr.conn_key;
         struct ib_qp_t localQP = m_qps[connKey];
         struct ib_conn_t remoteConn = m_rconns[connKey];

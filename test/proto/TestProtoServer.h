@@ -20,8 +20,8 @@ using std::string;
 using namespace rdma;
 
 class TestProtoServer : public CppUnit::TestFixture {
-DPI_UNIT_TEST_SUITE(TestProtoServer);
-  DPI_UNIT_TEST(testMsgExchange);DPI_UNIT_TEST_SUITE_END()
+RDMA_UNIT_TEST_SUITE(TestProtoServer);
+  RDMA_UNIT_TEST(testMsgExchange);RDMA_UNIT_TEST_SUITE_END()
   ;
  private:
   class HelloServer : public ProtoServer {

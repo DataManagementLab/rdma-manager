@@ -281,6 +281,13 @@ bool RDMAManagerRC::remoteCompareAndSwap(struct ib_addr_t& ibAddr, size_t offset
 
 bool RDMAManagerRC::send(struct ib_addr_t& ibAddr, const void* memAddr, size_t size,
                          bool signaled) {
+    DebugCode(
+    if (memAddr < m_res.buffer || (char*)memAddr + size > (char*)m_res.buffer + m_res.mr->length)
+    {
+        Logging::error(__FILE__, __LINE__, "Passed memAddr falls out of buffer addr space");
+    }
+    )
+
     uint64_t connKey = ibAddr.conn_key;
     struct ib_qp_t localQP = m_qps[connKey];
 
@@ -338,6 +345,13 @@ bool RDMAManagerRC::send(struct ib_addr_t& ibAddr, const void* memAddr, size_t s
 }
 
 bool RDMAManagerRC::receive(struct ib_addr_t& ibAddr, const void* memAddr, size_t size) {
+
+    DebugCode(
+    if (memAddr < m_res.buffer || memAddr > (char*)m_res.buffer + m_res.mr->length)
+    {
+        Logging::error(__FILE__, __LINE__, "Passed memAddr falls out of buffer addr space");
+    }
+    )
 
     uint64_t connKey = ibAddr.conn_key;
     struct ib_qp_t localQP = m_qps[connKey];
@@ -678,6 +692,45 @@ bool RDMAManagerRC::receive(size_t srq_id, const void *memAddr, size_t size)
   }
 
   return true;
+}
+
+bool RDMAManagerRC::pollReceiveBatch(size_t srq_id, size_t &num_completed, bool &doPoll)
+{
+  int ne;
+  const int batchSize = 64;
+  struct ibv_wc wc[batchSize];
+
+  do
+  {
+    ne = ibv_poll_cq(m_srqs.at(srq_id).recv_cq, batchSize, wc);
+    for (int i = 0; i < ne; i++)
+    {
+        if (wc[i].status != IBV_WC_SUCCESS)
+        {
+            Logging::error(
+                __FILE__, __LINE__,
+                "RDMA completion event in CQ with error! " + to_string(wc[i].status));
+            return false;
+        }
+    }
+  } while (ne == 0 && doPoll);
+
+  num_completed = ne;
+  if (doPoll)
+  {
+    if (ne < 0)
+    {
+      Logging::error(__FILE__, __LINE__, "RDMA polling from CQ failed!");
+      return false;
+    }
+    return true;
+  }
+  else if (ne > 0)
+  {
+    return true;
+  }
+
+  return false;
 }
 
 bool RDMAManagerRC::pollReceive(size_t srq_id, ib_addr_t &ret_ibaddr, bool & doPoll)
