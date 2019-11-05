@@ -120,7 +120,7 @@ bool RDMAManager::createBuffer()
   memset(m_res.buffer, 0, m_memSize);
   if (m_res.buffer == 0)
   {
-    Logging::error(__FILE__, __LINE__, "Cannot allocate memory!");
+    Logging::error(__FILE__, __LINE__, "Cannot allocate memory! Requested size: " + to_string(m_memSize));
     return false;
   }
 
