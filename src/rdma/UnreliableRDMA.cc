@@ -1,28 +1,22 @@
-
-
-#include "RDMAManagerUD.h"
+#include "UnreliableRDMA.h"
 
 using namespace rdma;
 
 /********** constructor and destructor **********/
-RDMAManagerUD::RDMAManagerUD(size_t mem_size)
-    : RDMAManager(mem_size) {
+UnreliableRDMA::UnreliableRDMA(size_t mem_size)
+    : BaseRDMA(mem_size) {
   m_qpType = IBV_QPT_UD;
   m_lastMCastConnKey = 0;
 }
 
-RDMAManagerUD::~RDMAManagerUD() {
-  destroyManager();
+UnreliableRDMA::~UnreliableRDMA() {
+  // destroy QPS
+  destroyQPs();
+  m_qps.clear();
 }
 
-/********** public methods **********/
-rdma_mem_t RDMAManagerUD::remoteAlloc(const size_t& size) {
-  (void) (size);
-  Logging::error(__FILE__, __LINE__, "Remote memory not supported with UD");
-  return s_nillmem;
-}
 
-void* RDMAManagerUD::localAlloc(const size_t& size) {
+void* UnreliableRDMA::localAlloc(const size_t& size) {
   rdma_mem_t memRes = internalAlloc(size + Config::RDMA_UD_OFFSET);
   if (!memRes.isnull) {
     return (void*) ((char*) m_res.buffer + memRes.offset
@@ -31,49 +25,29 @@ void* RDMAManagerUD::localAlloc(const size_t& size) {
   return nullptr;
 }
 
-bool RDMAManagerUD::remoteFree(const size_t& offset) {
-  (void) (offset);
-  Logging::error(__FILE__, __LINE__, "Remote memory not supported with UD");
-  return false;
-}
-
-bool RDMAManagerUD::localFree(const size_t& offset) {
+bool UnreliableRDMA::localFree(const size_t& offset) {
   return internalFree(offset);
 }
 
-bool RDMAManagerUD::localFree(const void* ptr) {
+bool UnreliableRDMA::localFree(const void* ptr) {
   char* begin = (char*) m_res.buffer;
   char* end = (char*) ptr;
   size_t offset = (end - begin) - Config::RDMA_UD_OFFSET;
   return internalFree(offset);
 }
 
-bool RDMAManagerUD::initQP(struct ib_addr_t& retIbAddr, bool isMgmtQP) {
-  //assign new QP number
-  uint64_t connKey = nextConnKey();
-  retIbAddr.conn_key = connKey;
+bool UnreliableRDMA::initQPWithSuppliedID(const rdmaConnID rdmaConnID)
+{
 
   //check if QP is already created
-  if (!isMgmtQP && m_udqp.qp != nullptr) {
-    setQP(retIbAddr, m_udqp);
-    setLocalConnData(retIbAddr, m_udqpConn);
-    return true;
-  } else if (isMgmtQP && m_udqpMgmt.qp != nullptr) {
-    setQP(retIbAddr, m_udqpMgmt);
-    setLocalConnData(retIbAddr, m_udqpMgmtConn);
+  if (m_udqp.qp != nullptr) {
+    setQP(rdmaConnID, m_udqp);
+    setLocalConnData(rdmaConnID, m_udqpConn);
     return true;
   }
 
-  ib_qp_t* qp = nullptr;
-  ib_conn_t* qpConn = nullptr;
-  if (!isMgmtQP) {
-    qp = &m_udqp;
-    qpConn = &m_udqpConn;
-  } else {
-    qp = &m_udqpMgmt;
-    qpConn = &m_udqpMgmtConn;
-  }
-
+  ib_qp_t* qp = &m_udqp;
+  ib_conn_t* qpConn = &m_udqpConn;
   //create completion queues
   if (!createCQ(qp->send_cq, qp->recv_cq)) {
     Logging::error(__FILE__, __LINE__, "Failed to create CQ");
@@ -112,18 +86,23 @@ bool RDMAManagerUD::initQP(struct ib_addr_t& retIbAddr, bool isMgmtQP) {
   }
 
   //done
-  setQP(retIbAddr, *qp);
-  setLocalConnData(retIbAddr, *qpConn);
+  setQP(rdmaConnID, *qp);
+  setLocalConnData(rdmaConnID, *qpConn);
 
   Logging::debug(__FILE__, __LINE__, "Created UD queue pair ");
 
   return true;
 }
 
-bool RDMAManagerUD::connectQP(struct ib_addr_t& ibAddr) {
+bool UnreliableRDMA::initQP(rdmaConnID &retRdmaConnID) {
+  //assign new QP number
+  retRdmaConnID = nextConnKey();
+  return initQPWithSuppliedID(retRdmaConnID);
+}
+
+bool UnreliableRDMA::connectQP(const rdmaConnID rdmaConnID) {
   // if QP is connected return
-  uint64_t connKey = ibAddr.conn_key;
-  if (m_connected.count(connKey) == 1) {
+  if (m_connected.count(rdmaConnID) == 1) {
     return true;
   }
 
@@ -131,20 +110,20 @@ bool RDMAManagerUD::connectQP(struct ib_addr_t& ibAddr) {
   struct ibv_ah_attr ah_attr;
   memset(&ah_attr, 0, sizeof ah_attr);
   ah_attr.is_global = 0;
-  ah_attr.dlid = m_rconns[connKey].lid;
+  ah_attr.dlid = m_rconns[rdmaConnID].lid;
   ah_attr.sl = 0;
   ah_attr.src_path_bits = 0;
   ah_attr.port_num = m_ibPort;
   struct ibv_ah* ah = ibv_create_ah(m_res.pd, &ah_attr);
-  m_rconns[connKey].ud.ah = ah;
+  m_rconns[rdmaConnID].ud.ah = ah;
 
-  m_connected[connKey] = true;
+  m_connected[rdmaConnID] = true;
   Logging::debug(__FILE__, __LINE__, "Connected UD queue pair!");
 
   return true;
 }
 
-void RDMAManagerUD::destroyQPs() {
+void UnreliableRDMA::destroyQPs() {
   if (m_udqp.qp != nullptr) {
     if (ibv_destroy_qp(m_udqp.qp) != 0) {
       Logging::error(__FILE__, __LINE__,
@@ -167,73 +146,11 @@ void RDMAManagerUD::destroyQPs() {
 
 }
 
-bool RDMAManagerUD::remoteWrite(struct ib_addr_t& ibAddr, size_t offset,
-                                const void* memAddr, size_t size,
-                                bool signaled) {
-  (void) (ibAddr);
-  (void) (offset);
-  (void) (memAddr);
-  (void) (size);
-  (void) (signaled);
-  Logging::error(__FILE__, __LINE__, "RDMA WRITE not supported with UD");
-  return false;
-}
-
-bool RDMAManagerUD::remoteRead(struct ib_addr_t& ibAddr, size_t offset,
-                               const void* memAddr, size_t size,
-                               bool signaled) {
-  (void) (ibAddr);
-  (void) (offset);
-  (void) (memAddr);
-  (void) (size);
-  (void) (signaled);
-  Logging::error(__FILE__, __LINE__, "RDMA READ not supported with UD");
-  return false;
-}
-
-bool RDMAManagerUD::requestRead(struct ib_addr_t& ibAddr, size_t offset,
-                                const void* memAddr, size_t size) {
-  (void) (ibAddr);
-  (void) (offset);
-  (void) (memAddr);
-  (void) (size);
-  Logging::error(__FILE__, __LINE__, "RDMA READ not supported with UD");
-  return false;
-}
-
-bool RDMAManagerUD::remoteFetchAndAdd(struct ib_addr_t& ibAddr, size_t offset,
-                                      const void* memAddr, size_t size,
-                                      bool signaled) {
-  (void) (ibAddr);
-  (void) (offset);
-  (void) (memAddr);
-  (void) (size);
-  (void) (signaled);
-  Logging::error(__FILE__, __LINE__, "RDMA F&A not supported with UD");
-  return false;
-}
-
-bool RDMAManagerUD::remoteCompareAndSwap(struct ib_addr_t& ibAddr,
-                                         size_t offset, const void* memAddr,
-                                         int toCompare, int toSwap, size_t size,
-                                         bool signaled) {
-  (void) (ibAddr);
-  (void) (offset);
-  (void) (memAddr);
-  (void) (toCompare);
-  (void) (toSwap);
-  (void) (size);
-  (void) (signaled);
-  Logging::error(__FILE__, __LINE__, "RDMA C&S not supported with UD");
-  return false;
-}
-
-bool RDMAManagerUD::send(struct ib_addr_t& ibAddr, const void* memAddr,
+bool UnreliableRDMA::send(const rdmaConnID rdmaConnID, const void* memAddr,
                          size_t size, bool signaled) {
 
-  uint64_t connKey = ibAddr.conn_key;
-  struct ib_qp_t localQP = m_qps[connKey];
-  struct ib_conn_t remoteConn = m_rconns[connKey];
+  struct ib_qp_t localQP = m_qps[rdmaConnID];
+  struct ib_conn_t remoteConn = m_rconns[rdmaConnID];
 
   struct ibv_send_wr sr;
   struct ibv_sge sge;
@@ -286,11 +203,10 @@ bool RDMAManagerUD::send(struct ib_addr_t& ibAddr, const void* memAddr,
   return true;
 }
 
-bool RDMAManagerUD::receive(struct ib_addr_t& ibAddr, const void* memAddr,
+bool UnreliableRDMA::receive(const rdmaConnID rdmaConnID, const void* memAddr,
                             size_t size) {
 
-  uint64_t connKey = ibAddr.conn_key;
-  struct ib_qp_t localQP = m_qps[connKey];
+  struct ib_qp_t localQP = m_qps[rdmaConnID];
 
   struct ibv_sge sge;
   struct ibv_recv_wr wr;
@@ -317,12 +233,11 @@ bool RDMAManagerUD::receive(struct ib_addr_t& ibAddr, const void* memAddr,
   return true;
 }
 
-bool RDMAManagerUD::pollReceive(ib_addr_t& ibAddr, bool doPoll) {
+bool UnreliableRDMA::pollReceive(const rdmaConnID rdmaConnID, bool doPoll) {
   int ne;
   struct ibv_wc wc;
 
-  uint64_t connKey = ibAddr.conn_key;
-  struct ib_qp_t localQP = m_qps[connKey];
+  struct ib_qp_t localQP = m_qps[rdmaConnID];
 
   do {
     wc.status = IBV_WC_SUCCESS;
@@ -348,12 +263,11 @@ bool RDMAManagerUD::pollReceive(ib_addr_t& ibAddr, bool doPoll) {
   return false;
 }
 
-bool RDMAManagerUD::pollSend(ib_addr_t& ibAddr, bool doPoll) {
+bool UnreliableRDMA::pollSend(const rdmaConnID rdmaConnID, bool doPoll) {
   int ne;
   struct ibv_wc wc;
 
-  uint64_t connKey = ibAddr.conn_key;
-  struct ib_qp_t localQP = m_qps[connKey];
+  struct ib_qp_t localQP = m_qps[rdmaConnID];
 
   do {
     wc.status = IBV_WC_SUCCESS;
@@ -379,11 +293,10 @@ bool RDMAManagerUD::pollSend(ib_addr_t& ibAddr, bool doPoll) {
   return false;
 }
 
-bool RDMAManagerUD::joinMCastGroup(string mCastAddress,
-                                   struct ib_addr_t& retIbAddr) {
-  uint64_t connKey = nextMCastConnKey();
-  retIbAddr.conn_key = connKey;
-
+bool UnreliableRDMA::joinMCastGroup(string mCastAddress,
+                                   rdmaConnID &retRdmaConnID) {
+  retRdmaConnID = nextMCastConnKey();
+  
   rdma_mcast_conn_t mCastConn;
   mCastConn.mcast_addr = const_cast<char*>(mCastAddress.c_str());
 
@@ -501,13 +414,13 @@ bool RDMAManagerUD::joinMCastGroup(string mCastAddress,
   rdma_ack_cm_event(event);
 
   //done
-  setMCastConn(retIbAddr, mCastConn);
+  setMCastConn(retRdmaConnID, mCastConn);
 
   return true;
 }
 
-bool RDMAManagerUD::leaveMCastGroup(struct ib_addr_t ibAddr) {
-  rdma_mcast_conn_t mCastConn = m_udpMcastConns[ibAddr.conn_key];
+bool UnreliableRDMA::leaveMCastGroup(const rdmaConnID rdmaConnID) {
+  rdma_mcast_conn_t mCastConn = m_udpMcastConns[rdmaConnID];
 
   // leave group
   if (rdma_leave_multicast(mCastConn.id, &mCastConn.mcast_sockaddr) != 0) {
@@ -533,9 +446,9 @@ bool RDMAManagerUD::leaveMCastGroup(struct ib_addr_t ibAddr) {
   return true;
 }
 
-bool RDMAManagerUD::sendMCast(struct ib_addr_t ibAddr, const void* memAddr,
+bool UnreliableRDMA::sendMCast(const rdmaConnID rdmaConnID, const void* memAddr,
                               size_t size, bool signaled) {
-  rdma_mcast_conn_t mCastConn = m_udpMcastConns[ibAddr.conn_key];
+  rdma_mcast_conn_t mCastConn = m_udpMcastConns[rdmaConnID];
 
   struct ibv_send_wr wr, *bad_wr;
   struct ibv_sge sge;
@@ -588,9 +501,9 @@ bool RDMAManagerUD::sendMCast(struct ib_addr_t ibAddr, const void* memAddr,
   return true;
 }
 
-bool RDMAManagerUD::receiveMCast(struct ib_addr_t ibAddr, const void* memAddr,
+bool UnreliableRDMA::receiveMCast(const rdmaConnID rdmaConnID, const void* memAddr,
                                  size_t size) {
-  rdma_mcast_conn_t mCastConn = m_udpMcastConns[ibAddr.conn_key];
+  rdma_mcast_conn_t mCastConn = m_udpMcastConns[rdmaConnID];
 
   void* buffer = (void*) (((char*) memAddr) - Config::RDMA_UD_OFFSET);
   if (rdma_post_recv(mCastConn.id, nullptr, buffer,
@@ -603,8 +516,8 @@ bool RDMAManagerUD::receiveMCast(struct ib_addr_t ibAddr, const void* memAddr,
   return true;
 }
 
-bool RDMAManagerUD::pollReceiveMCast(struct ib_addr_t ibAddr) {
-  rdma_mcast_conn_t mCastConn = m_udpMcastConns[ibAddr.conn_key];
+bool UnreliableRDMA::pollReceiveMCast(const rdmaConnID rdmaConnID) {
+  rdma_mcast_conn_t mCastConn = m_udpMcastConns[rdmaConnID];
   int ne = 0;
   struct ibv_wc wc;
   do {
@@ -632,7 +545,7 @@ bool RDMAManagerUD::pollReceiveMCast(struct ib_addr_t ibAddr) {
 }
 
 /********** private methods **********/
-bool RDMAManagerUD::createQP(struct ib_qp_t* qp) {
+bool UnreliableRDMA::createQP(struct ib_qp_t* qp) {
 // initialize QP attributes
   struct ibv_qp_init_attr qp_init_attr;
   memset(&qp_init_attr, 0, sizeof(qp_init_attr));
@@ -657,7 +570,7 @@ bool RDMAManagerUD::createQP(struct ib_qp_t* qp) {
   return true;
 }
 
-bool RDMAManagerUD::modifyQPToInit(struct ibv_qp *qp) {
+bool UnreliableRDMA::modifyQPToInit(struct ibv_qp *qp) {
   int flags = IBV_QP_STATE | IBV_QP_PKEY_INDEX | IBV_QP_PORT | IBV_QP_QKEY;
   struct ibv_qp_attr attr;
 
@@ -674,7 +587,7 @@ bool RDMAManagerUD::modifyQPToInit(struct ibv_qp *qp) {
   return true;
 }
 
-bool RDMAManagerUD::modifyQPToRTR(struct ibv_qp *qp) {
+bool UnreliableRDMA::modifyQPToRTR(struct ibv_qp *qp) {
   struct ibv_qp_attr attr;
   int flags = IBV_QP_STATE;
   memset(&attr, 0, sizeof(attr));
@@ -689,7 +602,7 @@ bool RDMAManagerUD::modifyQPToRTR(struct ibv_qp *qp) {
   return true;
 }
 
-bool RDMAManagerUD::modifyQPToRTS(struct ibv_qp *qp, const uint32_t psn) {
+bool UnreliableRDMA::modifyQPToRTS(struct ibv_qp *qp, const uint32_t psn) {
   struct ibv_qp_attr attr;
   int flags = IBV_QP_STATE | IBV_QP_SQ_PSN;
   memset(&attr, 0, sizeof(attr));
@@ -704,16 +617,28 @@ bool RDMAManagerUD::modifyQPToRTS(struct ibv_qp *qp, const uint32_t psn) {
   return true;
 }
 
-bool rdma::RDMAManagerUD::remoteFetchAndAdd(struct ib_addr_t& ibAddr, size_t offset,
-                                               const void* memAddr, size_t value_to_add,
-                                               size_t size, bool signaled) {
-    (void) (ibAddr);
-    (void) (offset);
-    (void) (memAddr);
-    (void) (size);
-    (void) (signaled);
-    (void) (value_to_add);
-    Logging::error(__FILE__, __LINE__, "RDMA F&A not supported with UD");
-    return false;
+    bool UnreliableRDMA::getCmEvent(struct rdma_event_channel *channel, enum rdma_cm_event_type type,
+                           struct rdma_cm_event **out_ev) {
+        struct rdma_cm_event *event = NULL;
+        if (rdma_get_cm_event(channel, &event) != 0) {
+            return false;
+        }
+        /* Verify the event is the expected type */
+        if (event->event != type) {
+            return false;
+        }
+        /* Pass the event back to the user if requested */
+        if (!out_ev) {
+            rdma_ack_cm_event(event);
+        } else {
+            *out_ev = event;
+        }
+        return true;
+    }
 
-}
+    void UnreliableRDMA::setMCastConn(const rdmaConnID rdmaConnID, rdma_mcast_conn_t& conn) {
+        if (m_udpMcastConns.size() < rdmaConnID + 1) {
+            m_udpMcastConns.resize(rdmaConnID + 1);
+        }
+        m_udpMcastConns[rdmaConnID] = conn;
+    }

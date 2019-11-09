@@ -17,15 +17,15 @@ int main(int argc, char **argv) {
 
   // Adds the test to the list of test to run
   CppUnit::TextUi::TestRunner runner;
-  runner.addTest(TestThread::suite());
-  runner.addTest(TestProtoServer::suite());
+  // runner.addTest(TestThread::suite());
+  // runner.addTest(TestProtoServer::suite());
   runner.addTest(TestRDMAServer::suite());
-  runner.addTest(TestRDMAServerMCast::suite());
-  runner.addTest(TestRDMAServerMultClients::suite());
-  runner.addTest(TestRDMAServerSRQ::suite());
-  runner.addTest(TestSimpleUD::suite());
-  runner.addTest(TestConfig::suite());
-  runner.addTest(TestRPC::suite());
+  // runner.addTest(TestRDMAServerMCast::suite());
+  // runner.addTest(TestRDMAServerMultClients::suite());
+  // runner.addTest(TestRDMAServerSRQ::suite());
+  // runner.addTest(TestSimpleUD::suite());
+  // runner.addTest(TestConfig::suite());
+  // runner.addTest(TestRPC::suite());
 
   // Change the default outputter to a compiler error format outputter
   runner.setOutputter(

@@ -8,5 +8,6 @@ message RDMAConnRequest {
     uint32 lid = 4;
    	repeated uint32 gid = 5 [packed=true]; 
    	uint32 psn = 6;
+    uint64 nodeid = 7;
 }
 

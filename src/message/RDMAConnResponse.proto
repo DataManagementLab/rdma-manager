@@ -7,6 +7,5 @@ message RDMAConnResponse {
     uint32 qp_num = 3;
     uint32 lid = 4;
     uint32 psn = 5;
-    uint64 server_connkey = 6;
-    repeated uint32 gid = 7 [packed=true];
+    repeated uint32 gid = 6 [packed=true];
 }

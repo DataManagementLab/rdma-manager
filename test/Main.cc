@@ -74,33 +74,33 @@ static void runtest(int t)
     case 101:
         runner.addTest(TestRDMAServer::suite());
         break;
-    case 102:
-        runner.addTest(TestRDMAServerMultClients::suite());
-        break;
-    case 103:
-        runner.addTest(TestSimpleUD::suite());
-        break;
-    case 104:
-        runner.addTest(TestRDMAServerMCast::suite());
-        break;
-    case 105:
-        runner.addTest(TestRDMAServerSRQ::suite());
-        break;
+    // case 102:
+    //     runner.addTest(TestRDMAServerMultClients::suite());
+    //     break;
+    // case 103:
+    //     runner.addTest(TestSimpleUD::suite());
+    //     break;
+    // case 104:
+    //     runner.addTest(TestRDMAServerMCast::suite());
+    //     break;
+    // case 105:
+    //     runner.addTest(TestRDMAServerSRQ::suite());
+    //     break;
 
-    case 106:
-        runner.addTest(TestRPC::suite());
-        break;
+    // case 106:
+    //     runner.addTest(TestRPC::suite());
+    //     break;
 
-    //MISC
-    case 201:
-        runner.addTest(TestConfig::suite());
-        break;
-    case 202:
-        runner.addTest(TestThread::suite());
-        break;
-    case 203:
-        runner.addTest(TestProtoServer::suite());
-        break;
+    // //MISC
+    // case 201:
+    //     runner.addTest(TestConfig::suite());
+    //     break;
+    // case 202:
+    //     runner.addTest(TestThread::suite());
+    //     break;
+    // case 203:
+    //     runner.addTest(TestProtoServer::suite());
+    //     break;
     default:
         cout << "No test with number " << t << " exists." << endl;
         return;

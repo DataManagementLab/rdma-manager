@@ -4,105 +4,101 @@
  * @date 2018-08-17
  */
 
-
-
 #ifndef RDMAServer_H_
 #define RDMAServer_H_
 
 #include "../utils/Config.h"
 #include "../proto/ProtoServer.h"
-#include "../rdma/RDMAManager.h"
-#include "RDMAManagerUD.h"
-#include "RDMAManagerRC.h"
+#include "../rdma/BaseRDMA.h"
+#include "UnreliableRDMA.h"
+#include "ReliableRDMA.h"
 #include "../message/MessageTypes.h"
 #include "../message/MessageErrors.h"
-
 
 #include <unordered_map>
 #include <list>
 #include <mutex>
 
-namespace rdma {
+namespace rdma
+{
 
-class RDMAServer : public ProtoServer {
- public:
-#if RDMA_TRANSPORT==0
-    RDMAServer(int port = Config::RDMA_PORT, rdma_transport_t transport = rc);
-    RDMAServer(string name, int port = Config::RDMA_PORT, uint64_t memsize = Config::RDMA_MEMSIZE, rdma_transport_t transport = rc);
-#elif RDMA_TRANSPORT==1
-    RDMAServer(int port = Config::RDMA_PORT, rdma_transport_t transport = ud );
-    RDMAServer(string name, int port = Config::RDMA_PORT, uint64_t memsize = Config::RDMA_MEMSIZE, rdma_transport_t transport = ud);
-#endif
-    RDMAServer(string name, int port, bool newFunc);
+template <typename RDMA_API_T>
+class RDMAServer : public ProtoServer, public RDMA_API_T
+{
+public:
+    RDMAServer() : RDMAServer("RDMAserver"){};
+    RDMAServer(string name) : RDMAServer(name, Config::RDMA_PORT){};
+    RDMAServer(string name, int port) : RDMAServer(name, port, Config::RDMA_MEMSIZE){};
+    RDMAServer(string name, int port, uint64_t memsize) : ProtoServer(name, port), RDMA_API_T(memsize){};
 
-    ~RDMAServer();
+    ~RDMAServer() = default;
 
     // server methods
-    bool startServer();
-    void stopServer();
-    virtual void handle(Any* sendMsg, Any* respMsg);
+    bool startServer()
+    {
+        // start data node server
+        if (!ProtoServer::startServer())
+        {
+            Logging::error(__FILE__, __LINE__, "RDMAServer: could not be started");
+            return false;
+        }
 
-    // memory management
-    bool localFree(const void* ptr);
-    bool localFree(const size_t& offset) const;
-    void* localAlloc(const size_t& size);
-    rdma_mem_t remoteAlloc(const size_t& size);
-    void* getBuffer(const size_t offset = 0);
+        Logging::debug(__FILE__, __LINE__, "RDMAServer: started server!");
+        return true;
+    }
 
-    //connection management
-    ib_addr_t getMgmtQueue(const ib_addr_t& serverQueue);
-    vector<ib_addr_t> getQueues();
+    void stopServer()
+    {
+        ProtoServer::stopServer();
+    }
 
-    //data transfer
-    bool receive(ib_addr_t& ibAddr, void* localData, size_t size);
-    bool send(ib_addr_t& ibAddr, void* localData, size_t size, bool signaled);
-    bool pollReceive(ib_addr_t& ibAddr, bool doPoll = true);
+    virtual void handle(Any *anyReq, Any *anyResp)
+    {
+        if (anyReq->Is<RDMAConnRequest>())
+        {
+            RDMAConnResponse connResp;
+            RDMAConnRequest connReq;
+            anyReq->UnpackTo(&connReq);
+            connectQueue(&connReq, &connResp);
+            Logging::debug(__FILE__, __LINE__, "RDMAServer::handle: after connectQueue");
+            anyResp->PackFrom(connResp);
+        }
+        else if (anyReq->Is<MemoryResourceRequest>())
+        {
+            MemoryResourceResponse respMsg;
+            MemoryResourceRequest reqMsg;
+            anyReq->UnpackTo(&reqMsg);
+            if (reqMsg.type() == MessageTypesEnum::MEMORY_RESOURCE_RELEASE)
+            {
+                size_t offset = reqMsg.offset();
+                respMsg.set_return_(releaseMemoryResource(offset));
+                respMsg.set_offset(offset);
+            }
+            else if (reqMsg.type() == MessageTypesEnum::MEMORY_RESOURCE_REQUEST)
+            {
+                size_t offset = 0;
+                size_t size = reqMsg.size();
+                respMsg.set_return_(requestMemoryResource(size, offset));
+                respMsg.set_offset(offset);
+            }
+            anyResp->PackFrom(respMsg);
+        }
+        else
+        {
+            //Send response with bad return code;
+            ErrorMessage errorResp;
+            errorResp.set_return_(MessageErrors::INVALID_MESSAGE);
+            anyResp->PackFrom(errorResp);
+        }
+    }
 
-    bool pollReceive(ib_addr_t& ibAddr, uint32_t& ret_qp_num);
+    void *getBuffer(const size_t offset)
+    {
+        return ((char*) RDMA_API_T::getBuffer() + offset);
+    }
 
-    // multicast
-    bool joinMCastGroup(string mCastAddress);
-    bool joinMCastGroup(string mCastAddress, struct ib_addr_t& retIbAddr);
-
-    bool leaveMCastGroup(string mCastAddress);
-    bool sendMCast(string mCastAddress, const void* memAddr, size_t size, bool signaled);
-    bool receiveMCast(string mCastAddress, const void* memAddr, size_t size);
-    bool pollReceiveMCast(string mCastAddress);
-
-    bool leaveMCastGroup(struct ib_addr_t ibAddr);
-    bool sendMCast(struct ib_addr_t ibAddr, const void* memAddr, size_t size, bool signaled);
-    bool receiveMCast(struct ib_addr_t ibAddr, const void* memAddr, size_t size);
-    bool pollReceiveMCast(struct ib_addr_t ibAddr);
-
-
-
-    //Shared Receive Queue
-    bool receive(size_t srq_id, const void* memAddr,
-                 size_t size){
-        return m_rdmaManager->receive(srq_id,memAddr,size);
-    };
-    bool pollReceive(size_t srq_id,  ib_addr_t& ret_ib_addr) {
-        bool poll = true;
-        return m_rdmaManager->pollReceive(srq_id,ret_ib_addr, poll);
-    };
-    bool pollReceiveBatch(size_t srq_id, size_t &num_completed) {
-        bool poll = true;
-        return m_rdmaManager->pollReceiveBatch(srq_id, num_completed, poll);
-    };
-
-    bool pollReceive(size_t srq_id,  ib_addr_t& ret_ib_addr,bool &poll){
-        return m_rdmaManager->pollReceive(srq_id,ret_ib_addr, poll);
-    };
-
-    bool createSRQ(size_t& ret_srq_id){
-        return m_rdmaManager->createSharedReceiveQueue(ret_srq_id);
-    };
-
-    bool initQP(size_t srq_id, struct ib_addr_t& reIbAddr) {
-        return m_rdmaManager->initQP(srq_id,reIbAddr);
-    };
-
-    void activateSRQ(size_t srqID){
+    void activateSRQ(size_t srqID)
+    {
         Logging::debug(__FILE__, __LINE__, "setCurrentSRQ: assigned to " + to_string(srqID));
         m_currentSRQ = srqID;
     }
@@ -112,38 +108,111 @@ class RDMAServer : public ProtoServer {
         m_currentSRQ = SIZE_MAX;
     }
 
-    size_t getCurrentSRQ(){
+    size_t getCurrentSRQ()
+    {
         return m_currentSRQ;
     }
 
 protected:
     // memory management
-    bool addMemoryResource(size_t size);
-    MessageErrors requestMemoryResource(size_t size, size_t& offset);
-    MessageErrors releaseMemoryResource(size_t& offset);
 
-    virtual bool connectQueue(RDMAConnRequest* connRequest, RDMAConnResponse* connResponse);
+    MessageErrors requestMemoryResource(size_t size, size_t &offset)
+    {
+        unique_lock<mutex> lck(m_memLock);
 
-    bool connectMgmtQueue(RDMAConnRequestMgmt* connRequest, RDMAConnResponseMgmt* connResponse);
+        rdma_mem_t memRes = RDMA_API_T::remoteAlloc(size);
+        offset = memRes.offset;
 
-    // helper
-    bool checkSignaled(bool signaled) {
-        m_countWR++;
-        if (m_countWR % Config::RDMA_MAX_WR == 0 && !signaled) {
-            signaled = true;
+        if (!memRes.isnull)
+        {
+            lck.unlock();
+            return MessageErrors::NO_ERROR;
         }
-        if (signaled) {
-            m_countWR = 0;
-        }
-        return signaled;
+
+        lck.unlock();
+        return MessageErrors::MEMORY_NOT_AVAILABLE;
     }
 
-    // RDMA management
-    RDMAManager* m_rdmaManager;
-    size_t m_countWR;
-    vector<ib_addr_t> m_addr;
-    unordered_map<uint64_t, ib_addr_t> m_addr2mgmtAddr;  //queue 2 mgmtQueue
-    unordered_map<string, ib_addr_t> m_mcastAddr;  //mcast_string to ibaddr
+    MessageErrors releaseMemoryResource(size_t &offset)
+    {
+        unique_lock<mutex> lck(m_memLock);
+        if (!RDMA_API_T::remoteFree(offset))
+        {
+            lck.unlock();
+            return MessageErrors::MEMORY_RELEASE_FAILED;
+        }
+        lck.unlock();
+        return MessageErrors::NO_ERROR;
+    }
+
+    bool connectQueue(RDMAConnRequest *connRequest, RDMAConnResponse *connResponse)
+    {
+        unique_lock<mutex> lck(m_connLock);
+
+        //create local QP
+        NodeID nodeID = connRequest->nodeid();
+
+        //Check if SRQ is active
+        if (m_currentSRQ == SIZE_MAX)
+        {
+            Logging::debug(__FILE__, __LINE__, "RDMAServer: initializing queue pair - " + to_string(nodeID));
+            if (!RDMA_API_T::initQPWithSuppliedID(nodeID))
+            {
+                lck.unlock();
+                return false;
+            }
+        }
+        else
+        {
+            Logging::debug(__FILE__, __LINE__, "RDMAServer: initializing queue pair with srq id: " + to_string(m_currentSRQ) + " - " + to_string(nodeID));
+            if (!RDMA_API_T::initQPForSRQWithSuppliedID(m_currentSRQ, nodeID))
+            {
+                lck.unlock();
+                return false;
+            }
+        }
+
+        // set remote connection data
+        struct ib_conn_t remoteConn;
+        remoteConn.buffer = connRequest->buffer();
+        remoteConn.rc.rkey = connRequest->rkey();
+        remoteConn.qp_num = connRequest->qp_num();
+        remoteConn.lid = connRequest->lid();
+        for (int i = 0; i < 16; ++i)
+        {
+            remoteConn.gid[i] = connRequest->gid(i);
+        }
+        remoteConn.ud.psn = connRequest->psn();
+        RDMA_API_T::setRemoteConnData(nodeID, remoteConn);
+
+        //connect QPs
+        if (!RDMA_API_T::connectQP(nodeID))
+        {
+            lck.unlock();
+            return false;
+        }
+
+        //create response
+        ib_conn_t localConn = RDMA_API_T::getLocalConnData(nodeID);
+        connResponse->set_buffer(localConn.buffer);
+        connResponse->set_rkey(localConn.rc.rkey);
+        connResponse->set_qp_num(localConn.qp_num);
+        connResponse->set_lid(localConn.lid);
+        connResponse->set_psn(localConn.ud.psn);
+        for (int i = 0; i < 16; ++i)
+        {
+            connResponse->add_gid(localConn.gid[i]);
+        }
+
+        Logging::debug(
+            __FILE__, __LINE__,
+            "RDMAServer: connected to client!" + to_string(nodeID));
+
+        lck.unlock();
+        return true;
+    }
+
+    unordered_map<string, NodeID> m_mcastAddr; //mcast_string to ibaddr
 
     // Locks for multiple clients accessing server
     mutex m_connLock;
@@ -152,6 +221,6 @@ protected:
     size_t m_currentSRQ = SIZE_MAX;
 };
 
-}
+} // namespace rdma
 
 #endif /* RDMAServer_H_ */

@@ -1,11 +1,11 @@
 FIND_PACKAGE(CPPUNIT REQUIRED)
 enable_testing()
 
-add_subdirectory(proto)
+# add_subdirectory(proto)
 add_subdirectory(rdma)
-add_subdirectory(thread)
-add_subdirectory(utils)
-add_subdirectory(RPC)
+# add_subdirectory(thread)
+# add_subdirectory(utils)
+# add_subdirectory(RPC)
 
 set(TEST_SRC
 	Tests.h
@@ -26,20 +26,20 @@ SET_TARGET_PROPERTIES(rdma_tests PROPERTIES
 
 target_link_libraries(rdma_tests 
 	${CPPUNIT_LIBRARY}
-	test_rdma_proto
+	# test_rdma_proto
 	test_rdma
-	test_thread
-	test_utils
-	test_rpc
+	# test_thread
+	# test_utils
+	# test_rpc
 )
 	
 target_link_libraries(test_lib 
 	${CPPUNIT_LIBRARY}
-	test_rdma_proto
+	# test_rdma_proto
 	test_rdma
-	test_thread
-	test_utils
-	test_rpc
+	# test_thread
+	# test_utils
+	# test_rpc
 )
 
 
@@ -48,6 +48,6 @@ target_link_libraries(rdma_test
 	test_lib
 )
 
-add_executable(perf_test MainPerf.cc)
-target_link_libraries(perf_test perftest)
+# add_executable(perf_test MainPerf.cc)
+# target_link_libraries(perf_test perftest)
 	

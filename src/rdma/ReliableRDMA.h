@@ -1,17 +1,17 @@
 /**
- * @file RDMAManagerRC.h
+ * @file ReliableRDMA.h
  * @author cbinnig, tziegler
  * @date 2018-08-17
  */
 
 
 
-#ifndef RDMAMANAGERRC_H_
-#define RDMAMANAGERRC_H_
+#ifndef ReliableRDMA_H_
+#define ReliableRDMA_H_
 
 #include "../utils/Config.h"
 
-#include "RDMAManager.h"
+#include "BaseRDMA.h"
 
 namespace rdma {
 
@@ -22,68 +22,66 @@ struct sharedrq_t{
 };
 
 
-class RDMAManagerRC : public RDMAManager {
+class ReliableRDMA : public BaseRDMA {
 
  public:
-    RDMAManagerRC(size_t mem_size = Config::RDMA_MEMSIZE);
-    ~RDMAManagerRC();
+    ReliableRDMA();
+    ReliableRDMA(size_t mem_size);
+    ~ReliableRDMA();
 
-    bool initQP(struct ib_addr_t& retIbAddr, bool isMgmtQP = false);
-    bool connectQP(struct ib_addr_t& ibAddr);
+    bool initQPWithSuppliedID(const rdmaConnID suppliedID) override;
+    bool initQP(rdmaConnID &retRdmaConnID) override;
+    bool connectQP(const rdmaConnID rdmaConnID) override;
 
-    bool remoteWrite(struct ib_addr_t& ibAddr, size_t offset, const void* memAddr, size_t size,
+    bool write(const rdmaConnID rdmaConnID, size_t offset, const void* memAddr, size_t size,
                      bool signaled);
-    bool remoteRead(struct ib_addr_t& ibAddr, size_t offset, const void* memAddr, size_t size,
+    bool read(const rdmaConnID rdmaConnID, size_t offset, const void* memAddr, size_t size,
                     bool signaled);
-    bool requestRead(struct ib_addr_t& ibAddr, size_t offset, const void* memAddr, size_t size);
-    bool remoteFetchAndAdd(struct ib_addr_t& ibAddr, size_t offset, const void* memAddr,
+    bool requestRead(const rdmaConnID rdmaConnID, size_t offset, const void* memAddr, size_t size);
+    bool fetchAndAdd(const rdmaConnID rdmaConnID, size_t offset, const void* memAddr,
                            size_t size, bool signaled);
-    bool remoteFetchAndAdd(struct ib_addr_t& ibAddr, size_t offset, const void* memAddr, size_t value_to_add,
+    bool fetchAndAdd(const rdmaConnID rdmaConnID, size_t offset, const void* memAddr, size_t value_to_add,
                                            size_t size, bool signaled);
 
-    bool remoteCompareAndSwap(struct ib_addr_t& ibAddr, size_t offset, const void* memAddr,
+    bool compareAndSwap(const rdmaConnID rdmaConnID, size_t offset, const void* memAddr,
                               int toCompare, int toSwap, size_t size, bool signaled);
 
-    bool send(struct ib_addr_t& ibAddr, const void* memAddr, size_t size, bool signaled);
-    bool receive(struct ib_addr_t& ibAddr, const void* memAddr, size_t size);
-    bool pollReceive(ib_addr_t& ibAddr, bool doPoll);
+    bool send(const rdmaConnID rdmaConnID, const void* memAddr, size_t size, bool signaled) override;
+    bool receive(const rdmaConnID rdmaConnID, const void* memAddr, size_t size) override;
+    bool pollReceive(const rdmaConnID rdmaConnID, bool doPoll) override;
     bool pollReceiveBatch(size_t srq_id, size_t &num_completed, bool &doPoll);
-    bool pollSend(ib_addr_t& ibAddr, bool doPoll);
+    bool pollSend(const rdmaConnID rdmaConnID, bool doPoll) override;
 
-    void* localAlloc(const size_t& size);
-    bool localFree(const void* ptr);
-    bool localFree(const size_t& offset);
+    void* localAlloc(const size_t& size) override;
+    bool localFree(const void* ptr) override;
+    bool localFree(const size_t& offset) override;
     rdma_mem_t remoteAlloc(const size_t& size);
     bool remoteFree(const size_t& offset);
 
-    bool joinMCastGroup(string mCastAddress, struct ib_addr_t& retIbAddr);
-    bool leaveMCastGroup(struct ib_addr_t ibAddr);
-    bool sendMCast(struct ib_addr_t ibAddr, const void* memAddr, size_t size, bool signaled);
-    bool receiveMCast(struct ib_addr_t ibAddr, const void* memAddr, size_t size);
-    bool pollReceiveMCast(struct ib_addr_t ibAddr);
-
     //Shared Receive Queue
-    vector<ib_addr_t> getIbAddrs(size_t srq_id);
-    bool initQP(size_t srq_id, struct ib_addr_t& reIbAddr) override;
+    bool initQPForSRQWithSuppliedID(size_t srq_id, const rdmaConnID rdmaConnID);
+    bool initQPForSRQ(size_t srq_id, rdmaConnID &retRdmaConnID);
 
-    bool receive(size_t srq_id, const void* memAddr,
-                 size_t size) override;
-    bool pollReceive(size_t srq_id, ib_addr_t& ret_ibaddr, bool & doPoll) override;
-    bool createSharedReceiveQueue(size_t& ret_srq_id) override;
+    bool receiveSRQ(size_t srq_id, const void* memAddr,
+                 size_t size);
+    bool pollReceiveSRQ(size_t srq_id, rdmaConnID &retrdmaConnID, bool & doPoll);
+    bool createSharedReceiveQueue(size_t& ret_srq_id);
 
  protected:
     // RDMA operations
-    inline bool __attribute__((always_inline)) remoteAccess(struct ib_addr_t& ibAddr, size_t offset, const void* memAddr,
+    inline bool __attribute__((always_inline)) remoteAccess(const rdmaConnID rdmaConnID, size_t offset, const void* memAddr,
                              size_t size, bool signaled, bool wait, enum ibv_wr_opcode verb) {
         DebugCode(
-        if (memAddr < m_res.buffer || (char*)memAddr + size > (char*)m_res.buffer + m_res.mr->length)
-        {
-            Logging::error(__FILE__, __LINE__, "Passed memAddr falls out of buffer addr space");
-        }
+            if (memAddr < m_res.buffer || (char*)memAddr + size > (char*)m_res.buffer + m_res.mr->length)
+            {
+                Logging::error(__FILE__, __LINE__, "Passed memAddr falls out of buffer addr space");
+            }
         )
-        uint64_t connKey = ibAddr.conn_key;
-        struct ib_qp_t localQP = m_qps[connKey];
-        struct ib_conn_t remoteConn = m_rconns[connKey];
+
+        checkSignaled(signaled, rdmaConnID);
+
+        struct ib_qp_t localQP = m_qps[rdmaConnID];
+        struct ib_conn_t remoteConn = m_rconns[rdmaConnID];
 
         int ne;
 
@@ -141,20 +139,19 @@ class RDMAManagerRC : public RDMAManager {
     }
 
     virtual void destroyQPs();
-    bool createQP(struct ib_qp_t *qp);
+    bool createQP(struct ib_qp_t *qp) override;
     bool createQP(size_t srq_id, struct ib_qp_t& qp);
     bool modifyQPToInit(struct ibv_qp *qp);
     bool modifyQPToRTR(struct ibv_qp *qp, uint32_t remote_qpn, uint16_t dlid, uint8_t *dgid);
     bool modifyQPToRTS(struct ibv_qp *qp);
 
-
     //shared receive queues
     map<size_t,sharedrq_t> m_srqs;
     size_t m_srqCounter = 0;
-    map<size_t,vector<ib_addr_t>> m_connectedQPs;
+    map<size_t,vector<rdmaConnID>> m_connectedQPs;
 
 };
 
 }
 
-#endif /* RDMAMANAGERRC_H_ */
+#endif /* ReliableRDMA_H_ */

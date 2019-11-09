@@ -22,7 +22,7 @@ RDMA_UNIT_TEST_SUITE (TestRDMAServer);
   RDMA_UNIT_TEST_RC(testRemoteFree);
   RDMA_UNIT_TEST_RC(testSendRecieve);
   RDMA_UNIT_TEST_RC(testAtomics);
-  RDMA_UNIT_TEST_UD (testSendRecieve);
+  // RDMA_UNIT_TEST_UD(testSendRecieve);
   RDMA_UNIT_TEST_SUITE_END()
   ;
 
@@ -37,8 +37,8 @@ RDMA_UNIT_TEST_SUITE (TestRDMAServer);
   void testAtomics();
 
  private:
-  RDMAServer* m_rdmaServer;
-  RDMAClient* m_rdmaClient;
+  RDMAServer<ReliableRDMA>* m_rdmaServer;
+  RDMAClient<ReliableRDMA>* m_rdmaClient;
   string m_connection;
 
   NodeID m_nodeId = 0;

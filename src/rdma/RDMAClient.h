@@ -8,150 +8,202 @@
 #define RDMAClient_H_
 
 #include "../utils/Config.h"
-#include "RDMAManager.h"
-#include "RDMAManagerUD.h"
-#include "RDMAManagerRC.h"
+#include "BaseRDMA.h"
+#include "UnreliableRDMA.h"
+#include "ReliableRDMA.h"
 #include "../proto/ProtoClient.h"
 
 #include <unordered_map>
 #include <list>
 
-namespace rdma {
+namespace rdma
+{
 
-class RDMAClient {
- public:
-#if RDMA_TRANSPORT==0
-  RDMAClient(size_t mem_size = Config::RDMA_MEMSIZE, rdma_transport_t transport = rc);
-#elif RDMA_TRANSPORT==1
-  RDMAClient(size_t mem_size = Config::RDMA_MEMSIZE, rdma_transport_t transport = ud);
-#endif
+template <typename RDMA_API_T>
+class RDMAClient : public RDMA_API_T
+{
+public:
+  RDMAClient() : RDMAClient(Config::RDMA_MEMSIZE) {}
+  RDMAClient(size_t mem_size) : RDMA_API_T(mem_size) {}
 
-  ~RDMAClient();
-
-  /**
-   * @brief connects to an RDMAServer
-   * Don't use arbitraty high NodeIDs, since NodeIDs are internally used for array indexing
-   */
-  bool connect(const string& connection, const NodeID nodeID ,bool managementQueue = false);
+  ~RDMAClient()
+  {
+    for (auto kv : m_clients) {
+      delete kv.second;
+    }
+    m_clients.clear();
+  }
 
 
   // memory management
-  void* localAlloc(const size_t& size);
-  bool localFree(const void* ptr);
-  bool remoteAlloc(const string& connection, const size_t size, size_t& offset);
-  bool remoteAlloc(const NodeID nodeID, const size_t size, size_t& offset);
-  bool remoteFree(const string& connection, const size_t size, const size_t offset);
-  bool remoteFree(const NodeID nodeID, const size_t size, const size_t offset);
-  void* getBuffer(const size_t offset = 0);
+  bool remoteAlloc(const string &connection, const size_t size, size_t &offset)
+  {
+    if (!isConnected(connection)) {
+    return false;
+  }
+  ProtoClient* client = m_clients[connection];
 
-  //onesided
-  // nodeid interface
-  bool fetchAndAdd(const NodeID& nodeid, size_t remoteOffset,
-                   void* localData, size_t value_to_add ,size_t size, bool signaled);
-  bool requestRead(const NodeID& nodeid, size_t remoteOffset, void* localData,
-                   size_t size);
-  bool write(const NodeID& nodeid, size_t remoteOffset, void* localData,
-             size_t size, bool signaled);
-  bool writeRC(const NodeID& nodeid, size_t remoteOffset, void* localData,
-             size_t size, bool signaled);
-  bool read(const NodeID& nodeid, size_t remoteOffset, void* localData,
-            size_t size, bool signaled);
-
-  bool fetchAndAdd(const NodeID& nodeid, size_t remoteOffset,
-                   void* localData, size_t size, bool signaled);
-  bool compareAndSwap(const NodeID& nodeid, size_t remoteOffset,
-                      void* localData, int toCompare, int toSwap, size_t size,
-                      bool signaled);
-
-
-
-  //two-sided
-  // nodeid
-  bool receive(const NodeID& nodeid, void* localData, size_t size);
-  bool send(const NodeID& nodeid, void* localData, size_t size, bool signaled);
-  bool pollReceive(const NodeID& nodeid);
-  bool pollSend(const NodeID& nodeid);
-
-  // two-sided
-  // ip interface
-  bool receive(const string& connection, void* localData, size_t size);
-  bool pollReceive(const string& connection);
-  bool send(const string& connection, void* localData, size_t size,
-            bool signaled);
-  bool pollSend(const string& connection);
-
-  // ib_addr_t interface
-  // bool receive(ib_addr_t& ib_addr, void* localData, size_t size);
-  // bool send(ib_addr_t& ib_addr, void* localData, size_t size, bool signaled);
-  // bool pollReceive(ib_addr_t &ib_addr);
-  // bool pollSend(ib_addr_t &ib_addr);
-
-  ib_addr_t getMgmtQueue(const string& connection) {
-    return m_mgmt_addr.at(connection);
+  Any sendAny = MessageTypes::createMemoryResourceRequest(size);
+  Any rcvAny;
+  if (!client->send(&sendAny, &rcvAny)) {
+    Logging::error(__FILE__, __LINE__, "cannot send message");
+    return false;
   }
 
-  // multicast
-  bool joinMCastGroup(string mCastAddress);
-  bool joinMCastGroup(string mCastAddress, struct ib_addr_t& retIbAddr);
-
-  bool leaveMCastGroup(string mCastAddress);
-  bool sendMCast(string mCastAddress, const void* memAddr, size_t size,
-                 bool signaled);
-  bool receiveMCast(string mCastAddress, const void* memAddr, size_t size);
-  bool pollReceiveMCast(string mCastAddress);
-
-  bool leaveMCastGroup(struct ib_addr_t ibAddr);
-  bool sendMCast(struct ib_addr_t ibAddr, const void* memAddr, size_t size,
-                 bool signaled);
-  bool receiveMCast(struct ib_addr_t ibAddr, const void* memAddr, size_t size);
-  bool pollReceiveMCast(struct ib_addr_t ibAddr);
-
-  uint64_t getStartRdmaAddrForNode(NodeID nodeId);
-
-
- protected:
-
-  bool connect(const string& connection, struct ib_addr_t& retIbAddr,
-               bool managementQueue = false);
-  bool connect(const string& connection, bool managementQueue = false);
-
-  bool createManagementQueue(const string& connection,
-                             const uint64_t qpNumServer);
-
-  inline bool __attribute__((always_inline)) checkSignaled(bool signaled, NodeID nodeID ) {
-    ++m_countWR[nodeID];
-    if (m_countWR[nodeID] == Config::RDMA_MAX_WR) {
-      signaled = true;
-      m_countWR[nodeID] = 0;
+  if (rcvAny.Is<MemoryResourceResponse>()) {
+    MemoryResourceResponse resResp;
+    rcvAny.UnpackTo(&resResp);
+    if (resResp.return_() == MessageErrors::NO_ERROR) {
+      offset = resResp.offset();
+      return true;
     }
-    return signaled;
+    Logging::warn("RDMAClient: Got error code " + to_string(resResp.return_()));
+  }
+  return false;
+  }
+  bool remoteAlloc(const NodeID nodeID, const size_t size, size_t &offset)
+  {
+    return remoteAlloc(m_nodeIDsConnection[nodeID], size, offset);
   }
 
-  inline bool __attribute__((always_inline)) checkSignaled(bool signaled) {
-    cerr << "Deprecated Function " << endl;
-    return signaled;
+
+
+bool remoteFree(const NodeID nodeID, const size_t size, const size_t offset) {
+  return remoteFree(m_nodeIDsConnection[nodeID], size, offset);
+}
+
+bool remoteFree(const string& connection, const size_t size,
+                            const size_t offset) {
+  if (!isConnected(connection)) {
+    return false;
+  }
+  ProtoClient* client = m_clients[connection];
+  Any sendAny = MessageTypes::createMemoryResourceRelease(size, offset);
+  Any rcvAny;
+  if (!client->send(&sendAny, &rcvAny)) {
+    return false;
   }
 
+  if (rcvAny.Is<MemoryResourceResponse>()) {
+    MemoryResourceResponse resResp;
+    rcvAny.UnpackTo(&resResp);
+    if (resResp.return_() == MessageErrors::NO_ERROR) {
+      return true;
+    }
+    Logging::debug(
+        __FILE__, __LINE__,
+        "Release failed! Error was: " + to_string(resResp.return_()));
+  }
+  return false;
+}
+
+void* getBuffer(const size_t offset) {
+  return ((char*) RDMA_API_T::getBuffer() + offset);
+}
+
+/**
+ * @brief connects to an RDMAServer
+ * Don't use arbitraty high NodeIDs, since NodeIDs are internally used for array indexing
+ */
+bool connect(const string& connection, const NodeID nodeID) {
+    //check if client is connected to data node
+  if (isConnected(connection)) {
+    return true;
+  }
+
+  //create local QP
+  if (!RDMA_API_T::initQPWithSuppliedID(nodeID)) {
+    Logging::debug(__FILE__, __LINE__,
+                   "An Error occurred while creating client QP");
+    return false;
+  }
+
+  //exchange QP info
+  string ipAddr = Network::getAddressOfConnection(connection);
+  size_t ipPort = Network::getPortOfConnection(connection);
+  ProtoClient* client = new ProtoClient(ipAddr, ipPort);
+  if (!client->connect()) {
+    return false;
+  }
+  m_clients[connection] = client;
+
+  ib_conn_t localConn = RDMA_API_T::getLocalConnData(nodeID);
+  RDMAConnRequest connRequest;
+  connRequest.set_buffer(localConn.buffer);
+  connRequest.set_rkey(localConn.rc.rkey);
+  connRequest.set_qp_num(localConn.qp_num);
+  connRequest.set_lid(localConn.lid);
+  for (int i = 0; i < 16; ++i) {
+    connRequest.add_gid(localConn.gid[i]);
+  }
+  connRequest.set_psn(localConn.ud.psn);
+
+  Any sendAny;
+  sendAny.PackFrom(connRequest);
+  Any rcvAny;
+
+  if (!client->send(&sendAny, &rcvAny)) {
+    return false;
+  }
+
+  uint64_t serverConnKey;
+  if (rcvAny.Is<RDMAConnResponse>()) {
+    RDMAConnResponse connResponse;
+    rcvAny.UnpackTo(&connResponse);
+
+    struct ib_conn_t remoteConn;
+    remoteConn.buffer = connResponse.buffer();
+    remoteConn.rc.rkey = connResponse.rkey();
+    remoteConn.qp_num = connResponse.qp_num();
+    remoteConn.lid = connResponse.lid();
+    remoteConn.ud.psn = connResponse.psn();
+    for (int i = 0; i < 16; ++i) {
+      remoteConn.gid[i] = connResponse.gid(i);
+    }
+
+    RDMA_API_T::setRemoteConnData(nodeID, remoteConn);
+  } else {
+    Logging::debug(__FILE__, __LINE__,
+                   "An Error occurred while exchanging QP info");
+    return false;
+  }
+
+  //connect QPs
+  if (!RDMA_API_T::connectQP(nodeID)) {
+    return false;
+  }
+
+  Logging::debug(__FILE__, __LINE__, "RDMAClient: connected to server!");
+
+  if(nodeID >= m_nodeIDsConnection.size() ){
+      m_nodeIDsConnection.resize(nodeID+1);
+      m_nodeIDsConnection[nodeID] = connection;
+      
+  }else{
+      m_nodeIDsConnection[nodeID] = connection;
+  }
+  return true;
+}
+
+
+
+protected:
   //check if client is connected to data node
-  inline bool isConnected(const string& connection) {
-    if (m_clients.count(connection) != 0) {
+  inline bool isConnected(const string &connection)
+  {
+    if (m_clients.count(connection) != 0)
+    {
       return true;
     }
     return false;
   }
 
-  RDMAManager* m_rdmaManager;
-  unordered_map<string, ProtoClient*> m_clients;
-  unordered_map<string, ib_addr_t> m_addr;
-  unordered_map<string, ib_addr_t> m_mgmt_addr;
-  unordered_map<string, ib_addr_t> m_mcast_addr;
+  unordered_map<string, ProtoClient *> m_clients;
+  unordered_map<string, NodeID> m_mcast_addr;
 
-  // Mapping from nodeID to ibaddr
-  vector<ib_addr_t> m_nodeIDsIBaddr;
+  //Mapping from NodeID to IPs
   vector<string> m_nodeIDsConnection;
-  vector<size_t> m_countWR;
-
 };
-}
+} // namespace rdma
 
 #endif /* RDMAClient_H_ */
