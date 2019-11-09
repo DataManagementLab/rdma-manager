@@ -104,7 +104,7 @@ rdma::RemoteMemoryPerf::~RemoteMemoryPerf() {
 }
 
 void rdma::RemoteMemoryPerf::runServer() {
-	m_dServer = new RDMAServer(m_serverPort);
+	m_dServer = new RDMAServer<ReliableRDMA>("test", m_serverPort);
 	if (!m_dServer->startServer()) {
 		throw invalid_argument("RemoteMemoryPerf could not start server!");
 	}

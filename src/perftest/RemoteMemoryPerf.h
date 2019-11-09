@@ -10,6 +10,8 @@
 
 #include "../utils/Config.h"
 #include "../utils/StringHelper.h"
+#include "../utils/Network.h"
+#include "../message/MessageErrors.h"
 #include "../thread/Thread.h"
 #include "../rdma/RDMAClient.h"
 #include "../rdma/RDMAServer.h"
@@ -34,7 +36,7 @@ public:
 
 private:
 	bool m_ready = false;
-	RDMAClient m_client;
+	RDMAClient<ReliableRDMA> m_client;
 	void* m_data;
 	size_t m_size;
 	size_t m_iter;
@@ -88,7 +90,7 @@ private:
 
 	vector<RemoteMemoryPerfThread*> m_threads;
 
-	RDMAServer* m_dServer;
+	RDMAServer<ReliableRDMA>* m_dServer;
 };
 
 }
