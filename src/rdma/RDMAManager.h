@@ -103,22 +103,9 @@ class RDMAManager {
     // constructors and destructor
     RDMAManager(size_t mem_size);
 
-    virtual ~RDMAManager() {
-    }
+    virtual ~RDMAManager();
 
     // unicast transfer methods
-    virtual bool remoteWrite(struct ib_addr_t& ibAddr, size_t offset, const void* memAddr,
-                             size_t size, bool signaled) = 0;
-    virtual bool remoteRead(struct ib_addr_t& ibAddr, size_t offset, const void* memAddr,
-                            size_t size, bool signaled) = 0;
-    virtual bool requestRead(struct ib_addr_t& ibAddr, size_t offset, const void* memAddr,
-                             size_t size) = 0;
-    virtual bool remoteFetchAndAdd(struct ib_addr_t& ibAddr, size_t offset, const void* memAddr,
-                                   size_t size, bool signaled) = 0;
-    virtual bool remoteFetchAndAdd(struct ib_addr_t& ibAddr, size_t offset, const void* memAddr, size_t value_to_add,
-                                       size_t size, bool signaled) = 0;
-    virtual bool remoteCompareAndSwap(struct ib_addr_t& ibAddr, size_t offset, const void* memAddr,
-                                      int toCompare, int toSwap, size_t size, bool signaled) = 0;
     virtual bool send(struct ib_addr_t& ibAddr, const void* memAddr, size_t size,
                       bool signaled) = 0;
     virtual bool receive(struct ib_addr_t& ibAddr, const void* memAddr, size_t size) = 0;
@@ -129,40 +116,10 @@ class RDMAManager {
         return false;
     }
 
-    //srq
-    virtual bool receive(size_t srq_id, const void* memAddr, size_t size) {
-        (void) srq_id;
-        (void) memAddr;
-        (void) size;
-        return false;
-    };
-    virtual bool pollReceive(size_t srq_id, ib_addr_t& ret_qp_num, bool& doPoll) {
-        (void) srq_id;
-        (void) ret_qp_num;
-        (void) doPoll;
-        return false;
-    };
-    virtual bool pollReceiveBatch(size_t srq_id, size_t &num_completed, bool& doPoll) {
-        (void) srq_id;
-        (void) num_completed;
-        (void) doPoll;
-        return false;
-    };
-    virtual bool createSharedReceiveQueue(size_t& ret_srq_id) {
-        (void) ret_srq_id;
-        return false;
-    };
-    //srq
-
     virtual bool pollSend(struct ib_addr_t& ibAddr, bool doPoll = true) = 0;
 
     // unicast connection management
     virtual bool initQP(struct ib_addr_t& reIbAddr, bool isMgmtQP = false) = 0;
-    virtual bool initQP(size_t srq_id, struct ib_addr_t& reIbAddr) {
-        (void) reIbAddr;
-        (void) srq_id;
-        return false;
-    };
 
     virtual bool connectQP(struct ib_addr_t& ibAddr) = 0;
 
@@ -178,21 +135,7 @@ class RDMAManager {
         return m_rconns[ibAddr.conn_key];
     }
 
-    void setRemoteConnData(ib_addr_t& ibAddr, ib_conn_t& conn) {
-        size_t connKey = ibAddr.conn_key;
-        if (m_rconns.size() < connKey + 1) {
-            m_rconns.resize(connKey + 1);
-        }
-        m_rconns[connKey] = conn;
-    }
-
-    // multicast transfer methods
-    virtual bool joinMCastGroup(string mCastAddress, struct ib_addr_t& retIbAddr) = 0;
-    virtual bool leaveMCastGroup(struct ib_addr_t ibAddr) = 0;
-    virtual bool sendMCast(struct ib_addr_t ibAddr, const void* memAddr, size_t size,
-                           bool signaled) = 0;
-    virtual bool receiveMCast(struct ib_addr_t ibAddr, const void* memAddr, size_t size) = 0;
-    virtual bool pollReceiveMCast(struct ib_addr_t ibAddr) = 0;
+    void setRemoteConnData(ib_addr_t& ibAddr, ib_conn_t& conn);
 
     // memory management
     virtual void* localAlloc(const size_t& size) = 0;
@@ -211,206 +154,40 @@ class RDMAManager {
 
     void* getOffsetToPtr(size_t offset) {
         //check if already allocated
-
-            return (void*) ((char*) m_res.buffer + offset);
+        return (void*) ((char*) m_res.buffer + offset);
     }
 
     size_t getBufferSize() {
         return m_memSize;
     }
 
-    void printBuffer() {
-        auto listIter = m_rdmaMem.begin();
-        for (; listIter != m_rdmaMem.end(); ++listIter) {
-            Logging::debug(
-                    __FILE__,
-                    __LINE__,
-                    "offset=" + to_string((*listIter).offset) + "," + "size="
-                            + to_string((*listIter).size) + "," + "free="
-                            + to_string((*listIter).free));
-        }
-        Logging::debug(__FILE__, __LINE__, "---------");
-    }
+    void printBuffer();
 
-    inline uint64_t getConnKey(const uint64_t& qp_num) {
+
+    uint64_t getConnKey(const uint64_t& qp_num) {
         return m_qpNum2connKey[qp_num];
     }
 
-    /*
-     * Restore Memory from snapshot
-     * memory needs to be in a clean state
-     * ToDO: faster implementation
-     */
-    inline bool restoreMemStateSnapShot(const unordered_map<size_t, rdma_mem_t>& usedMemory,
-                                        vector<size_t>& sortedOffsets) {
-
-        auto& off = sortedOffsets;
-        Logging::debug(__FILE__, __LINE__, "restoreMemStateSnapShot: Snapshot restoring");
-
-        m_usedRdmaMem.insert(usedMemory.begin(), usedMemory.end());
-        // restore free state
-        m_rdmaMem.clear();
-        // loop counter
-        size_t i = 0;
-        // check begin
-        if (off.front() != 0) {
-            rdma_mem_t firstFree(off.front(), true, 0);
-            m_rdmaMem.push_back(firstFree);
-            i = 1;
-        }
-
-        // check all elements between 0/1 and last ele
-        for (; i < off.size() - 1; i++) {
-            auto mem = m_usedRdmaMem.at(off[i]);
-            if ((off[i + 1] - (off[i] + mem.size)) > 0) {
-                rdma_mem_t free(off[i + 1] - (off[i] + mem.size), true, off[i] + mem.size);
-                m_rdmaMem.push_back(free);
-            }
-        }
-
-        //check  last element
-        {
-            auto mem = m_usedRdmaMem.at(off.back());
-            if ((off.back() + mem.size) != Config::RDMA_MEMSIZE) {
-                rdma_mem_t last(Config::RDMA_MEMSIZE - (off.back() + mem.size), true,
-                                off.back() + mem.size);
-                m_rdmaMem.push_back(last);
-            }
-        }
-
-        return true;
-    }
 
  protected:
-    void destroyManager();
     virtual void destroyQPs()=0;
 
 // memory management
     bool createBuffer();
 
-    inline bool mergeFreeMem(list<rdma_mem_t>::iterator& iter) {
-        size_t freeSpace = (*iter).size;
-        size_t offset = (*iter).offset;
-        size_t size = (*iter).size;
+    bool mergeFreeMem(list<rdma_mem_t>::iterator& iter);
 
-        // start with the prev
-        if (iter != m_rdmaMem.begin()) {
-            --iter;
-            if (iter->offset + iter->size == offset) {
-                //increase mem of prev
-                freeSpace += iter->size;
-                (*iter).size = freeSpace;
+    rdma_mem_t internalAlloc(const size_t& size);
 
-                //delete hand-in el
-                iter++;
-                iter = m_rdmaMem.erase(iter);
-                iter--;
-            } else {
-                //adjust iter to point to hand-in el
-                iter++;
-            }
+    bool internalFree(const size_t& offset);
 
-        }
-        // now check following
-        ++iter;
-        if (iter != m_rdmaMem.end()) {
-            if (offset + size == iter->offset) {
-                freeSpace += iter->size;
-
-                //delete following
-                iter = m_rdmaMem.erase(iter);
-
-                //go to previous and extend
-                --iter;
-                (*iter).size = freeSpace;
-            }
-        }
-        Logging::debug(
-                __FILE__,
-                __LINE__,
-                "Merged consecutive free RDMA memory regions, total free space: "
-                        + to_string(freeSpace));
-        return true;
-    }
-
-    inline rdma_mem_t internalAlloc(const size_t& size) {
-        auto listIter = m_rdmaMem.begin();
-        for (; listIter != m_rdmaMem.end(); ++listIter) {
-            rdma_mem_t memRes = *listIter;
-            if (memRes.free && memRes.size >= size) {
-                rdma_mem_t memResUsed(size, false, memRes.offset);
-                m_usedRdmaMem[memRes.offset] = memResUsed;
-
-                if (memRes.size > size) {
-                    rdma_mem_t memResFree(memRes.size - size, true, memRes.offset + size);
-                    m_rdmaMem.insert(listIter, memResFree);
-                }
-                m_rdmaMem.erase(listIter);
-                //printMem();
-                return memResUsed;
-            }
-        }
-        //printMem();
-        return rdma_mem_t();  //nullptr
-    }
-
-    inline bool internalFree(const size_t& offset) {
-        size_t lastOffset = 0;
-        rdma_mem_t memResFree = m_usedRdmaMem[offset];
-        m_usedRdmaMem.erase(offset);
-
-        // lookup the memory region that was assigned to this pointer
-        auto listIter = m_rdmaMem.begin();
-        if (listIter != m_rdmaMem.end()) {
-            for (; listIter != m_rdmaMem.end(); listIter++) {
-                rdma_mem_t& memRes = *(listIter);
-                if (lastOffset <= offset && offset < memRes.offset) {
-                    memResFree.free = true;
-                    m_rdmaMem.insert(listIter, memResFree);
-                    listIter--;
-                    Logging::debug(__FILE__, __LINE__, "Freed reserved local memory");
-                    //printMem();
-                    mergeFreeMem(listIter);
-                    //printMem();
-
-                    return true;
-
-                }
-                lastOffset += memRes.offset;
-            }
-        } else {
-            memResFree.free = true;
-            m_rdmaMem.insert(listIter, memResFree);
-            Logging::debug(__FILE__, __LINE__, "Freed reserved local memory");
-            //printMem();
-            return true;
-
-        }
-        //printMem();
-        return false;
-    }
-
-// RDMA operations
-    inline uint64_t nextConnKey() {
+    uint64_t nextConnKey() {
         return m_lastConnKey++;
     }
 
-    inline void setQP(ib_addr_t& ibAddr, ib_qp_t& qp) {
-        size_t connKey = ibAddr.conn_key;
-        if (m_qps.size() < connKey + 1) {
-            m_qps.resize(connKey + 1);
-        }
-        m_qps[connKey] = qp;
-        m_qpNum2connKey[qp.qp->qp_num] = connKey;
-    }
+    void setQP(ib_addr_t& ibAddr, ib_qp_t& qp);
 
-    inline void setLocalConnData(ib_addr_t& ibAddr, ib_conn_t& conn) {
-        size_t connKey = ibAddr.conn_key;
-        if (m_lconns.size() < connKey + 1) {
-            m_lconns.resize(connKey + 1);
-        }
-        m_lconns[connKey] = conn;
-    }
+    void setLocalConnData(ib_addr_t& ibAddr, ib_conn_t& conn);
 
     bool createCQ(ibv_cq*& send_cq, ibv_cq*& rcv_cq);
     bool destroyCQ(ibv_cq*& send_cq, ibv_cq*& rcv_cq);

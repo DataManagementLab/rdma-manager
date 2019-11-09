@@ -44,38 +44,6 @@ class RDMAClient {
   bool remoteFree(const NodeID nodeID, const size_t size, const size_t offset);
   void* getBuffer(const size_t offset = 0);
 
-  // one-sided
-  // ip interface
-  // bool write(const string& connection, size_t remoteOffset, void* localData,
-  //            size_t size, bool signaled);
-  // bool read(const string& connection, size_t remoteOffset, void* localData,
-  //           size_t size, bool signaled);
-  // bool requestRead(const string& connection, size_t remoteOffset,
-  //                  void* localData, size_t size);
-
-  // bool fetchAndAdd(const string& connection, size_t remoteOffset,
-  //                  void* localData, size_t size, bool signaled);
-
-  // bool fetchAndAdd(const string& connection, size_t remoteOffset,
-  //                  void* localData, size_t value_to_add ,size_t size, bool signaled);
-
-  // bool compareAndSwap(const string& connection, size_t remoteOffset,
-  //                     void* localData, int toCompare, int toSwap, size_t size,
-  //                     bool signaled);
-
-  // ib_addr_t interface
-  // bool write(ib_addr_t& ibAddr, size_t remoteOffset, void* localData,
-  //            size_t size, bool signaled);
-  // bool requestRead(ib_addr_t& ibAddr, size_t remoteOffset, void* localData,
-  //                  size_t size);
-  // bool read(ib_addr_t& ibAddr, size_t remoteOffset, void* localData,
-  //           size_t size, bool signaled);
-  // bool fetchAndAdd(ib_addr_t& ibAddr, size_t remoteOffset, void* localData,
-  //                  size_t size, bool signaled);
-  // bool compareAndSwap(ib_addr_t& ibAddr, size_t remoteOffset, void* localData,
-  //                     int toCompare, int toSwap, size_t size, bool signaled);
-
-
   //onesided
   // nodeid interface
   bool fetchAndAdd(const NodeID& nodeid, size_t remoteOffset,

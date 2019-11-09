@@ -14,7 +14,8 @@ using namespace rdma;
 
 rdma_mem_t RDMAManager::s_nillmem;
 
-/********** constructor and destructor **********/
+
+//------------------------------------------------------------------------------------//
 
 RDMAManager::RDMAManager(size_t mem_size)
 {
@@ -32,9 +33,10 @@ RDMAManager::RDMAManager(size_t mem_size)
   }
 }
 
-void RDMAManager::destroyManager()
-{
-  // destroy QPS
+//------------------------------------------------------------------------------------//
+
+RDMAManager::~RDMAManager(){
+    // destroy QPS
   destroyQPs();
   m_qps.clear();
 
@@ -71,7 +73,7 @@ void RDMAManager::destroyManager()
   }
 }
 
-/********** private methods **********/
+//------------------------------------------------------------------------------------//
 bool RDMAManager::createBuffer()
 {
   //Logging::debug(__FILE__, __LINE__, "Create memory region");
@@ -147,6 +149,8 @@ bool RDMAManager::createBuffer()
   return true;
 }
 
+//------------------------------------------------------------------------------------//
+
 bool RDMAManager::createCQ(ibv_cq *&send_cq, ibv_cq *&rcv_cq)
 {
   //send queue
@@ -168,6 +172,9 @@ bool RDMAManager::createCQ(ibv_cq *&send_cq, ibv_cq *&rcv_cq)
   Logging::debug(__FILE__, __LINE__, "Created send and receive CQs!");
   return true;
 }
+
+
+//------------------------------------------------------------------------------------//
 
 bool RDMAManager::destroyCQ(ibv_cq *&send_cq, ibv_cq *&rcv_cq)
 {
@@ -191,3 +198,157 @@ bool RDMAManager::destroyCQ(ibv_cq *&send_cq, ibv_cq *&rcv_cq)
   
   return true;
 }
+
+//------------------------------------------------------------------------------------//
+
+    void RDMAManager::setQP(ib_addr_t& ibAddr, ib_qp_t& qp) {
+        size_t connKey = ibAddr.conn_key;
+        if (m_qps.size() < connKey + 1) {
+            m_qps.resize(connKey + 1);
+        }
+        m_qps[connKey] = qp;
+        m_qpNum2connKey[qp.qp->qp_num] = connKey;
+    }
+
+//------------------------------------------------------------------------------------//
+
+    void RDMAManager::setLocalConnData(ib_addr_t& ibAddr, ib_conn_t& conn) {
+        size_t connKey = ibAddr.conn_key;
+        if (m_lconns.size() < connKey + 1) {
+            m_lconns.resize(connKey + 1);
+        }
+        m_lconns[connKey] = conn;
+    }
+
+//------------------------------------------------------------------------------------//
+
+    bool RDMAManager::internalFree(const size_t& offset) {
+        size_t lastOffset = 0;
+        rdma_mem_t memResFree = m_usedRdmaMem[offset];
+        m_usedRdmaMem.erase(offset);
+
+        // lookup the memory region that was assigned to this pointer
+        auto listIter = m_rdmaMem.begin();
+        if (listIter != m_rdmaMem.end()) {
+            for (; listIter != m_rdmaMem.end(); listIter++) {
+                rdma_mem_t& memRes = *(listIter);
+                if (lastOffset <= offset && offset < memRes.offset) {
+                    memResFree.free = true;
+                    m_rdmaMem.insert(listIter, memResFree);
+                    listIter--;
+                    Logging::debug(__FILE__, __LINE__, "Freed reserved local memory");
+                    //printMem();
+                    mergeFreeMem(listIter);
+                    //printMem();
+
+                    return true;
+
+                }
+                lastOffset += memRes.offset;
+            }
+        } else {
+            memResFree.free = true;
+            m_rdmaMem.insert(listIter, memResFree);
+            Logging::debug(__FILE__, __LINE__, "Freed reserved local memory");
+            //printMem();
+            return true;
+
+        }
+        //printMem();
+        return false;
+    }
+
+//------------------------------------------------------------------------------------//
+
+    rdma_mem_t RDMAManager::internalAlloc(const size_t& size) {
+        auto listIter = m_rdmaMem.begin();
+        for (; listIter != m_rdmaMem.end(); ++listIter) {
+            rdma_mem_t memRes = *listIter;
+            if (memRes.free && memRes.size >= size) {
+                rdma_mem_t memResUsed(size, false, memRes.offset);
+                m_usedRdmaMem[memRes.offset] = memResUsed;
+
+                if (memRes.size > size) {
+                    rdma_mem_t memResFree(memRes.size - size, true, memRes.offset + size);
+                    m_rdmaMem.insert(listIter, memResFree);
+                }
+                m_rdmaMem.erase(listIter);
+                //printMem();
+                return memResUsed;
+            }
+        }
+        //printMem();
+        return rdma_mem_t();  //nullptr
+    }
+
+//------------------------------------------------------------------------------------//
+
+        bool RDMAManager::mergeFreeMem(list<rdma_mem_t>::iterator& iter) {
+        size_t freeSpace = (*iter).size;
+        size_t offset = (*iter).offset;
+        size_t size = (*iter).size;
+
+        // start with the prev
+        if (iter != m_rdmaMem.begin()) {
+            --iter;
+            if (iter->offset + iter->size == offset) {
+                //increase mem of prev
+                freeSpace += iter->size;
+                (*iter).size = freeSpace;
+
+                //delete hand-in el
+                iter++;
+                iter = m_rdmaMem.erase(iter);
+                iter--;
+            } else {
+                //adjust iter to point to hand-in el
+                iter++;
+            }
+
+        }
+        // now check following
+        ++iter;
+        if (iter != m_rdmaMem.end()) {
+            if (offset + size == iter->offset) {
+                freeSpace += iter->size;
+
+                //delete following
+                iter = m_rdmaMem.erase(iter);
+
+                //go to previous and extend
+                --iter;
+                (*iter).size = freeSpace;
+            }
+        }
+        Logging::debug(
+                __FILE__,
+                __LINE__,
+                "Merged consecutive free RDMA memory regions, total free space: "
+                        + to_string(freeSpace));
+        return true;
+    }
+
+//------------------------------------------------------------------------------------//
+
+    void RDMAManager::printBuffer() {
+        auto listIter = m_rdmaMem.begin();
+        for (; listIter != m_rdmaMem.end(); ++listIter) {
+            Logging::debug(
+                    __FILE__,
+                    __LINE__,
+                    "offset=" + to_string((*listIter).offset) + "," + "size="
+                            + to_string((*listIter).size) + "," + "free="
+                            + to_string((*listIter).free));
+        }
+        Logging::debug(__FILE__, __LINE__, "---------");
+    }
+
+//------------------------------------------------------------------------------------//
+
+        void RDMAManager::setRemoteConnData(ib_addr_t& ibAddr, ib_conn_t& conn) {
+        size_t connKey = ibAddr.conn_key;
+        if (m_rconns.size() < connKey + 1) {
+            m_rconns.resize(connKey + 1);
+        }
+        m_rconns[connKey] = conn;
+    }
