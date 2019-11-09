@@ -1,39 +1,29 @@
-/**
- * @file ProtoClient.h
- * @author cbinnig, tziegler
- * @date 2018-08-17
- */
+#pragma once
 
-
-
-#ifndef NET_PROTOCLIENT_H
-#define NET_PROTOCLIENT_H
-
-#include "../utils/Config.h"
-#include "../utils/Logging.h"
 #include "../message/MessageTypes.h"
-#include "ProtoSocket.h"
+#include "../utils/Config.h"
+#include "ProtoSendSocket.h"
 
-using google::protobuf::Any;
 namespace rdma {
 
 class ProtoClient {
  public:
-  ProtoClient(string address, int port);
-  virtual ~ProtoClient();
-  bool connect();
-  bool send(Any* sendMsg, Any* recMsg);
+  ProtoClient() = default;
+  ~ProtoClient() {
+    for (auto kv : m_connections) {
+      delete kv.second;
+    }
+    m_connections.clear();
+  }
+  bool connectProto(const string& connection);
+  bool exchangeProtoMsg(std::string ipAndPortString, Any* sendMsg, Any* recMsg);
 
-  int getPort() {
-    return m_port;
+ protected:
+  bool isConnected(std::string ipAndPortString) {
+    return m_connections.find(ipAndPortString) != m_connections.end();
   }
 
- private:
-  string m_address;
-  int m_port;
-  ProtoSocket* m_pSocket;bool m_isConnected;
+  unordered_map<string, ProtoSendSocket*> m_connections;
 };
 
-}  // end namespace rdma
-
-#endif /* CLIENT_H_ */
+}  // namespace rdma

@@ -5,9 +5,7 @@
 using namespace rdma;
 
 ProtoSocket::ProtoSocket(string addr, int port, int sockType)
-    : m_sockType(sockType),
-      m_isOpen(false) {
-
+    : m_sockType(sockType), m_isOpen(false) {
   m_pCtx = new zmq::context_t(1, Config::PROTO_MAX_SOCKETS);
 
   m_pSock = new zmq::socket_t(*m_pCtx, m_sockType);
@@ -15,8 +13,7 @@ ProtoSocket::ProtoSocket(string addr, int port, int sockType)
   m_pSock->setsockopt(ZMQ_SNDHWM, &hwm, sizeof(hwm));
   m_pSock->setsockopt(ZMQ_RCVHWM, &hwm, sizeof(hwm));
 
-  if (m_sockType == ZMQ_SUB)
-    m_pSock->setsockopt(ZMQ_SUBSCRIBE, NULL, 0);
+  if (m_sockType == ZMQ_SUB) m_pSock->setsockopt(ZMQ_SUBSCRIBE, NULL, 0);
 
   m_conn = "tcp://" + addr + ":" + to_string(port);
 }
@@ -52,13 +49,10 @@ bool ProtoSocket::connect() {
   return m_isOpen;
 }
 
-bool ProtoSocket::isOpen() {
-  return m_isOpen;
-}
+bool ProtoSocket::isOpen() { return m_isOpen; }
 
 bool ProtoSocket::sendMore(Any* msg) {
-  if (msg == nullptr)
-  return false;
+  if (msg == nullptr) return false;
 
   string* data = new string();
   if (!msg->SerializeToString(data)) {
@@ -77,8 +71,7 @@ bool ProtoSocket::sendMore(Any* msg) {
 }
 
 bool ProtoSocket::send(Any* msg) {
-  if (msg == nullptr)
-  return false;
+  if (msg == nullptr) return false;
 
   string* data = new string();
   if (!msg->SerializeToString(data)) {
@@ -92,7 +85,7 @@ bool ProtoSocket::send(Any* msg) {
   bool send = false;
   try {
     send = m_pSock->send(zmsg);
-  } catch (zmq::error_t & e) {
+  } catch (zmq::error_t& e) {
     Logging::error(__FILE__, __LINE__, e.what());
   }
 
@@ -102,14 +95,13 @@ bool ProtoSocket::send(Any* msg) {
 }
 
 bool ProtoSocket::receive(Any* msg) {
-  if (msg == nullptr)
-  return false;
+  if (msg == nullptr) return false;
 
   zmq::message_t zmsg;
   bool recv = false;
   try {
     recv = m_pSock->recv(&zmsg);
-  } catch (zmq::error_t & e) {
+  } catch (zmq::error_t& e) {
     // recv() throws ETERM when the zmq context is destroyed
     // http://stackoverflow.com/questions/18811146/zmq-recv-is-blocking-even-after-the-context-was-terminated
     if (e.num() != ETERM) {
@@ -121,7 +113,7 @@ bool ProtoSocket::receive(Any* msg) {
   }
 
   if (recv) {
-    char *data = (char *) zmsg.data();
+    char* data = (char*)zmsg.data();
     recv = msg->ParseFromArray(data, zmsg.size());
   }
 
@@ -135,7 +127,7 @@ bool ProtoSocket::close() {
     m_pSock = nullptr;
     m_isOpen = false;
     return true;
-  } catch (zmq::error_t & e) {
+  } catch (zmq::error_t& e) {
     Logging::error(__FILE__, __LINE__, e.what());
   }
 
@@ -147,7 +139,7 @@ bool ProtoSocket::closeContext() {
     delete m_pCtx;
     m_pCtx = nullptr;
     return true;
-  } catch (zmq::error_t & e) {
+  } catch (zmq::error_t& e) {
     Logging::error(__FILE__, __LINE__, e.what());
   }
 

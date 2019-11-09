@@ -42,7 +42,7 @@ public:
     return anyMessage;
   }
 
-  static Any createMemoryResourceRequest(size_t size, string &name,
+  static Any createMemoryResourceRequest(size_t size, std::string &name,
                                          bool persistent)
   {
     MemoryResourceRequest resReq;

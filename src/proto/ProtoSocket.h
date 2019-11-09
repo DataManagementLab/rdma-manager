@@ -9,13 +9,13 @@
 
 #include "../utils/Config.h"
 
+#include <unistd.h>
 #include <cstring>
 #include <string>
-#include <unistd.h>
 
-#include "zmq.hpp"
 #include "../message/MessageTypes.h"
 #include "../utils/Logging.h"
+#include "zmq.hpp"
 
 using google::protobuf::Any;
 
@@ -47,7 +47,8 @@ class ProtoSocket {
   zmq::context_t* m_pCtx;
 
   string m_conn;
-  int m_sockType;bool m_isOpen;
+  int m_sockType;
+  bool m_isOpen;
   zmq::socket_t* m_pSock;
 };
 
