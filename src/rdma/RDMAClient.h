@@ -23,6 +23,7 @@ class RDMAClient : public RDMA_API_T, public ProtoClient {
  public:
   RDMAClient() : RDMAClient(Config::RDMA_MEMSIZE) {}
   RDMAClient(size_t mem_size) : RDMA_API_T(mem_size) {}
+  RDMAClient(size_t mem_size, NodeID ownNodeID) : RDMA_API_T(mem_size), ownNodeID(ownNodeID) {}
 
   ~RDMAClient() {}
 
@@ -121,6 +122,7 @@ class RDMAClient : public RDMA_API_T, public ProtoClient {
       connRequest.add_gid(localConn.gid[i]);
     }
     connRequest.set_psn(localConn.ud.psn);
+    connRequest.set_nodeid(nodeID);
 
     Any sendAny;
     sendAny.PackFrom(connRequest);
@@ -170,7 +172,7 @@ class RDMAClient : public RDMA_API_T, public ProtoClient {
 
  protected:
   unordered_map<string, NodeID> m_mcast_addr;
-
+  NodeID ownNodeID;
   // Mapping from NodeID to IPs
   vector<string> m_nodeIDsConnection;
 };
