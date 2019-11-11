@@ -150,8 +150,11 @@ class BaseRDMA {
 
   inline void __attribute__((always_inline))
   checkSignaled(bool &signaled, rdmaConnID rdmaConnID) {
-    if (signaled) return;
-
+    if (signaled) 
+    {
+      m_countWR[rdmaConnID] = 0;
+      return;
+    }
     ++m_countWR[rdmaConnID];
     if (m_countWR[rdmaConnID] == Config::RDMA_MAX_WR) {
       signaled = true;

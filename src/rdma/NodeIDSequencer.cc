@@ -20,7 +20,6 @@ NodeID NodeIDSequencer::getNextNodeID()
 void NodeIDSequencer::handle(Any *anyReq, Any *anyResp)
 {
   if (anyReq->Is<NodeIDRequest>()) {
-    std::cout << "NodeIDRequest" << std::endl;
     NodeIDResponse connResp;
     NodeIDRequest connReq;
     anyReq->UnpackTo(&connReq);
@@ -31,12 +30,9 @@ void NodeIDSequencer::handle(Any *anyReq, Any *anyResp)
     
     NodeEntry_t entry{IP, name, newNodeID, nodeType};
     m_entries.emplace_back(entry);
-    std::cout << "IP: " << IP << "newNodeID " << newNodeID << " nodeType: " << nodeType << std::endl;
-    std::cout << "m_entries[newNodeID].nodeID " << m_entries[newNodeID].nodeID << std::endl;
 
     if (nodeType == NodeType::Enum::SERVER)
     {
-      std::cout << "IP: " << IP << " added to m_ipPortToNodeIDMapping "<< std::endl;
       m_ipPortToNodeIDMapping[IP] = newNodeID;
     }
     connResp.set_nodeid(newNodeID);
@@ -64,7 +60,6 @@ void NodeIDSequencer::handle(Any *anyReq, Any *anyResp)
   }
   else if (anyReq->Is<GetNodeIDForIpPortRequest>())
   {
-    std::cout << "GetNodeIDForIpPortRequest" << std::endl;
     GetNodeIDForIpPortResponse connResp;
     GetNodeIDForIpPortRequest connReq;
     anyReq->UnpackTo(&connReq);
@@ -74,7 +69,6 @@ void NodeIDSequencer::handle(Any *anyReq, Any *anyResp)
     if (m_ipPortToNodeIDMapping.find(ipPort) != m_ipPortToNodeIDMapping.end())
     {
       NodeID nodeId = m_ipPortToNodeIDMapping[ipPort];
-      std::cout << "Found NodeId " << nodeId << " for " << ipPort << std::endl;
       auto entry = m_entries[nodeId];
       connResp.set_ip(entry.IP);
       connResp.set_name(entry.name);
@@ -84,8 +78,6 @@ void NodeIDSequencer::handle(Any *anyReq, Any *anyResp)
     }
     else
     {
-      std::cout << "NOT Found NodeId " << ipPort << std::endl;
-
       connResp.set_return_(MessageErrors::NODEID_NOT_FOUND);
     }
     anyResp->PackFrom(connResp);

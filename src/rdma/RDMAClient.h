@@ -114,7 +114,6 @@ class RDMAClient : public RDMA_API_T, public ProtoClient {
         auto getNodeIdReq = ProtoMessageFactory::createGetNodeIDForIpPortRequest(ipPort);
 
         Any rcvAny;
-        std::cout << "Sending getNodeIdReq" << std::endl;
         ProtoClient::exchangeProtoMsg(m_sequencerIpPort, &getNodeIdReq, &rcvAny);
 
         if (rcvAny.Is<GetNodeIDForIpPortResponse>()) {
@@ -124,7 +123,6 @@ class RDMAClient : public RDMA_API_T, public ProtoClient {
 
           retServerNodeID = connResponse.node_id();
 
-          std::cout << "retServerNodeID: " << retServerNodeID << std::endl;
 
           if (connResponse.ip() != ipPort)
           {

@@ -155,7 +155,6 @@ void BaseRDMA::destroyCQ(ibv_cq *&send_cq, ibv_cq *&rcv_cq) {
 //------------------------------------------------------------------------------------//
 
 void BaseRDMA::setQP(const rdmaConnID rdmaConnID, ib_qp_t &qp) {
-  std::cout << "Resizing m_qps nodeid: " << rdmaConnID << std::endl;
   if (m_qps.size() < rdmaConnID + 1) {
     m_qps.resize(rdmaConnID + 1);
     m_countWR.resize(rdmaConnID + 1);

@@ -138,7 +138,6 @@ class RDMAServer : public ProtoServer, public ProtoClient, public RDMA_API_T {
 
     // create local QP
     NodeID nodeID = connRequest->nodeid();
-    std::cout << "RDMAServer godt client nodeid " << nodeID << std::endl;
 
     // Check if SRQ is active
     try
