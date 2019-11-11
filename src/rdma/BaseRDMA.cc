@@ -1,7 +1,7 @@
 
 
 #include "BaseRDMA.h"
-#include "../message/MessageTypes.h"
+#include "../message/ProtoMessageFactory.h"
 #include "../utils/Logging.h"
 #include "ReliableRDMA.h"
 #include "UnreliableRDMA.h"
@@ -25,9 +25,7 @@ BaseRDMA::BaseRDMA(size_t mem_size) {
   m_rdmaMem.push_back(rdma_mem_t(m_memSize, true, 0));
   m_lastConnKey = 0;
 
-  if (!createBuffer()) {
-    throw invalid_argument("RDMA buffer could not be created!");
-  }
+  createBuffer();
 }
 
 //------------------------------------------------------------------------------------//
@@ -63,7 +61,7 @@ BaseRDMA::~BaseRDMA() {
 }
 
 //------------------------------------------------------------------------------------//
-bool BaseRDMA::createBuffer() {
+void BaseRDMA::createBuffer() {
   // Logging::debug(__FILE__, __LINE__, "Create memory region");
 
   struct ibv_device **dev_list = nullptr;
@@ -72,14 +70,12 @@ bool BaseRDMA::createBuffer() {
 
   // get devices
   if ((dev_list = ibv_get_device_list(&num_devices)) == nullptr) {
-    Logging::error(__FILE__, __LINE__, "Get device list failed!");
-    return false;
+    throw runtime_error("Get device list failed!");
   }
 
   if (m_rdmaDevice >= num_devices) {
-    Logging::error(__FILE__, __LINE__, "Device not present!");
     ibv_free_device_list(dev_list);
-    return false;
+    throw runtime_error("Device not present!");
   }
 
   ib_dev = dev_list[m_rdmaDevice];
@@ -87,14 +83,12 @@ bool BaseRDMA::createBuffer() {
 
   // open device
   if (!(m_res.ib_ctx = ibv_open_device(ib_dev))) {
-    Logging::error(__FILE__, __LINE__, "Open device failed");
-    return false;
+    throw runtime_error("Open device failed!");
   }
 
   // get port properties
   if ((errno = ibv_query_port(m_res.ib_ctx, m_ibPort, &m_res.port_attr)) != 0) {
-    Logging::error(__FILE__, __LINE__, "Query port failed");
-    return false;
+    throw runtime_error("Query port failed");
   }
 
 // allocate memory
@@ -105,17 +99,13 @@ bool BaseRDMA::createBuffer() {
 #endif
   memset(m_res.buffer, 0, m_memSize);
   if (m_res.buffer == 0) {
-    Logging::error(
-        __FILE__, __LINE__,
-        "Cannot allocate memory! Requested size: " + to_string(m_memSize));
-    return false;
+    throw runtime_error("Cannot allocate memory! Requested size: " + to_string(m_memSize));
   }
 
   // create protected domain
   m_res.pd = ibv_alloc_pd(m_res.ib_ctx);
   if (m_res.pd == 0) {
-    Logging::error(__FILE__, __LINE__, "Cannot create protected domain!");
-    return false;
+    throw runtime_error("Cannot create protected domain!");
   }
 
   // register memory
@@ -124,44 +114,32 @@ bool BaseRDMA::createBuffer() {
 
   m_res.mr = ibv_reg_mr(m_res.pd, m_res.buffer, m_memSize, mr_flags);
   if (m_res.mr == 0) {
-    Logging::error(__FILE__, __LINE__, "Cannot register memory!");
-    return false;
+    throw runtime_error("Cannot register memory!");
   }
-
-  // Logging:debug(__FILE__, __LINE__, "Created memory region!");
-
-  return true;
 }
 
 //------------------------------------------------------------------------------------//
 
-bool BaseRDMA::createCQ(ibv_cq *&send_cq, ibv_cq *&rcv_cq) {
+void BaseRDMA::createCQ(ibv_cq *&send_cq, ibv_cq *&rcv_cq) {
   // send queue
-  if (!(send_cq = ibv_create_cq(m_res.ib_ctx, Config::RDMA_MAX_WR + 1, nullptr,
-                                nullptr, 0))) {
-    Logging::error(__FILE__, __LINE__, "Cannot create send CQ!");
-    return false;
+  if (!(send_cq = ibv_create_cq(m_res.ib_ctx, Config::RDMA_MAX_WR + 1, nullptr, nullptr, 0))) {
+    throw runtime_error("Cannot create send CQ!");
   }
 
   // receive queue
-  if (!(rcv_cq = ibv_create_cq(m_res.ib_ctx, Config::RDMA_MAX_WR + 1, nullptr,
-                               nullptr, 0))) {
-    Logging::error(__FILE__, __LINE__, "Cannot create receive CQ!");
-    return false;
+  if (!(rcv_cq = ibv_create_cq(m_res.ib_ctx, Config::RDMA_MAX_WR + 1, nullptr, nullptr, 0))) {
+    throw runtime_error("Cannot create receive CQ!");
   }
 
   Logging::debug(__FILE__, __LINE__, "Created send and receive CQs!");
-  return true;
 }
 
 //------------------------------------------------------------------------------------//
 
-bool BaseRDMA::destroyCQ(ibv_cq *&send_cq, ibv_cq *&rcv_cq) {
+void BaseRDMA::destroyCQ(ibv_cq *&send_cq, ibv_cq *&rcv_cq) {
   auto err = ibv_destroy_cq(send_cq);
   if (err != 0) {
-    Logging::error(__FILE__, __LINE__,
-                   "Cannot delete send CQ. errno: " + to_string(err));
-    return false;
+    throw runtime_error("Cannot delete send CQ. errno: " + to_string(err));
   }
 
   err = ibv_destroy_cq(rcv_cq);
@@ -170,17 +148,14 @@ bool BaseRDMA::destroyCQ(ibv_cq *&send_cq, ibv_cq *&rcv_cq) {
         "Could not destroy receive queue in destroyCQ(): One or more Work "
         "Queues is still associated with the CQ");
   } else if (err != 0) {
-    Logging::error(__FILE__, __LINE__,
-                   "Cannot delete receive CQ. errno: " + to_string(err));
-    return false;
+    throw runtime_error("Cannot delete receive CQ. errno: " + to_string(err));
   }
-
-  return true;
 }
 
 //------------------------------------------------------------------------------------//
 
 void BaseRDMA::setQP(const rdmaConnID rdmaConnID, ib_qp_t &qp) {
+  std::cout << "Resizing m_qps nodeid: " << rdmaConnID << std::endl;
   if (m_qps.size() < rdmaConnID + 1) {
     m_qps.resize(rdmaConnID + 1);
     m_countWR.resize(rdmaConnID + 1);
@@ -200,7 +175,7 @@ void BaseRDMA::setLocalConnData(const rdmaConnID rdmaConnID, ib_conn_t &conn) {
 
 //------------------------------------------------------------------------------------//
 
-bool BaseRDMA::internalFree(const size_t &offset) {
+void BaseRDMA::internalFree(const size_t &offset) {
   size_t lastOffset = 0;
   rdma_mem_t memResFree = m_usedRdmaMem[offset];
   m_usedRdmaMem.erase(offset);
@@ -219,7 +194,7 @@ bool BaseRDMA::internalFree(const size_t &offset) {
         mergeFreeMem(listIter);
         // printMem();
 
-        return true;
+        return;
       }
       lastOffset += memRes.offset;
     }
@@ -228,10 +203,10 @@ bool BaseRDMA::internalFree(const size_t &offset) {
     m_rdmaMem.insert(listIter, memResFree);
     Logging::debug(__FILE__, __LINE__, "Freed reserved local memory");
     // printMem();
-    return true;
+    return;
   }
   // printMem();
-  return false;
+  throw runtime_error("Did not free any internal memory!");
 }
 
 //------------------------------------------------------------------------------------//
@@ -259,7 +234,7 @@ rdma_mem_t BaseRDMA::internalAlloc(const size_t &size) {
 
 //------------------------------------------------------------------------------------//
 
-bool BaseRDMA::mergeFreeMem(list<rdma_mem_t>::iterator &iter) {
+void BaseRDMA::mergeFreeMem(list<rdma_mem_t>::iterator &iter) {
   size_t freeSpace = (*iter).size;
   size_t offset = (*iter).offset;
   size_t size = (*iter).size;
@@ -299,7 +274,6 @@ bool BaseRDMA::mergeFreeMem(list<rdma_mem_t>::iterator &iter) {
       __FILE__, __LINE__,
       "Merged consecutive free RDMA memory regions, total free space: " +
           to_string(freeSpace));
-  return true;
 }
 
 //------------------------------------------------------------------------------------//

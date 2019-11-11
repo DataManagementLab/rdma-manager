@@ -13,19 +13,17 @@ bool ProtoClient::connectProto(const std::string& connection) {
   string ipAddr = Network::getAddressOfConnection(connection);
   size_t ipPort = Network::getPortOfConnection(connection);
   ProtoSendSocket* sendSocket = new ProtoSendSocket(ipAddr, ipPort);
-  if (!sendSocket->connect()) {
-    return false;
-  }
+  sendSocket->connect();
   m_connections[connection] = sendSocket;
   return true;
 }
 
 //------------------------------------------------------------------------------------//
 
-bool ProtoClient::exchangeProtoMsg(std::string ipAndPortString, Any* sendMsg,
+void ProtoClient::exchangeProtoMsg(std::string ipAndPortString, Any* sendMsg,
                                    Any* recMsg) {
   auto* sendSocket = m_connections[ipAndPortString];
-  return sendSocket->send(sendMsg, recMsg);
+  sendSocket->send(sendMsg, recMsg);
 }
 
 //------------------------------------------------------------------------------------//

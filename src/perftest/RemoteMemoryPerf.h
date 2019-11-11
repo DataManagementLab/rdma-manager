@@ -17,6 +17,7 @@
 #include "../rdma/RDMAServer.h"
 #include "PerfTest.h"
 
+
 #include <vector>
 #include <mutex>
 #include <condition_variable>
@@ -82,6 +83,7 @@ public:
 	static bool signaled;
 
 private:
+	NodeIDSequencer *m_nodeIDSequencer;
 	vector<string> m_conns;
 	size_t m_serverPort;
 	size_t m_size;

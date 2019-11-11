@@ -36,41 +36,41 @@ class UnreliableRDMA : public BaseRDMA {
   UnreliableRDMA(size_t mem_size = Config::RDMA_MEMSIZE);
   ~UnreliableRDMA();
 
-  bool initQPWithSuppliedID(const rdmaConnID suppliedID) override;
-  bool initQP(rdmaConnID &retRdmaConnID) override;
-  bool connectQP(const rdmaConnID rdmaConnID) override;
+  void initQPWithSuppliedID(const rdmaConnID suppliedID) override;
+  void initQP(rdmaConnID &retRdmaConnID) override;
+  void connectQP(const rdmaConnID rdmaConnID) override;
 
-  bool send(const rdmaConnID rdmaConnID, const void *memAddr, size_t size,
+  void send(const rdmaConnID rdmaConnID, const void *memAddr, size_t size,
             bool signaled) override;
-  bool receive(const rdmaConnID rdmaConnID, const void *memAddr,
+  void receive(const rdmaConnID rdmaConnID, const void *memAddr,
                size_t size) override;
-  bool pollReceive(const rdmaConnID rdmaConnID, bool doPoll) override;
-  bool pollSend(const rdmaConnID rdmaConnID, bool doPoll) override;
+  void pollReceive(const rdmaConnID rdmaConnID, bool doPoll) override;
+  void pollSend(const rdmaConnID rdmaConnID, bool doPoll) override;
 
   void *localAlloc(const size_t &size) override;
-  bool localFree(const void *ptr) override;
-  bool localFree(const size_t &offset) override;
+  void localFree(const void *ptr) override;
+  void localFree(const size_t &offset) override;
 
-  bool joinMCastGroup(string mCastAddress, rdmaConnID &retRdmaConnID);
-  bool leaveMCastGroup(const rdmaConnID rdmaConnID);
-  bool sendMCast(const rdmaConnID rdmaConnID, const void *memAddr, size_t size,
+  void joinMCastGroup(string mCastAddress, rdmaConnID &retRdmaConnID);
+  void leaveMCastGroup(const rdmaConnID rdmaConnID);
+  void sendMCast(const rdmaConnID rdmaConnID, const void *memAddr, size_t size,
                  bool signaled);
-  bool receiveMCast(const rdmaConnID rdmaConnID, const void *memAddr,
+  void receiveMCast(const rdmaConnID rdmaConnID, const void *memAddr,
                     size_t size);
-  bool pollReceiveMCast(const rdmaConnID rdmaConnID);
+  void pollReceiveMCast(const rdmaConnID rdmaConnID);
 
  private:
-  bool createQP(struct ib_qp_t *qp) override;
+  void createQP(struct ib_qp_t *qp) override;
   void destroyQPs() override;
-  bool modifyQPToInit(struct ibv_qp *qp);
-  bool modifyQPToRTR(struct ibv_qp *qp);
-  bool modifyQPToRTS(struct ibv_qp *qp, const uint32_t psn);
+  void modifyQPToInit(struct ibv_qp *qp);
+  void modifyQPToRTR(struct ibv_qp *qp);
+  void modifyQPToRTS(struct ibv_qp *qp, const uint32_t psn);
 
   inline uint64_t nextMCastConnKey() { return m_lastMCastConnKey++; }
 
   void setMCastConn(const rdmaConnID rdmaConnID, rdma_mcast_conn_t &conn);
 
-  bool getCmEvent(struct rdma_event_channel *channel,
+  void getCmEvent(struct rdma_event_channel *channel,
                   enum rdma_cm_event_type type, struct rdma_cm_event **out_ev);
 
   // only one QP needed for all connections

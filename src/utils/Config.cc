@@ -18,6 +18,11 @@ uint32_t Config::RDMA_IBPORT = 1;
 uint32_t Config::RDMA_PORT = 5200;
 uint32_t Config::RDMA_MAX_WR = 4096;
 
+std::string Config::SEQUENCER_IP = "192.168.94.21"; //node02
+uint32_t Config::SEQUENCER_PORT = 5400;
+
+std::string Config::RDMA_INTERFACE = "ib0";
+
 //SYSTEM
 uint32_t Config::CACHELINE_SIZE = 64;
 
@@ -134,14 +139,14 @@ void Config::set(string key, string value) {
 }
 
 
-string Config::getIP() {
+string Config::getIP(std::string &interface) {
   int fd;
   struct ifreq ifr;
   fd = socket(AF_INET, SOCK_DGRAM, 0);
   /* I want to get an IPv4 IP address */
   ifr.ifr_addr.sa_family = AF_INET;
-  /* I want an IP address attached to "em1" */
-  strncpy(ifr.ifr_name, "em1", IFNAMSIZ-1);
+  /* I want an IP address attached to interface */
+  strncpy(ifr.ifr_name, interface.c_str(), IFNAMSIZ-1);
 
   ioctl(fd, SIOCGIFADDR, &ifr);
   close(fd);

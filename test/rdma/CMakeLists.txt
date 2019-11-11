@@ -3,8 +3,8 @@ set(TEST_RDMA_SRC
   # TestRDMAServerMCast.h
   TestRDMAServer.cc
   TestRDMAServer.h
-  # TestRDMAServerMultClients.cc
-  # TestRDMAServerMultClients.h
+  TestRDMAServerMultClients.cc
+  TestRDMAServerMultClients.h
   # TestRDMAServerSRQ.cc
   # TestRDMAServerSRQ.h
   # TestSimpleUD.h 

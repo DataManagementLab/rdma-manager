@@ -18,7 +18,9 @@ using namespace rdma;
 
 class TestRDMAServerMultClients : public CppUnit::TestFixture {
 RDMA_UNIT_TEST_SUITE (TestRDMAServerMultClients);
-  RDMA_UNIT_TEST_RC(testSendRecieve);RDMA_UNIT_TEST_UD (testSendRecieve);RDMA_UNIT_TEST_SUITE_END ()
+  RDMA_UNIT_TEST_RC(testSendRecieve);
+  // RDMA_UNIT_TEST_UD(testSendRecieve);
+RDMA_UNIT_TEST_SUITE_END ()
   ;
 
  public:
@@ -28,11 +30,10 @@ RDMA_UNIT_TEST_SUITE (TestRDMAServerMultClients);
   void testSendRecieve();
 
  private:
-  RDMAServer* m_rdmaServer;
-  RDMAClient* m_rdmaClient_0;
-  RDMAClient* m_rdmaClient_1;
-  RDMAClient* m_rdmaClient_2;
-  RDMAClient* m_rdmaClient_3;
+  NodeIDSequencer *m_nodeIDSequencer;
+  RDMAServer<ReliableRDMA>* m_rdmaServer;
+  RDMAClient<ReliableRDMA>* m_rdmaClient_0;
+  RDMAClient<ReliableRDMA>* m_rdmaClient_1;
 
   string m_connection;
   NodeID m_nodeId = 0;

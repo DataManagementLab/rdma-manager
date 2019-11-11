@@ -12,7 +12,7 @@
 #include <sstream>
 #include <string>
 
-#include "../message/MessageTypes.h"
+#include "../message/ProtoMessageFactory.h"
 #include "../thread/Thread.h"
 #include "../utils/Config.h"
 #include "../utils/Network.h"
@@ -35,8 +35,10 @@ class ProtoServer : public Thread {
 
   int getPort() { return m_port; }
 
- private:
+ protected:
   string m_name;
+  
+ private:
   int m_port;
   bool m_running;
   ProtoSocket* m_pSocket;

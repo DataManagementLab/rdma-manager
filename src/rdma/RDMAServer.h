@@ -8,12 +8,13 @@
 #define RDMAServer_H_
 
 #include "../message/MessageErrors.h"
-#include "../message/MessageTypes.h"
+#include "../message/ProtoMessageFactory.h"
 #include "../proto/ProtoServer.h"
 #include "../rdma/BaseRDMA.h"
 #include "../utils/Config.h"
 #include "ReliableRDMA.h"
 #include "UnreliableRDMA.h"
+#include "NodeIDSequencer.h"
 
 #include <list>
 #include <mutex>
@@ -22,14 +23,17 @@
 namespace rdma {
 
 template <typename RDMA_API_T>
-class RDMAServer : public ProtoServer, public RDMA_API_T {
+class RDMAServer : public ProtoServer, public ProtoClient, public RDMA_API_T {
  public:
-  RDMAServer() : RDMAServer("RDMAserver"){};
-  RDMAServer(string name) : RDMAServer(name, Config::RDMA_PORT){};
-  RDMAServer(string name, int port)
-      : RDMAServer(name, port, Config::RDMA_MEMSIZE){};
-  RDMAServer(string name, int port, uint64_t memsize)
-      : ProtoServer(name, port), RDMA_API_T(memsize){};
+  RDMAServer() : RDMAServer("RDMAserver"){}
+  RDMAServer(string name) : RDMAServer(name, Config::RDMA_PORT){}
+  RDMAServer(string name, int port) : RDMAServer(name, port, Config::RDMA_MEMSIZE){}
+  RDMAServer(string name, int port, uint64_t memsize) : ProtoServer(name, port), RDMA_API_T(memsize)
+  {
+    std::string sequencerIpPort = Config::SEQUENCER_IP + ":" + to_string(Config::SEQUENCER_PORT);
+    std::string ownIpPort = Config::getIP(Config::RDMA_INTERFACE) + ":" + to_string(port);
+    m_ownNodeID = requestNodeID(sequencerIpPort, ownIpPort);
+  }
 
   ~RDMAServer() = default;
 
@@ -47,37 +51,6 @@ class RDMAServer : public ProtoServer, public RDMA_API_T {
 
   void stopServer() { ProtoServer::stopServer(); }
 
-  virtual void handle(Any *anyReq, Any *anyResp) {
-    if (anyReq->Is<RDMAConnRequest>()) {
-      RDMAConnResponse connResp;
-      RDMAConnRequest connReq;
-      anyReq->UnpackTo(&connReq);
-      connectQueue(&connReq, &connResp);
-      Logging::debug(__FILE__, __LINE__,
-                     "RDMAServer::handle: after connectQueue");
-      anyResp->PackFrom(connResp);
-    } else if (anyReq->Is<MemoryResourceRequest>()) {
-      MemoryResourceResponse respMsg;
-      MemoryResourceRequest reqMsg;
-      anyReq->UnpackTo(&reqMsg);
-      if (reqMsg.type() == MessageTypesEnum::MEMORY_RESOURCE_RELEASE) {
-        size_t offset = reqMsg.offset();
-        respMsg.set_return_(releaseMemoryResource(offset));
-        respMsg.set_offset(offset);
-      } else if (reqMsg.type() == MessageTypesEnum::MEMORY_RESOURCE_REQUEST) {
-        size_t offset = 0;
-        size_t size = reqMsg.size();
-        respMsg.set_return_(requestMemoryResource(size, offset));
-        respMsg.set_offset(offset);
-      }
-      anyResp->PackFrom(respMsg);
-    } else {
-      // Send response with bad return code;
-      ErrorMessage errorResp;
-      errorResp.set_return_(MessageErrors::INVALID_MESSAGE);
-      anyResp->PackFrom(errorResp);
-    }
-  }
 
   void *getBuffer(const size_t offset) {
     return ((char *)RDMA_API_T::getBuffer() + offset);
@@ -94,8 +67,41 @@ class RDMAServer : public ProtoServer, public RDMA_API_T {
   size_t getCurrentSRQ() { return m_currentSRQ; }
 
  protected:
-  // memory management
 
+  void handle(Any *anyReq, Any *anyResp) override {
+    if (anyReq->Is<RDMAConnRequest>()) {
+      RDMAConnResponse connResp;
+      RDMAConnRequest connReq;
+      anyReq->UnpackTo(&connReq);
+      connectQueue(&connReq, &connResp);
+      Logging::debug(__FILE__, __LINE__,
+                     "RDMAServer::handle: after connectQueue");
+      anyResp->PackFrom(connResp);
+    } else if (anyReq->Is<MemoryResourceRequest>()) {
+      MemoryResourceResponse respMsg;
+      MemoryResourceRequest reqMsg;
+      anyReq->UnpackTo(&reqMsg);
+      if (reqMsg.type() == MemoryResourceType::Enum::MEMORY_RESOURCE_RELEASE) {
+        size_t offset = reqMsg.offset();
+        respMsg.set_return_(releaseMemoryResource(offset));
+        respMsg.set_offset(offset);
+      } else if (reqMsg.type() == MemoryResourceType::Enum::MEMORY_RESOURCE_REQUEST) {
+        size_t offset = 0;
+        size_t size = reqMsg.size();
+        respMsg.set_return_(requestMemoryResource(size, offset));
+        respMsg.set_offset(offset);
+      }
+      anyResp->PackFrom(respMsg);
+    } else {
+      // Send response with bad return code;
+      ErrorMessage errorResp;
+      errorResp.set_return_(MessageErrors::INVALID_MESSAGE);
+      anyResp->PackFrom(errorResp);
+    }
+  }
+
+
+  // memory management
   MessageErrors requestMemoryResource(size_t size, size_t &offset) {
     unique_lock<mutex> lck(m_memLock);
 
@@ -113,7 +119,12 @@ class RDMAServer : public ProtoServer, public RDMA_API_T {
 
   MessageErrors releaseMemoryResource(size_t &offset) {
     unique_lock<mutex> lck(m_memLock);
-    if (!RDMA_API_T::remoteFree(offset)) {
+    try 
+    {
+      RDMA_API_T::remoteFree(offset);
+    }
+    catch (runtime_error& e)
+    {
       lck.unlock();
       return MessageErrors::MEMORY_RELEASE_FAILED;
     }
@@ -127,24 +138,28 @@ class RDMAServer : public ProtoServer, public RDMA_API_T {
 
     // create local QP
     NodeID nodeID = connRequest->nodeid();
+    std::cout << "RDMAServer godt client nodeid " << nodeID << std::endl;
 
     // Check if SRQ is active
-    if (m_currentSRQ == SIZE_MAX) {
-      Logging::debug(
-          __FILE__, __LINE__,
-          "RDMAServer: initializing queue pair - " + to_string(nodeID));
-      if (!RDMA_API_T::initQPWithSuppliedID(nodeID)) {
-        lck.unlock();
-        return false;
+    try
+    {
+      if (m_currentSRQ == SIZE_MAX) {
+        Logging::debug(
+            __FILE__, __LINE__,
+            "RDMAServer: initializing queue pair - " + to_string(nodeID));
+        RDMA_API_T::initQPWithSuppliedID(nodeID);
+      } else {
+        Logging::debug(__FILE__, __LINE__,
+                      "RDMAServer: initializing queue pair with srq id: " +
+                          to_string(m_currentSRQ) + " - " + to_string(nodeID));
+        RDMA_API_T::initQPForSRQWithSuppliedID(m_currentSRQ, nodeID);
       }
-    } else {
-      Logging::debug(__FILE__, __LINE__,
-                     "RDMAServer: initializing queue pair with srq id: " +
-                         to_string(m_currentSRQ) + " - " + to_string(nodeID));
-      if (!RDMA_API_T::initQPForSRQWithSuppliedID(m_currentSRQ, nodeID)) {
-        lck.unlock();
-        return false;
-      }
+    }
+    catch(const std::runtime_error& e)
+    {
+      std::cerr << e.what() << '\n';
+      lck.unlock();
+      return false;
     }
 
     // set remote connection data
@@ -159,8 +174,13 @@ class RDMAServer : public ProtoServer, public RDMA_API_T {
     remoteConn.ud.psn = connRequest->psn();
     RDMA_API_T::setRemoteConnData(nodeID, remoteConn);
 
-    // connect QPs
-    if (!RDMA_API_T::connectQP(nodeID)) {
+    try
+    {
+      RDMA_API_T::connectQP(nodeID);
+    }
+    catch(const std::runtime_error& e)
+    {
+      std::cerr << e.what() << '\n';
       lck.unlock();
       return false;
     }
@@ -183,6 +203,30 @@ class RDMAServer : public ProtoServer, public RDMA_API_T {
     return true;
   }
 
+  NodeID requestNodeID(std::string sequencerIpPort, std::string ownIpPort)
+  {    
+    // check if client is connected to sequencer
+    if (ProtoClient::isConnected(sequencerIpPort)) {
+      return true;
+    }
+    ProtoClient::connectProto(sequencerIpPort);
+
+    Any nodeIDRequest = ProtoMessageFactory::createNodeIDRequest(ownIpPort, ProtoServer::m_name, NodeType::Enum::SERVER);
+    Any rcvAny;
+
+    ProtoClient::exchangeProtoMsg(sequencerIpPort, &nodeIDRequest, &rcvAny);
+
+    if (rcvAny.Is<NodeIDResponse>()) {
+      NodeIDResponse connResponse;
+      rcvAny.UnpackTo(&connResponse);
+      return connResponse.nodeid();
+    } else {
+      Logging::error(__FILE__, __LINE__,
+                     "RDMAServer could not request NodeID from NodeIDSequencer: received wrong response type");
+      throw std::runtime_error("RDMAServer could not request NodeID from NodeIDSequencer: received wrong response type");
+    }
+  }
+
   unordered_map<string, NodeID> m_mcastAddr;  // mcast_string to ibaddr
 
   // Locks for multiple clients accessing server
@@ -190,6 +234,14 @@ class RDMAServer : public ProtoServer, public RDMA_API_T {
   mutex m_memLock;
 
   size_t m_currentSRQ = SIZE_MAX;
+
+  std::string m_sequencerIpPort = Config::SEQUENCER_IP + ":" + to_string(Config::SEQUENCER_PORT);
+  NodeID m_ownNodeID;
+
+private:
+  using ProtoClient::connectProto; //Make private
+  using ProtoClient::exchangeProtoMsg; //Make private
+
 };
 
 }  // namespace rdma

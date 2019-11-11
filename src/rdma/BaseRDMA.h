@@ -78,21 +78,21 @@ class BaseRDMA {
   virtual ~BaseRDMA();
 
   // unicast transfer methods
-  virtual bool send(const rdmaConnID rdmaConnID, const void *memAddr,
+  virtual void send(const rdmaConnID rdmaConnID, const void *memAddr,
                     size_t size, bool signaled) = 0;
-  virtual bool receive(const rdmaConnID rdmaConnID, const void *memAddr,
+  virtual void receive(const rdmaConnID rdmaConnID, const void *memAddr,
                        size_t size) = 0;
-  virtual bool pollReceive(const rdmaConnID rdmaConnID, bool doPoll = true) = 0;
-  // virtual bool pollReceive(const rdmaConnID rdmaConnID, uint32_t &ret_qp_num)
+  virtual void pollReceive(const rdmaConnID rdmaConnID, bool doPoll = true) = 0;
+  // virtual void pollReceive(const rdmaConnID rdmaConnID, uint32_t &ret_qp_num)
   // = 0;
 
-  virtual bool pollSend(const rdmaConnID rdmaConnID, bool doPoll = true) = 0;
+  virtual void pollSend(const rdmaConnID rdmaConnID, bool doPoll = true) = 0;
 
   // unicast connection management
-  virtual bool initQPWithSuppliedID(const rdmaConnID suppliedID) = 0;
-  virtual bool initQP(rdmaConnID &retRdmaConnID) = 0;
+  virtual void initQPWithSuppliedID(const rdmaConnID suppliedID) = 0;
+  virtual void initQP(rdmaConnID &retRdmaConnID) = 0;
 
-  virtual bool connectQP(const rdmaConnID rdmaConnID) = 0;
+  virtual void connectQP(const rdmaConnID rdmaConnID) = 0;
 
   uint64_t getQPNum(const rdmaConnID rdmaConnID) {
     return m_qps[rdmaConnID].qp->qp_num;
@@ -110,8 +110,8 @@ class BaseRDMA {
 
   // memory management
   virtual void *localAlloc(const size_t &size) = 0;
-  virtual bool localFree(const void *ptr) = 0;
-  virtual bool localFree(const size_t &offset) = 0;
+  virtual void localFree(const void *ptr) = 0;
+  virtual void localFree(const size_t &offset) = 0;
 
   void *getBuffer() { return m_res.buffer; }
 
@@ -130,13 +130,13 @@ class BaseRDMA {
   virtual void destroyQPs() = 0;
 
   // memory management
-  bool createBuffer();
+  void createBuffer();
 
-  bool mergeFreeMem(list<rdma_mem_t>::iterator &iter);
+  void mergeFreeMem(list<rdma_mem_t>::iterator &iter);
 
   rdma_mem_t internalAlloc(const size_t &size);
 
-  bool internalFree(const size_t &offset);
+  void internalFree(const size_t &offset);
 
   uint64_t nextConnKey() { return m_qps.size(); }
 
@@ -144,9 +144,9 @@ class BaseRDMA {
 
   void setLocalConnData(const rdmaConnID rdmaConnID, ib_conn_t &conn);
 
-  bool createCQ(ibv_cq *&send_cq, ibv_cq *&rcv_cq);
-  bool destroyCQ(ibv_cq *&send_cq, ibv_cq *&rcv_cq);
-  virtual bool createQP(struct ib_qp_t *qp) = 0;
+  void createCQ(ibv_cq *&send_cq, ibv_cq *&rcv_cq);
+  void destroyCQ(ibv_cq *&send_cq, ibv_cq *&rcv_cq);
+  virtual void createQP(struct ib_qp_t *qp) = 0;
 
   inline void __attribute__((always_inline))
   checkSignaled(bool &signaled, rdmaConnID rdmaConnID) {

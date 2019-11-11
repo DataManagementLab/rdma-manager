@@ -136,6 +136,11 @@ class Config
     
     const static int PROTO_MAX_SOCKETS = 1024;
 
+    static std::string SEQUENCER_IP;
+    static uint32_t SEQUENCER_PORT;
+
+    static std::string RDMA_INTERFACE;
+
     //SYSTEM
     static uint32_t CACHELINE_SIZE;
 
@@ -150,6 +155,7 @@ class Config
 
     // static string& getIPFromNodeId(NodeID& nodeid);
     // static string& getIPFromNodeId(const NodeID& nodeid);
+    static string getIP(std::string &interface);
 
   private:
     static void load(const string& exec_path);
@@ -159,7 +165,6 @@ class Config
     static void init_vector(vector<string> &values, string csv_list);
     static void init_vector(vector<int> &values, string csv_list);
 
-    static string getIP();
 };
 
 } // end namespace rdma

@@ -6,9 +6,9 @@ set(NET_RDMA_SRC
   UnreliableRDMA.h
   UnreliableRDMA.cc
   RDMAServer.h
-  # RDMAServer.cc
   RDMAClient.h
-  # RDMAClient.cc
+  NodeIDSequencer.h
+  NodeIDSequencer.cc
 ) # Adding headers required for portability reasons http://voices.canonical.com/jussi.pakkanen/2013/03/26/a-list-of-common-cmake-antipatterns/
 add_library(rdma_lib ${NET_RDMA_SRC})
 target_include_directories(rdma_lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

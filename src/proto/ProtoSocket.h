@@ -13,7 +13,7 @@
 #include <cstring>
 #include <string>
 
-#include "../message/MessageTypes.h"
+#include "../message/ProtoMessageFactory.h"
 #include "../utils/Logging.h"
 #include "zmq.hpp"
 

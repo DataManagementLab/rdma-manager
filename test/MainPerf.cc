@@ -53,10 +53,10 @@ rdma::PerfTest* createTest(config_t& config) {
             //test = new SWMulticastPerf(config, false);
             break;
         case 201:
-            test = new RPCPerf(config,true);
+            // test = new RPCPerf(config,true);
             break;
         case 202:
-            test = new RPCPerf(config,false);
+            // test = new RPCPerf(config,false);
             break;
     }
 

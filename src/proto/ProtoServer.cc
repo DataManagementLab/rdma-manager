@@ -11,6 +11,10 @@ ProtoServer::ProtoServer(string name, int port)
 }
 
 ProtoServer::~ProtoServer() {
+  if (isRunning())
+  {
+    stopServer();
+  }
   if (m_pSocket != nullptr) {
     delete m_pSocket;
     m_pSocket = nullptr;

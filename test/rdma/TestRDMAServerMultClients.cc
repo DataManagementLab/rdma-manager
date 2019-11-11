@@ -3,14 +3,19 @@
 
 void TestRDMAServerMultClients::setUp() {
   Config::RDMA_MEMSIZE = 1024 * 1024;
+  Config::SEQUENCER_IP = "localhost";
   m_nodeId = 0;
-  m_rdmaServer = new RDMAServer();
+
+  m_nodeIDSequencer = new NodeIDSequencer();
+  CPPUNIT_ASSERT(m_nodeIDSequencer->startServer());
+
+  m_rdmaServer = new RDMAServer<ReliableRDMA>();
   CPPUNIT_ASSERT(m_rdmaServer->startServer());
 
-  m_connection = "127.0.0.1:" + to_string(Config::RDMA_PORT);
-  m_rdmaClient_0 = new RDMAClient();
+  m_connection = Config::getIP(Config::RDMA_INTERFACE) + ":" + to_string(Config::RDMA_PORT);
+  m_rdmaClient_0 = new RDMAClient<ReliableRDMA>();
   CPPUNIT_ASSERT(m_rdmaClient_0->connect(m_connection, m_nodeId));
-  m_rdmaClient_1 = new RDMAClient();
+  m_rdmaClient_1 = new RDMAClient<ReliableRDMA>();
   CPPUNIT_ASSERT(m_rdmaClient_1->connect(m_connection, m_nodeId));
 }
 
@@ -45,27 +50,28 @@ void TestRDMAServerMultClients::testSendRecieve() {
   localstruct2->a = 'a';
   localstruct2->id = 1;
 
-  vector<ib_addr_t> connKeys = m_rdmaServer->getQueues();
-
   testMsg* remotestruct = (testMsg*) m_rdmaServer->localAlloc(sizeof(testMsg));
   testMsg* remotestruct2 = (testMsg*) m_rdmaServer->localAlloc(sizeof(testMsg));
 
   CPPUNIT_ASSERT(remotestruct != nullptr);
   CPPUNIT_ASSERT(remotestruct2 != nullptr);
 
-  CPPUNIT_ASSERT(
-      m_rdmaServer->receive(connKeys[0], (void* ) remotestruct,
-                            sizeof(testMsg)));
-  CPPUNIT_ASSERT(
-      m_rdmaServer->receive(connKeys[1], (void* ) remotestruct2,
-                            sizeof(testMsg)));
-  CPPUNIT_ASSERT(
-      m_rdmaClient_0->send(m_nodeId, (void*) localstruct1, sizeof(testMsg), false));
-  CPPUNIT_ASSERT(
-      m_rdmaClient_1->send(m_nodeId, (void*) localstruct2, sizeof(testMsg), false));
+  std::cout << "m_rdmaClient_0->getOwnNodeID() " << m_rdmaClient_0->getOwnNodeID() << std::endl;
+  std::cout << "m_rdmaClient_1->getOwnNodeID() " << m_rdmaClient_1->getOwnNodeID() << std::endl;
+  CPPUNIT_ASSERT_NO_THROW(
+      m_rdmaServer->receive(m_rdmaClient_0->getOwnNodeID(), (void* ) remotestruct, sizeof(testMsg)));
+  CPPUNIT_ASSERT_NO_THROW(
+      m_rdmaServer->receive(m_rdmaClient_1->getOwnNodeID(), (void* ) remotestruct2, sizeof(testMsg)));
 
-  CPPUNIT_ASSERT(m_rdmaServer->pollReceive(connKeys[0]));
-  CPPUNIT_ASSERT(m_rdmaServer->pollReceive(connKeys[1]));
+  std::cout << "Sending to nodeid: " << m_nodeId << std::endl;
+  CPPUNIT_ASSERT_NO_THROW(
+      m_rdmaClient_0->send(m_nodeId, (void*) localstruct1, sizeof(testMsg), true));
+  CPPUNIT_ASSERT_NO_THROW(
+      m_rdmaClient_1->send(m_nodeId, (void*) localstruct2, sizeof(testMsg), true));
+
+
+  CPPUNIT_ASSERT_NO_THROW(m_rdmaServer->pollReceive(m_rdmaClient_0->getOwnNodeID(), true));
+  CPPUNIT_ASSERT_NO_THROW(m_rdmaServer->pollReceive(m_rdmaClient_1->getOwnNodeID(), true));
 
   CPPUNIT_ASSERT_EQUAL(localstruct1->id, remotestruct->id);
   CPPUNIT_ASSERT_EQUAL(localstruct1->a, remotestruct->a);

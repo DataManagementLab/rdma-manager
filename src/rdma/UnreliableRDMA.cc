@@ -17,43 +17,38 @@ UnreliableRDMA::~UnreliableRDMA() {
 void* UnreliableRDMA::localAlloc(const size_t& size) {
   rdma_mem_t memRes = internalAlloc(size + Config::RDMA_UD_OFFSET);
   if (!memRes.isnull) {
-    return (void*)((char*)m_res.buffer + memRes.offset +
+    return ((char*)m_res.buffer + memRes.offset +
                    Config::RDMA_UD_OFFSET);
   }
-  return nullptr;
+  throw runtime_error("UnreliableRDMA allocating local memory failed!");
 }
 
-bool UnreliableRDMA::localFree(const size_t& offset) {
-  return internalFree(offset);
+void UnreliableRDMA::localFree(const size_t& offset) {
+  internalFree(offset);
 }
 
-bool UnreliableRDMA::localFree(const void* ptr) {
+void UnreliableRDMA::localFree(const void* ptr) {
   char* begin = (char*)m_res.buffer;
   char* end = (char*)ptr;
   size_t offset = (end - begin) - Config::RDMA_UD_OFFSET;
-  return internalFree(offset);
+  internalFree(offset);
 }
 
-bool UnreliableRDMA::initQPWithSuppliedID(const rdmaConnID rdmaConnID) {
+void UnreliableRDMA::initQPWithSuppliedID(const rdmaConnID rdmaConnID) {
   // check if QP is already created
   if (m_udqp.qp != nullptr) {
     setQP(rdmaConnID, m_udqp);
     setLocalConnData(rdmaConnID, m_udqpConn);
-    return true;
+    return;
   }
 
   ib_qp_t* qp = &m_udqp;
   ib_conn_t* qpConn = &m_udqpConn;
   // create completion queues
-  if (!createCQ(qp->send_cq, qp->recv_cq)) {
-    Logging::error(__FILE__, __LINE__, "Failed to create CQ");
-    return false;
-  }
+  createCQ(qp->send_cq, qp->recv_cq);
 
   // create QP
-  if (!createQP(qp)) {
-    return false;
-  }
+  createQP(qp);
 
   // create local connection data
   union ibv_gid my_gid;
@@ -66,40 +61,29 @@ bool UnreliableRDMA::initQPWithSuppliedID(const rdmaConnID rdmaConnID) {
   qpConn->ud.ah = nullptr;
 
   // init queue pair
-  if (!modifyQPToInit(qp->qp)) {
-    Logging::error(__FILE__, __LINE__, "Failed to initialize QP");
-    return false;
-  }
+  modifyQPToInit(qp->qp);
 
-  if (!modifyQPToRTR(qp->qp)) {
-    Logging::error(__FILE__, __LINE__, "Failed to modify QP state to RTR");
-    return false;
-  }
+  modifyQPToRTR(qp->qp);
 
-  if (!modifyQPToRTS(qp->qp, qpConn->ud.psn)) {
-    Logging::error(__FILE__, __LINE__, "Failed to modify QP state to RTS");
-    return false;
-  }
+  modifyQPToRTS(qp->qp, qpConn->ud.psn);
 
   // done
   setQP(rdmaConnID, *qp);
   setLocalConnData(rdmaConnID, *qpConn);
 
   Logging::debug(__FILE__, __LINE__, "Created UD queue pair ");
-
-  return true;
 }
 
-bool UnreliableRDMA::initQP(rdmaConnID& retRdmaConnID) {
+void UnreliableRDMA::initQP(rdmaConnID& retRdmaConnID) {
   // assign new QP number
   retRdmaConnID = nextConnKey();
-  return initQPWithSuppliedID(retRdmaConnID);
+  initQPWithSuppliedID(retRdmaConnID);
 }
 
-bool UnreliableRDMA::connectQP(const rdmaConnID rdmaConnID) {
+void UnreliableRDMA::connectQP(const rdmaConnID rdmaConnID) {
   // if QP is connected return
-  if (m_connected.count(rdmaConnID) == 1) {
-    return true;
+  if (m_connected.find(rdmaConnID) != m_connected.end()) {
+    return;
   }
 
   // create address handle
@@ -115,31 +99,27 @@ bool UnreliableRDMA::connectQP(const rdmaConnID rdmaConnID) {
 
   m_connected[rdmaConnID] = true;
   Logging::debug(__FILE__, __LINE__, "Connected UD queue pair!");
-
-  return true;
 }
 
 void UnreliableRDMA::destroyQPs() {
   if (m_udqp.qp != nullptr) {
     if (ibv_destroy_qp(m_udqp.qp) != 0) {
-      Logging::error(__FILE__, __LINE__, "Error, ibv_destroy_qp() failed");
+      throw runtime_error("Error, ibv_destroy_qp() failed");
     }
 
-    if (!destroyCQ(m_udqp.send_cq, m_udqp.recv_cq)) {
-      Logging::error(__FILE__, __LINE__, "Error, destroyCQ() failed");
-    }
+    destroyCQ(m_udqp.send_cq, m_udqp.recv_cq);
     m_udqp.qp = nullptr;
   }
 
   if (m_udqpMgmt.qp != nullptr) {
     if (ibv_destroy_qp(m_udqpMgmt.qp) != 0) {
-      Logging::error(__FILE__, __LINE__, "Error, ibv_destroy_qp() failed");
+      throw runtime_error("Error, ibv_destroy_qp() failed");
     }
     m_udqpMgmt.qp = nullptr;
   }
 }
 
-bool UnreliableRDMA::send(const rdmaConnID rdmaConnID, const void* memAddr,
+void UnreliableRDMA::send(const rdmaConnID rdmaConnID, const void* memAddr,
                           size_t size, bool signaled) {
   struct ib_qp_t localQP = m_qps[rdmaConnID];
   struct ib_conn_t remoteConn = m_rconns[rdmaConnID];
@@ -163,9 +143,7 @@ bool UnreliableRDMA::send(const rdmaConnID rdmaConnID, const void* memAddr,
 
   struct ibv_send_wr* bad_wr = NULL;
   if ((errno = ibv_post_send(localQP.qp, &sr, &bad_wr)) != 0) {
-    Logging::errorNo(__FILE__, __LINE__, std::strerror(errno), errno);
-    Logging::error(__FILE__, __LINE__, "SEND not successful! ");
-    return false;
+    throw runtime_error("SEND not successful! errno: " + std::string(std::strerror(errno)));
   }
 
   int ne = 0;
@@ -176,25 +154,18 @@ bool UnreliableRDMA::send(const rdmaConnID rdmaConnID, const void* memAddr,
       ne = ibv_poll_cq(localQP.send_cq, 1, &wc);
 
       if (wc.status != IBV_WC_SUCCESS) {
-        Logging::errorNo(__FILE__, __LINE__, std::strerror(errno), errno);
-        Logging::error(
-            __FILE__, __LINE__,
-            "RDMA completion event in CQ with error! " + to_string(wc.status));
-        return false;
+        throw runtime_error("RDMA completion event in CQ with error! " + to_string(wc.status) + " errno: " + std::string(std::strerror(errno)));
       }
 
     } while (ne == 0);
 
     if (ne < 0) {
-      Logging::error(__FILE__, __LINE__, "RDMA polling from CQ failed!");
-      return false;
+      throw runtime_error("RDMA polling from CQ failed!");
     }
   }
-
-  return true;
 }
 
-bool UnreliableRDMA::receive(const rdmaConnID rdmaConnID, const void* memAddr,
+void UnreliableRDMA::receive(const rdmaConnID rdmaConnID, const void* memAddr,
                              size_t size) {
   struct ib_qp_t localQP = m_qps[rdmaConnID];
 
@@ -214,16 +185,11 @@ bool UnreliableRDMA::receive(const rdmaConnID rdmaConnID, const void* memAddr,
   wr.next = nullptr;
 
   if ((errno = ibv_post_recv(localQP.qp, &wr, &bad_wr)) != 0) {
-    Logging::errorNo(__FILE__, __LINE__, std::strerror(errno), errno);
-    Logging::error(__FILE__, __LINE__,
-                   "RECV has not been posted successfully! ");
-    return false;
+    throw runtime_error("RECV has not been posted successfully! errno: " + std::string(std::strerror(errno)));
   }
-
-  return true;
 }
 
-bool UnreliableRDMA::pollReceive(const rdmaConnID rdmaConnID, bool doPoll) {
+void UnreliableRDMA::pollReceive(const rdmaConnID rdmaConnID, bool doPoll) {
   int ne;
   struct ibv_wc wc;
 
@@ -234,26 +200,22 @@ bool UnreliableRDMA::pollReceive(const rdmaConnID rdmaConnID, bool doPoll) {
     ne = ibv_poll_cq(localQP.recv_cq, 1, &wc);
 
     if (wc.status != IBV_WC_SUCCESS) {
-      Logging::error(
-          __FILE__, __LINE__,
-          "RDMA completion event in CQ with error! " + to_string(wc.status));
-      return false;
+      throw runtime_error("RDMA completion event in CQ with error! " + to_string(wc.status));
     }
   } while (ne == 0 && doPoll);
 
   if (doPoll) {
     if (ne < 0) {
-      Logging::error(__FILE__, __LINE__, "RDMA polling from CQ failed!");
-      return false;
+      throw runtime_error("RDMA polling from CQ failed!");
     }
-    return true;
+    return;
   } else if (ne > 0) {
-    return true;
+    return;
   }
-  return false;
+  throw runtime_error("pollReceive failed!");
 }
 
-bool UnreliableRDMA::pollSend(const rdmaConnID rdmaConnID, bool doPoll) {
+void UnreliableRDMA::pollSend(const rdmaConnID rdmaConnID, bool doPoll) {
   int ne;
   struct ibv_wc wc;
 
@@ -264,26 +226,22 @@ bool UnreliableRDMA::pollSend(const rdmaConnID rdmaConnID, bool doPoll) {
     ne = ibv_poll_cq(localQP.send_cq, 1, &wc);
 
     if (wc.status != IBV_WC_SUCCESS) {
-      Logging::error(
-          __FILE__, __LINE__,
-          "RDMA completion event in CQ with error! " + to_string(wc.status));
-      return false;
+      throw runtime_error("RDMA completion event in CQ with error! " + to_string(wc.status));
     }
   } while (ne == 0 && doPoll);
 
   if (doPoll) {
     if (ne < 0) {
-      Logging::error(__FILE__, __LINE__, "RDMA polling from CQ failed!");
-      return false;
+      throw runtime_error("RDMA polling from CQ failed!");
     }
-    return true;
+    return;
   } else if (ne > 0) {
-    return true;
+    return;
   }
-  return false;
+  throw runtime_error("pollSend failed!");
 }
 
-bool UnreliableRDMA::joinMCastGroup(string mCastAddress,
+void UnreliableRDMA::joinMCastGroup(string mCastAddress,
                                     rdmaConnID& retRdmaConnID) {
   retRdmaConnID = nextMCastConnKey();
 
@@ -293,17 +251,13 @@ bool UnreliableRDMA::joinMCastGroup(string mCastAddress,
   // create event channel
   mCastConn.channel = rdma_create_event_channel();
   if (!mCastConn.channel) {
-    Logging::error(__FILE__, __LINE__,
-                   "Could not create event channel for multicast!");
-    return false;
+    throw runtime_error("Could not create event channel for multicast!");
   }
 
   // create connection
   if (rdma_create_id(mCastConn.channel, &mCastConn.id, NULL, RDMA_PS_UDP) !=
       0) {
-    Logging::error(__FILE__, __LINE__,
-                   "Could not create connection for multicast!");
-    return false;
+    throw runtime_error("Could not create connection for multicast!");
   }
 
   // resolve multicast address
@@ -312,43 +266,28 @@ bool UnreliableRDMA::joinMCastGroup(string mCastAddress,
   memset(&hints, 0, sizeof(hints));
   hints.ai_port_space = RDMA_PS_UDP;
   hints.ai_flags = 0;
-  if (rdma_getaddrinfo(mCastConn.mcast_addr, nullptr, &hints, &mcast_rai) !=
-      0) {
-    Logging::error(__FILE__, __LINE__,
-                   "Could not resolve info for multicast address (1)!");
-    return false;
+  if (rdma_getaddrinfo(mCastConn.mcast_addr, nullptr, &hints, &mcast_rai) != 0) {
+    throw runtime_error("Could not resolve info for multicast address (1)!");
   }
 
   if (rdma_resolve_addr(mCastConn.id, nullptr, mcast_rai->ai_dst_addr, 2000) !=
       0) {
-    Logging::error(__FILE__, __LINE__,
-                   "Could not resolve info for multicast address (2)!");
-    return false;
+    throw runtime_error("Could not resolve info for multicast address (2)!");
   }
 
-  if (!getCmEvent(mCastConn.channel, RDMA_CM_EVENT_ADDR_RESOLVED, nullptr)) {
-    Logging::error(__FILE__, __LINE__,
-                   "Could not resolve info for multicast address (3)!");
-    return false;
-  }
-  memcpy(&mCastConn.mcast_sockaddr, mcast_rai->ai_dst_addr,
-         sizeof(struct sockaddr));
+  getCmEvent(mCastConn.channel, RDMA_CM_EVENT_ADDR_RESOLVED, nullptr);
+  memcpy(&mCastConn.mcast_sockaddr, mcast_rai->ai_dst_addr, sizeof(struct sockaddr));
 
   // create protection domain
   mCastConn.pd = ibv_alloc_pd(mCastConn.id->verbs);
   if (!mCastConn.pd) {
-    Logging::error(__FILE__, __LINE__,
-                   "Could not create multicast protection domain!");
-    return false;
+    throw runtime_error("Could not create multicast protection domain!");
   }
 
   mCastConn.mr =
       ibv_reg_mr(mCastConn.pd, m_res.buffer, m_memSize, IBV_ACCESS_LOCAL_WRITE);
   if (!mCastConn.mr) {
-    Logging::error(
-        __FILE__, __LINE__,
-        "Could not assign memory region to multicast protection domain!");
-    return false;
+    throw runtime_error("Could not assign memory region to multicast protection domain!");
   }
 
   // create multicast queues
@@ -360,9 +299,7 @@ bool UnreliableRDMA::joinMCastGroup(string mCastAddress,
   mCastConn.rcq = ibv_create_cq(mCastConn.id->verbs, Config::RDMA_MAX_WR + 1,
                                 nullptr, nullptr, 0);
   if (!mCastConn.scq || !mCastConn.rcq) {
-    Logging::error(__FILE__, __LINE__,
-                   "Could not create multicast completion queues!");
-    return false;
+    throw runtime_error("Could not create multicast completion queues!");
   }
 
   attr.qp_type = IBV_QPT_UD;
@@ -373,47 +310,37 @@ bool UnreliableRDMA::joinMCastGroup(string mCastAddress,
   attr.cap.max_send_sge = Config::RDMA_MAX_SGE;
   attr.cap.max_recv_sge = Config::RDMA_MAX_SGE;
   if (rdma_create_qp(mCastConn.id, mCastConn.pd, &attr) != 0) {
-    Logging::error(__FILE__, __LINE__,
-                   "Could not create multicast queue pairs!");
-    return false;
+    throw runtime_error("Could not create multicast queue pairs!");
   }
 
   // join multicast group
   if (rdma_join_multicast(mCastConn.id, &mCastConn.mcast_sockaddr, nullptr) !=
       0) {
-    Logging::error(__FILE__, __LINE__, "Could not join multicast group (1)!");
-    return false;
+    throw runtime_error("Could not join multicast group (1)!");
   }
 
   // verify that we successfully joined the multicast group
   rdma_cm_event* event;
-  if (!getCmEvent(mCastConn.channel, RDMA_CM_EVENT_MULTICAST_JOIN, &event)) {
-    Logging::error(__FILE__, __LINE__, "Could not join multicast group(2)!");
-    return false;
-  }
+  getCmEvent(mCastConn.channel, RDMA_CM_EVENT_MULTICAST_JOIN, &event);
 
   mCastConn.remote_qpn = event->param.ud.qp_num;
   mCastConn.remote_qkey = event->param.ud.qkey;
   mCastConn.ah = ibv_create_ah(m_res.pd, &event->param.ud.ah_attr);
   if (!mCastConn.ah) {
-    Logging::error(__FILE__, __LINE__,
-                   "Could not join multicast address handle!");
-    return false;
+    throw runtime_error("Could not join multicast address handle!");
   }
   rdma_ack_cm_event(event);
 
   // done
   setMCastConn(retRdmaConnID, mCastConn);
-
-  return true;
 }
 
-bool UnreliableRDMA::leaveMCastGroup(const rdmaConnID rdmaConnID) {
+void UnreliableRDMA::leaveMCastGroup(const rdmaConnID rdmaConnID) {
   rdma_mcast_conn_t mCastConn = m_udpMcastConns[rdmaConnID];
 
   // leave group
   if (rdma_leave_multicast(mCastConn.id, &mCastConn.mcast_sockaddr) != 0) {
-    return false;
+    throw runtime_error("Did not leave rdma multicast successfully");
   }
 
   // destroy resources
@@ -424,11 +351,9 @@ bool UnreliableRDMA::leaveMCastGroup(const rdmaConnID rdmaConnID) {
   if (mCastConn.mr) rdma_dereg_mr(mCastConn.mr);
   if (mCastConn.pd) ibv_dealloc_pd(mCastConn.pd);
   if (mCastConn.id) rdma_destroy_id(mCastConn.id);
-
-  return true;
 }
 
-bool UnreliableRDMA::sendMCast(const rdmaConnID rdmaConnID, const void* memAddr,
+void UnreliableRDMA::sendMCast(const rdmaConnID rdmaConnID, const void* memAddr,
                                size_t size, bool signaled) {
   rdma_mcast_conn_t mCastConn = m_udpMcastConns[rdmaConnID];
 
@@ -450,10 +375,7 @@ bool UnreliableRDMA::sendMCast(const rdmaConnID rdmaConnID, const void* memAddr,
   wr.wr.ud.remote_qkey = mCastConn.remote_qkey;
   size_t ret = ibv_post_send(mCastConn.id->qp, &wr, &bad_wr);
   if (ret != 0) {
-    Logging::error(
-        __FILE__, __LINE__,
-        "Sending multicast data failed (error: " + to_string(ret) + ")");
-    return false;
+    throw runtime_error("Sending multicast data failed (error: " + to_string(ret) + ")");
   }
 
   int ne = 0;
@@ -464,38 +386,28 @@ bool UnreliableRDMA::sendMCast(const rdmaConnID rdmaConnID, const void* memAddr,
       ne = ibv_poll_cq(mCastConn.scq, 1, &wc);
 
       if (wc.status != IBV_WC_SUCCESS) {
-        Logging::error(__FILE__, __LINE__,
-                       "RDMA completion event in multicast CQ with error! " +
+        throw runtime_error("RDMA completion event in multicast CQ with error! " +
                            to_string(wc.status));
-        return false;
       }
     } while (ne == 0);
 
     if (ne < 0) {
-      Logging::error(__FILE__, __LINE__,
-                     "RDMA polling from multicast CQ failed!");
-      return false;
+      throw runtime_error("RDMA polling from multicast CQ failed!");
     }
   }
-
-  return true;
 }
 
-bool UnreliableRDMA::receiveMCast(const rdmaConnID rdmaConnID,
+void UnreliableRDMA::receiveMCast(const rdmaConnID rdmaConnID,
                                   const void* memAddr, size_t size) {
   rdma_mcast_conn_t mCastConn = m_udpMcastConns[rdmaConnID];
 
   void* buffer = (void*)(((char*)memAddr) - Config::RDMA_UD_OFFSET);
-  if (rdma_post_recv(mCastConn.id, nullptr, buffer,
-                     size + Config::RDMA_UD_OFFSET, mCastConn.mr) != 0) {
-    Logging::error(__FILE__, __LINE__, "Receiving multicast data failed");
-    return false;
+  if (rdma_post_recv(mCastConn.id, nullptr, buffer, size + Config::RDMA_UD_OFFSET, mCastConn.mr) != 0) {
+    throw runtime_error("Receiving multicast data failed");
   }
-
-  return true;
 }
 
-bool UnreliableRDMA::pollReceiveMCast(const rdmaConnID rdmaConnID) {
+void UnreliableRDMA::pollReceiveMCast(const rdmaConnID rdmaConnID) {
   rdma_mcast_conn_t mCastConn = m_udpMcastConns[rdmaConnID];
   int ne = 0;
   struct ibv_wc wc;
@@ -504,25 +416,19 @@ bool UnreliableRDMA::pollReceiveMCast(const rdmaConnID rdmaConnID) {
     ne = ibv_poll_cq(mCastConn.rcq, 1, &wc);
 
     if (wc.status != IBV_WC_SUCCESS) {
-      Logging::error(__FILE__, __LINE__,
-                     "RDMA completion event in multicast CQ with error! " +
+      throw runtime_error("RDMA completion event in multicast CQ with error! " +
                          to_string(wc.status));
-      return false;
     }
 
   } while (ne == 0);
 
   if (ne < 0) {
-    Logging::error(__FILE__, __LINE__,
-                   "RDMA polling from multicast CQ failed!");
-    return false;
+    throw runtime_error("RDMA polling from multicast CQ failed!");
   }
-
-  return true;
 }
 
 /********** private methods **********/
-bool UnreliableRDMA::createQP(struct ib_qp_t* qp) {
+void UnreliableRDMA::createQP(struct ib_qp_t* qp) {
   // initialize QP attributes
   struct ibv_qp_init_attr qp_init_attr;
   memset(&qp_init_attr, 0, sizeof(qp_init_attr));
@@ -541,14 +447,11 @@ bool UnreliableRDMA::createQP(struct ib_qp_t* qp) {
 
   // create queue pair
   if (!(qp->qp = ibv_create_qp(m_res.pd, &qp_init_attr))) {
-    Logging::error(__FILE__, __LINE__, "Cannot create queue pair!");
-    return false;
+    throw runtime_error("Cannot create queue pair!");
   }
-
-  return true;
 }
 
-bool UnreliableRDMA::modifyQPToInit(struct ibv_qp* qp) {
+void UnreliableRDMA::modifyQPToInit(struct ibv_qp* qp) {
   int flags = IBV_QP_STATE | IBV_QP_PKEY_INDEX | IBV_QP_PORT | IBV_QP_QKEY;
   struct ibv_qp_attr attr;
 
@@ -559,13 +462,11 @@ bool UnreliableRDMA::modifyQPToInit(struct ibv_qp* qp) {
   attr.qkey = 0x11111111;
 
   if ((errno = ibv_modify_qp(qp, &attr, flags)) > 0) {
-    Logging::error(__FILE__, __LINE__, "Failed modifyQPToInit!");
-    return false;
+    throw runtime_error("Failed modifyQPToInit!");
   }
-  return true;
 }
 
-bool UnreliableRDMA::modifyQPToRTR(struct ibv_qp* qp) {
+void UnreliableRDMA::modifyQPToRTR(struct ibv_qp* qp) {
   struct ibv_qp_attr attr;
   int flags = IBV_QP_STATE;
   memset(&attr, 0, sizeof(attr));
@@ -573,14 +474,11 @@ bool UnreliableRDMA::modifyQPToRTR(struct ibv_qp* qp) {
   attr.qp_state = IBV_QPS_RTR;
 
   if ((errno = ibv_modify_qp(qp, &attr, flags)) > 0) {
-    Logging::error(__FILE__, __LINE__, "Failed modifyQPToRTR!");
-    return false;
+    throw runtime_error("Failed modifyQPToRTR!");
   }
-
-  return true;
 }
 
-bool UnreliableRDMA::modifyQPToRTS(struct ibv_qp* qp, const uint32_t psn) {
+void UnreliableRDMA::modifyQPToRTS(struct ibv_qp* qp, const uint32_t psn) {
   struct ibv_qp_attr attr;
   int flags = IBV_QP_STATE | IBV_QP_SQ_PSN;
   memset(&attr, 0, sizeof(attr));
@@ -588,23 +486,20 @@ bool UnreliableRDMA::modifyQPToRTS(struct ibv_qp* qp, const uint32_t psn) {
   attr.sq_psn = psn;
 
   if ((errno = ibv_modify_qp(qp, &attr, flags)) > 0) {
-    Logging::error(__FILE__, __LINE__, "Failed modifyQPToRTS!");
-    return false;
+    throw runtime_error("Failed modifyQPToRTS!");
   }
-
-  return true;
 }
 
-bool UnreliableRDMA::getCmEvent(struct rdma_event_channel* channel,
+void UnreliableRDMA::getCmEvent(struct rdma_event_channel* channel,
                                 enum rdma_cm_event_type type,
                                 struct rdma_cm_event** out_ev) {
   struct rdma_cm_event* event = NULL;
   if (rdma_get_cm_event(channel, &event) != 0) {
-    return false;
+    throw runtime_error("rdma_get_cm_event failed!");
   }
   /* Verify the event is the expected type */
   if (event->event != type) {
-    return false;
+    throw runtime_error("rdma_get_cm_event returned event did not match type!");
   }
   /* Pass the event back to the user if requested */
   if (!out_ev) {
@@ -612,7 +507,6 @@ bool UnreliableRDMA::getCmEvent(struct rdma_event_channel* channel,
   } else {
     *out_ev = event;
   }
-  return true;
 }
 
 void UnreliableRDMA::setMCastConn(const rdmaConnID rdmaConnID,

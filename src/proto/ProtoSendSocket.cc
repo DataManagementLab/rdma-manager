@@ -19,38 +19,29 @@ ProtoSendSocket::~ProtoSendSocket() {
   }
 }
 
-bool ProtoSendSocket::connect() {
+void ProtoSendSocket::connect() {
   m_pSocket = new ProtoSocket(m_address, m_port, ZMQ_REQ);
   if (!m_pSocket->connect()) {
-    Logging::fatal(__FILE__, __LINE__, "Cannot connect to server");
-    return false;
+    throw runtime_error("Cannot connect to server");
   }
   m_isConnected = true;
-  return true;
 }
 
-bool ProtoSendSocket::send(Any* sendMsg, Any* recMsg) {
+void ProtoSendSocket::send(Any* sendMsg, Any* recMsg) {
   if (!m_isConnected) {
-    Logging::fatal(__FILE__, __LINE__, "Not connected to server");
-    return false;
+    throw runtime_error("Not connected to server");
   }
   if (sendMsg == NULL || !m_pSocket->send(sendMsg)) {
-    Logging::fatal(__FILE__, __LINE__, "Cannot send message");
-    return false;
+    throw runtime_error("Cannot send message");
   }
   if (recMsg == NULL || !m_pSocket->receive(recMsg)) {
-    Logging::fatal(__FILE__, __LINE__, "Cannot receive message");
-    return false;
+    throw runtime_error("Cannot receive message");
   }
   if (recMsg->Is<ErrorMessage>()) {
     ErrorMessage errMsg;
     recMsg->UnpackTo(&errMsg);
     if (errMsg.return_() != MessageErrors::NO_ERROR) {
-      Logging::error(
-          __FILE__, __LINE__,
-          "error " + to_string(errMsg.return_()) + " returned from server");
-      return false;
+      throw runtime_error("Error " + to_string(errMsg.return_()) + " returned from server");
     }
   }
-  return true;
 }

@@ -39,6 +39,7 @@ RDMA_UNIT_TEST_SUITE (TestRDMAServer);
  private:
   RDMAServer<ReliableRDMA>* m_rdmaServer;
   RDMAClient<ReliableRDMA>* m_rdmaClient;
+  NodeIDSequencer *m_nodeIDSequencer;
   string m_connection;
 
   NodeID m_nodeId = 0;

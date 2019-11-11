@@ -74,9 +74,9 @@ static void runtest(int t)
     case 101:
         runner.addTest(TestRDMAServer::suite());
         break;
-    // case 102:
-    //     runner.addTest(TestRDMAServerMultClients::suite());
-    //     break;
+    case 102:
+        runner.addTest(TestRDMAServerMultClients::suite());
+        break;
     // case 103:
     //     runner.addTest(TestSimpleUD::suite());
     //     break;

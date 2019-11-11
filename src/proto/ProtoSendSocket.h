@@ -7,7 +7,7 @@
 #ifndef NET_PROTOCLIENT_H
 #define NET_PROTOCLIENT_H
 
-#include "../message/MessageTypes.h"
+#include "../message/ProtoMessageFactory.h"
 #include "../utils/Config.h"
 #include "../utils/Logging.h"
 #include "ProtoSocket.h"
@@ -19,8 +19,8 @@ class ProtoSendSocket {
  public:
   ProtoSendSocket(string address, int port);
   virtual ~ProtoSendSocket();
-  bool connect();
-  bool send(Any* sendMsg, Any* recMsg);
+  void connect();
+  void send(Any* sendMsg, Any* recMsg);
 
   int getPort() { return m_port; }
 

@@ -24,61 +24,60 @@ class ReliableRDMA : public BaseRDMA {
   ReliableRDMA(size_t mem_size);
   ~ReliableRDMA();
 
-  bool initQPWithSuppliedID(const rdmaConnID suppliedID) override;
-  bool initQP(rdmaConnID& retRdmaConnID) override;
-  bool connectQP(const rdmaConnID rdmaConnID) override;
+  void initQPWithSuppliedID(const rdmaConnID suppliedID) override;
+  void initQP(rdmaConnID& retRdmaConnID) override;
+  void connectQP(const rdmaConnID rdmaConnID) override;
 
-  bool write(const rdmaConnID rdmaConnID, size_t offset, const void* memAddr,
+  void write(const rdmaConnID rdmaConnID, size_t offset, const void* memAddr,
              size_t size, bool signaled);
-  bool read(const rdmaConnID rdmaConnID, size_t offset, const void* memAddr,
+  void read(const rdmaConnID rdmaConnID, size_t offset, const void* memAddr,
             size_t size, bool signaled);
-  bool requestRead(const rdmaConnID rdmaConnID, size_t offset,
+  void requestRead(const rdmaConnID rdmaConnID, size_t offset,
                    const void* memAddr, size_t size);
-  bool fetchAndAdd(const rdmaConnID rdmaConnID, size_t offset,
+  void fetchAndAdd(const rdmaConnID rdmaConnID, size_t offset,
                    const void* memAddr, size_t size, bool signaled);
-  bool fetchAndAdd(const rdmaConnID rdmaConnID, size_t offset,
+  void fetchAndAdd(const rdmaConnID rdmaConnID, size_t offset,
                    const void* memAddr, size_t value_to_add, size_t size,
                    bool signaled);
 
-  bool compareAndSwap(const rdmaConnID rdmaConnID, size_t offset,
+  void compareAndSwap(const rdmaConnID rdmaConnID, size_t offset,
                       const void* memAddr, int toCompare, int toSwap,
                       size_t size, bool signaled);
 
-  bool send(const rdmaConnID rdmaConnID, const void* memAddr, size_t size,
+  void send(const rdmaConnID rdmaConnID, const void* memAddr, size_t size,
             bool signaled) override;
-  bool receive(const rdmaConnID rdmaConnID, const void* memAddr,
+  void receive(const rdmaConnID rdmaConnID, const void* memAddr,
                size_t size) override;
-  bool pollReceive(const rdmaConnID rdmaConnID, bool doPoll) override;
-  bool pollReceiveBatch(size_t srq_id, size_t& num_completed, bool& doPoll);
-  bool pollSend(const rdmaConnID rdmaConnID, bool doPoll) override;
+  void pollReceive(const rdmaConnID rdmaConnID, bool doPoll) override;
+  void pollReceiveBatch(size_t srq_id, size_t& num_completed, bool& doPoll);
+  void pollSend(const rdmaConnID rdmaConnID, bool doPoll) override;
 
   void* localAlloc(const size_t& size) override;
-  bool localFree(const void* ptr) override;
-  bool localFree(const size_t& offset) override;
+  void localFree(const void* ptr) override;
+  void localFree(const size_t& offset) override;
   rdma_mem_t remoteAlloc(const size_t& size);
-  bool remoteFree(const size_t& offset);
+  void remoteFree(const size_t& offset);
 
   // Shared Receive Queue
-  bool initQPForSRQWithSuppliedID(size_t srq_id, const rdmaConnID rdmaConnID);
-  bool initQPForSRQ(size_t srq_id, rdmaConnID& retRdmaConnID);
+  void initQPForSRQWithSuppliedID(size_t srq_id, const rdmaConnID rdmaConnID);
+  void initQPForSRQ(size_t srq_id, rdmaConnID& retRdmaConnID);
 
-  bool receiveSRQ(size_t srq_id, const void* memAddr, size_t size);
-  bool pollReceiveSRQ(size_t srq_id, rdmaConnID& retrdmaConnID, bool& doPoll);
-  bool createSharedReceiveQueue(size_t& ret_srq_id);
+  void receiveSRQ(size_t srq_id, const void* memAddr, size_t size);
+  void pollReceiveSRQ(size_t srq_id, rdmaConnID& retrdmaConnID, bool& doPoll);
+  void createSharedReceiveQueue(size_t& ret_srq_id);
 
  protected:
   // RDMA operations
-  inline bool __attribute__((always_inline))
+  inline void __attribute__((always_inline))
   remoteAccess(const rdmaConnID rdmaConnID, size_t offset, const void* memAddr,
                size_t size, bool signaled, bool wait, enum ibv_wr_opcode verb) {
     DebugCode(
-        if (memAddr < m_res.buffer ||
-            (char*)memAddr + size > (char*)m_res.buffer + m_res.mr->length) {
-          Logging::error(__FILE__, __LINE__,
-                         "Passed memAddr falls out of buffer addr space");
-        })
+      if (memAddr < m_res.buffer || (char*)memAddr + size > (char*)m_res.buffer + m_res.mr->length) {
+        Logging::error(__FILE__, __LINE__,
+                        "Passed memAddr falls out of buffer addr space");
+    })
 
-        checkSignaled(signaled, rdmaConnID);
+    checkSignaled(signaled, rdmaConnID);
 
     struct ib_qp_t localQP = m_qps[rdmaConnID];
     struct ib_conn_t remoteConn = m_rconns[rdmaConnID];
@@ -104,9 +103,7 @@ class ReliableRDMA : public BaseRDMA {
 
     struct ibv_send_wr* bad_wr = nullptr;
     if ((errno = ibv_post_send(localQP.qp, &sr, &bad_wr))) {
-      Logging::error(__FILE__, __LINE__,
-                     "RDMA OP not successful! error: " + to_string(errno));
-      return false;
+      throw runtime_error("RDMA OP not successful! error: " + to_string(errno));
     }
 
     if (signaled && wait) {
@@ -116,10 +113,8 @@ class ReliableRDMA : public BaseRDMA {
         wc.status = IBV_WC_SUCCESS;
         ne = ibv_poll_cq(localQP.send_cq, 1, &wc);
         if (wc.status != IBV_WC_SUCCESS) {
-          Logging::error(__FILE__, __LINE__,
-                         "RDMA completion event in CQ with error! " +
+          throw runtime_error("RDMA completion event in CQ with error! " +
                              to_string(wc.status));
-          return false;
         }
 
 #ifdef BACKOFF
@@ -130,21 +125,18 @@ class ReliableRDMA : public BaseRDMA {
       } while (ne == 0);
 
       if (ne < 0) {
-        Logging::error(__FILE__, __LINE__, "RDMA polling from CQ failed!");
-        return false;
+        throw runtime_error("RDMA polling from CQ failed!");
       }
     }
-
-    return true;
   }
 
   virtual void destroyQPs() override;
-  bool createQP(struct ib_qp_t* qp) override;
-  bool createQP(size_t srq_id, struct ib_qp_t& qp);
-  bool modifyQPToInit(struct ibv_qp* qp);
-  bool modifyQPToRTR(struct ibv_qp* qp, uint32_t remote_qpn, uint16_t dlid,
+  void createQP(struct ib_qp_t* qp) override;
+  void createQP(size_t srq_id, struct ib_qp_t& qp);
+  void modifyQPToInit(struct ibv_qp* qp);
+  void modifyQPToRTR(struct ibv_qp* qp, uint32_t remote_qpn, uint16_t dlid,
                      uint8_t* dgid);
-  bool modifyQPToRTS(struct ibv_qp* qp);
+  void modifyQPToRTS(struct ibv_qp* qp);
 
   // shared receive queues
   map<size_t, sharedrq_t> m_srqs;

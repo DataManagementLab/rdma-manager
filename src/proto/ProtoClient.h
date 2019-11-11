@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../message/MessageTypes.h"
+#include "../message/ProtoMessageFactory.h"
 #include "../utils/Config.h"
 #include "ProtoSendSocket.h"
 
@@ -15,8 +15,8 @@ class ProtoClient {
     }
     m_connections.clear();
   }
+  void exchangeProtoMsg(std::string ipAndPortString, Any* sendMsg, Any* recMsg);
   bool connectProto(const string& connection);
-  bool exchangeProtoMsg(std::string ipAndPortString, Any* sendMsg, Any* recMsg);
 
  protected:
   bool isConnected(std::string ipAndPortString) {
