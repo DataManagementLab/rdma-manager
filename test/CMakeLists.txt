@@ -1,4 +1,5 @@
 FIND_PACKAGE(CPPUNIT REQUIRED)
+find_package(GTest REQUIRED)
 enable_testing()
 
 # add_subdirectory(proto)
@@ -46,6 +47,7 @@ target_link_libraries(test_lib
 add_executable(rdma_test Main.cc)
 target_link_libraries(rdma_test
 	test_lib
+	GTest::GTest GTest::Main
 )
 
 add_executable(perf_test MainPerf.cc)
