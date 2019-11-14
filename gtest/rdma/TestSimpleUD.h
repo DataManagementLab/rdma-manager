@@ -12,28 +12,23 @@
 #include "../../src/utils/Config.h"
 #include "../../src/rdma/RDMAServer.h"
 #include "../../src/rdma/RDMAClient.h"
+#include <gtest/gtest.h>
+
 
 using namespace rdma;
 
-class TestSimpleUD : public CppUnit::TestFixture
+class TestSimpleUD : public testing::Test
 {
-    RDMA_UNIT_TEST_SUITE(TestSimpleUD);
-    RDMA_UNIT_TEST_UD(testSendRecieve);
-    // RDMA_UNIT_TEST_UD(testSendRecieveMgmt);
-    RDMA_UNIT_TEST_SUITE_END();
-
-  public:
-    void setUp();
-    void tearDown();
-
+ protected:
+    void SetUp();
 
     std::unique_ptr<NodeIDSequencer> m_nodeIDSequencer;
 
-    std::unique_ptr<RDMAServer<ReliableRDMA>> m_rdmaServer1;
-    std::unique_ptr<RDMAServer<ReliableRDMA>> m_rdmaServer2;
+    std::unique_ptr<RDMAServer<UnreliableRDMA>> m_rdmaServer1;
+    std::unique_ptr<RDMAServer<UnreliableRDMA>> m_rdmaServer2;
 
-    std::unique_ptr<RDMAClient<ReliableRDMA>> m_rdmaClient1;
-    std::unique_ptr<RDMAClient<ReliableRDMA>> m_rdmaClient2;
+    std::unique_ptr<RDMAClient<UnreliableRDMA>> m_rdmaClient1;
+    std::unique_ptr<RDMAClient<UnreliableRDMA>> m_rdmaClient2;
 
     string m_connection1;
     string m_connection2;
