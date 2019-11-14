@@ -7,7 +7,6 @@ add_subdirectory(rdma)
 add_subdirectory(thread)
 add_subdirectory(utils)
 add_subdirectory(RPC)
-add_subdirectory(perftest)
 
 
 file(COPY

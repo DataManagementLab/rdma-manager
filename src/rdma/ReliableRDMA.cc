@@ -23,13 +23,6 @@ ReliableRDMA::~ReliableRDMA() {
 
 //------------------------------------------------------------------------------------//
 
-/********** public methods **********/
-rdma_mem_t ReliableRDMA::remoteAlloc(const size_t &size) {
-  return internalAlloc(size);  // nullptr
-}
-
-//------------------------------------------------------------------------------------//
-
 void *ReliableRDMA::localAlloc(const size_t &size) {
   rdma_mem_t memRes = internalAlloc(size);
   if (!memRes.isnull) {
@@ -37,10 +30,6 @@ void *ReliableRDMA::localAlloc(const size_t &size) {
   }
   throw runtime_error("Could not allocate local rdma memory");
 }
-
-//------------------------------------------------------------------------------------//
-
-void ReliableRDMA::remoteFree(const size_t &offset) { internalFree(offset); }
 
 //------------------------------------------------------------------------------------//
 

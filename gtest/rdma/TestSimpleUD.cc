@@ -11,18 +11,15 @@ void TestSimpleUD::SetUp() {
 
 
   // run two servers
-  m_rdmaServer1 = std::make_unique<RDMAServer<UnreliableRDMA>>();
-  m_rdmaServer2 = std::make_unique<RDMAServer<UnreliableRDMA>>();
-
-  ASSERT_TRUE(m_rdmaServer1->startServer());
-  ASSERT_TRUE(m_rdmaServer2->startServer());
+  m_rdmaServer1 = std::make_unique<RDMAServer<UnreliableRDMA>>("Server1", Config::RDMA_PORT);
+  m_rdmaServer2 = std::make_unique<RDMAServer<UnreliableRDMA>>("Server2", Config::RDMA_PORT + 1);
 
   m_rdmaClient1 = std::make_unique<RDMAClient<UnreliableRDMA>>();
   m_rdmaClient2 = std::make_unique<RDMAClient<UnreliableRDMA>>();
 
   // connect each client to both servers
-  m_connection1 = "127.0.0.1:" + to_string(Config::RDMA_PORT);
-  m_connection2 = "127.0.0.1:" + to_string(Config::RDMA_PORT + 1);
+  m_connection1 = Config::getIP(Config::RDMA_INTERFACE) + ":" + to_string(Config::RDMA_PORT);
+  m_connection2 = Config::getIP(Config::RDMA_INTERFACE) + ":" + to_string(Config::RDMA_PORT + 1);
   ASSERT_TRUE(m_rdmaClient1->connect(m_connection1, m_s1_nodeId));  // with management queue
   ASSERT_TRUE(m_rdmaClient1->connect(m_connection2, m_s2_nodeId));  // with management queue
   ASSERT_TRUE(m_rdmaClient2->connect(m_connection1, m_s1_nodeId));  // with management queue
@@ -30,7 +27,7 @@ void TestSimpleUD::SetUp() {
 }
 
 
-TEST_F(TestSimpleUD,testSendRecieve) {
+TEST_F(TestSimpleUD, testSendRecieve) {
   int* message11 = (int*) m_rdmaClient1->localAlloc(sizeof(int));
   int* message21 = (int*) m_rdmaClient1->localAlloc(sizeof(int));
   *message11 = 0;

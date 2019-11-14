@@ -23,8 +23,6 @@
 #include <stdlib.h>
 #include <fstream>
 #include <google/protobuf/stubs/common.h>
-#include <cppunit/TestFixture.h>
-#include <cppunit/extensions/HelperMacros.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h> /* For strncpy */
@@ -37,49 +35,6 @@
 
 using namespace std;
 
-#define RDMA_TRANSPORT 0 //0=RC, 1=UD
-
-#if RDMA_TRANSPORT == 0
-#define RDMA_UNIT_TEST_RC(test) CPPUNIT_TEST(test)
-#define RDMA_UNIT_TEST_UD(test)
-#elif RDMA_TRANSPORT == 1
-#define RDMA_UNIT_TEST_RC(test)
-#define RDMA_UNIT_TEST_UD(test) CPPUNIT_TEST(test)
-#endif
-
-//#define DEBUGCODEANOTHER
-#if defined(DEBUGCODEANOTHER)
-
-#define DEBUG_WRITE(outputStream, className, funcName, message)                     \
-    do                                                                              \
-    {                                                                               \
-        std::string header = std::string("[") + className + "::" + funcName + "] "; \
-        outputStream << std::left << header << message << std::endl;                \
-    } while (false)
-
-#define RESULT_WRITE(outputStream, message)                \
-    do                                                     \
-    {                                                      \
-        outputStream << std::left << message << std::endl; \
-    } while (false)
-
-#define DEBUG_OUT(x)                     \
-    do                                   \
-    {                                    \
-        if (debugging_enabled)           \
-        {                                \
-            std::cout << x << std::endl; \
-        }                                \
-    } while (0);
-
-#else
-#define DEBUG_WRITE(outputStream, className, funcName, message)
-#define RESULT_WRITE(outputStream, message)
-#define DEBUG_OUT(x)
-#endif
-
-
-
 // #define DEBUGCODE
 #if defined(DEBUG)
 #define DebugCode(code_fragment) \
@@ -90,16 +45,8 @@ using namespace std;
 #define DebugCode(code_fragment)
 #endif
 
-
 //To be implemented MACRO
 #define TO_BE_IMPLEMENTED(code_fragment)
-#define RDMA_UNIT_TEST_SUITE(suite) CPPUNIT_TEST_SUITE(suite)
-#define RDMA_UNIT_TEST(test) CPPUNIT_TEST(test)
-#define RDMA_UNIT_TEST_SUITE_END() CPPUNIT_TEST_SUITE_END()
-
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE
-#endif
 
 //typedefs
 typedef unsigned long long uint128_t;

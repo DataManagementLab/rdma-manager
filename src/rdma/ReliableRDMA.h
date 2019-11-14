@@ -55,9 +55,7 @@ class ReliableRDMA : public BaseRDMA {
   void* localAlloc(const size_t& size) override;
   void localFree(const void* ptr) override;
   void localFree(const size_t& offset) override;
-  rdma_mem_t remoteAlloc(const size_t& size);
-  void remoteFree(const size_t& offset);
-
+  
   // Shared Receive Queue
   void initQPForSRQWithSuppliedID(size_t srq_id, const rdmaConnID rdmaConnID);
   void initQPForSRQ(size_t srq_id, rdmaConnID& retRdmaConnID);

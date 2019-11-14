@@ -35,6 +35,9 @@ void NodeIDSequencer::handle(Any *anyReq, Any *anyResp)
     {
       m_ipPortToNodeIDMapping[IP] = newNodeID;
     }
+
+    // std::cout << "newNodeID: " << newNodeID << " type: " << nodeType << " IP: " << IP << " name: " << name << std::endl;
+
     connResp.set_nodeid(newNodeID);
     connResp.set_return_(MessageErrors::NO_ERROR);
 
@@ -65,6 +68,7 @@ void NodeIDSequencer::handle(Any *anyReq, Any *anyResp)
     anyReq->UnpackTo(&connReq);
 
     std::string ipPort = connReq.ipport();
+    // std::cout << "NodeID request - IP: " << ipPort << std::endl;
 
     if (m_ipPortToNodeIDMapping.find(ipPort) != m_ipPortToNodeIDMapping.end())
     {

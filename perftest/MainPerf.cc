@@ -1,5 +1,5 @@
-#include "../src/perftest/PerfTests.h"
-//#include "../src/perftest/RemoteMemoryPerf.h"
+#include "PerfTests.h"
+//#include "RemoteMemoryPerf.h"
 
 //
 // Created by Tilo Gaulke on 11.10.19.
@@ -26,7 +26,7 @@ static void printUsage() {
 
 
 rdma::PerfTest* createTest(config_t& config) {
-    PerfTest* test;
+    PerfTest* test = nullptr;
     switch (config.number) {
         case 1:
             test = new rdma::RemoteMemoryPerf(config, true);

@@ -21,12 +21,16 @@ namespace rdma {
 
 template <typename RDMA_API_T>
 class RDMAClient : public RDMA_API_T, public ProtoClient {
+ protected:
+  RDMAClient(size_t mem_size, std::string name, std::string ownIpPort, NodeType::Enum nodeType) : RDMA_API_T(mem_size), m_name(name)
+  {
+    m_ownNodeID = requestNodeID(m_sequencerIpPort, ownIpPort, nodeType);
+  }
  public:
   RDMAClient() : RDMAClient(Config::RDMA_MEMSIZE) {}
   RDMAClient(size_t mem_size) : RDMAClient(mem_size, "RDMAClient") {}
-  RDMAClient(size_t mem_size, std::string name) : RDMA_API_T(mem_size), m_name(name)
+  RDMAClient(size_t mem_size, std::string name) : RDMAClient(mem_size, name, Config::getIP(Config::RDMA_INTERFACE), NodeType::Enum::CLIENT)
   {
-    m_ownNodeID = requestNodeID(m_sequencerIpPort, Config::getIP(Config::RDMA_INTERFACE));
   }
   
   ~RDMAClient() {}
@@ -121,11 +125,17 @@ class RDMAClient : public RDMA_API_T, public ProtoClient {
           GetNodeIDForIpPortResponse connResponse;
           rcvAny.UnpackTo(&connResponse);
 
+          if (connResponse.return_() != MessageErrors::NO_ERROR)
+          {
+            throw runtime_error("GetNodeIDForIpPortResponse returned an error: " + to_string(connResponse.return_()));
+          }
+
           retServerNodeID = connResponse.node_id();
 
 
           if (connResponse.ip() != ipPort)
           {
+            std::cout << "name: " << m_name << " returned nodeid: " << retServerNodeID << std::endl;
             throw runtime_error("Fetched IP (" + connResponse.ip() + ") from Sequencer did not match requested IP ("+ipPort+")");
           }
         }
@@ -211,15 +221,15 @@ class RDMAClient : public RDMA_API_T, public ProtoClient {
   std::string m_name;
   std::string m_sequencerIpPort = Config::SEQUENCER_IP + ":" + to_string(Config::SEQUENCER_PORT);
   //Can be overwritten for special use-cases where NodeIDSequencer is insufficient
-  NodeID requestNodeID(std::string sequencerIpPort, std::string ownIP)
-  {    
+  virtual NodeID requestNodeID(std::string sequencerIpPort, std::string ownIpPort, NodeType::Enum nodeType)
+  {
     // check if client is connected to sequencer
     if (ProtoClient::isConnected(sequencerIpPort)) {
       return m_ownNodeID;
     }
     ProtoClient::connectProto(sequencerIpPort);
 
-    Any nodeIDRequest = ProtoMessageFactory::createNodeIDRequest(ownIP, m_name, NodeType::Enum::CLIENT);
+    Any nodeIDRequest = ProtoMessageFactory::createNodeIDRequest(ownIpPort, m_name, nodeType);
     Any rcvAny;
 
     ProtoClient::exchangeProtoMsg(sequencerIpPort, &nodeIDRequest, &rcvAny);
@@ -235,7 +245,7 @@ class RDMAClient : public RDMA_API_T, public ProtoClient {
     }
   }
 
-private:
+protected:
   using ProtoClient::connectProto; //Make private
   using ProtoClient::exchangeProtoMsg; //Make private
 

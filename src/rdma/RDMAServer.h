@@ -15,6 +15,7 @@
 #include "ReliableRDMA.h"
 #include "UnreliableRDMA.h"
 #include "NodeIDSequencer.h"
+#include "RDMAClient.h"
 
 #include <list>
 #include <mutex>
@@ -24,16 +25,13 @@
 namespace rdma {
 
 template <typename RDMA_API_T>
-class RDMAServer : public ProtoServer, public ProtoClient, public RDMA_API_T {
+class RDMAServer : public ProtoServer, public RDMAClient<RDMA_API_T> {
  public:
   RDMAServer() : RDMAServer("RDMAserver"){}
   RDMAServer(string name) : RDMAServer(name, Config::RDMA_PORT){}
   RDMAServer(string name, int port) : RDMAServer(name, port, Config::RDMA_MEMSIZE){}
-  RDMAServer(string name, int port, uint64_t memsize) : ProtoServer(name, port), RDMA_API_T(memsize)
+  RDMAServer(string name, int port, uint64_t memsize) : ProtoServer(name, port), RDMAClient<RDMA_API_T>(memsize, name, Config::getIP(Config::RDMA_INTERFACE) + ":" + to_string(port), NodeType::Enum::SERVER)
   {
-    std::string sequencerIpPort = Config::SEQUENCER_IP + ":" + to_string(Config::SEQUENCER_PORT);
-    std::string ownIpPort = Config::getIP(Config::RDMA_INTERFACE) + ":" + to_string(port);
-    m_ownNodeID = requestNodeID(sequencerIpPort, ownIpPort);
   }
 
   ~RDMAServer() = default;
@@ -106,7 +104,7 @@ class RDMAServer : public ProtoServer, public ProtoClient, public RDMA_API_T {
   MessageErrors requestMemoryResource(size_t size, size_t &offset) {
     unique_lock<mutex> lck(m_memLock);
 
-    rdma_mem_t memRes = RDMA_API_T::remoteAlloc(size);
+    rdma_mem_t memRes = RDMA_API_T::internalAlloc(size);
     offset = memRes.offset;
 
     if (!memRes.isnull) {
@@ -122,7 +120,7 @@ class RDMAServer : public ProtoServer, public ProtoClient, public RDMA_API_T {
     unique_lock<mutex> lck(m_memLock);
     try 
     {
-      RDMA_API_T::remoteFree(offset);
+      RDMA_API_T::internalFree(offset);
     }
     catch (runtime_error& e)
     {
@@ -207,29 +205,30 @@ class RDMAServer : public ProtoServer, public ProtoClient, public RDMA_API_T {
     return true;
   }
 
-  NodeID requestNodeID(std::string sequencerIpPort, std::string ownIpPort)
-  {    
-    // check if client is connected to sequencer
-    if (ProtoClient::isConnected(sequencerIpPort)) {
-      return true;
-    }
-    ProtoClient::connectProto(sequencerIpPort);
+  // NodeID requestNodeID(std::string sequencerIpPort, std::string ownIpPort) override
+  // {    
+  //   std::cout << "Server: requestNodeID" << std::endl;
+  //   // check if client is connected to sequencer
+  //   if (ProtoClient::isConnected(sequencerIpPort)) {
+  //     return true;
+  //   }
+  //   ProtoClient::connectProto(sequencerIpPort);
 
-    Any nodeIDRequest = ProtoMessageFactory::createNodeIDRequest(ownIpPort, ProtoServer::m_name, NodeType::Enum::SERVER);
-    Any rcvAny;
+  //   Any nodeIDRequest = ProtoMessageFactory::createNodeIDRequest(ownIpPort, ProtoServer::m_name, NodeType::Enum::SERVER);
+  //   Any rcvAny;
 
-    ProtoClient::exchangeProtoMsg(sequencerIpPort, &nodeIDRequest, &rcvAny);
+  //   ProtoClient::exchangeProtoMsg(sequencerIpPort, &nodeIDRequest, &rcvAny);
 
-    if (rcvAny.Is<NodeIDResponse>()) {
-      NodeIDResponse connResponse;
-      rcvAny.UnpackTo(&connResponse);
-      return connResponse.nodeid();
-    } else {
-      Logging::error(__FILE__, __LINE__,
-                     "RDMAServer could not request NodeID from NodeIDSequencer: received wrong response type");
-      throw std::runtime_error("RDMAServer could not request NodeID from NodeIDSequencer: received wrong response type");
-    }
-  }
+  //   if (rcvAny.Is<NodeIDResponse>()) {
+  //     NodeIDResponse connResponse;
+  //     rcvAny.UnpackTo(&connResponse);
+  //     return connResponse.nodeid();
+  //   } else {
+  //     Logging::error(__FILE__, __LINE__,
+  //                    "RDMAServer could not request NodeID from NodeIDSequencer: received wrong response type");
+  //     throw std::runtime_error("RDMAServer could not request NodeID from NodeIDSequencer: received wrong response type");
+  //   }
+  // }
 
   unordered_map<string, NodeID> m_mcastAddr;  // mcast_string to ibaddr
 
@@ -240,7 +239,7 @@ class RDMAServer : public ProtoServer, public ProtoClient, public RDMA_API_T {
   size_t m_currentSRQ = SIZE_MAX;
 
   std::string m_sequencerIpPort = Config::SEQUENCER_IP + ":" + to_string(Config::SEQUENCER_PORT);
-  NodeID m_ownNodeID;
+  // NodeID m_ownNodeID;
 
 private:
   using ProtoClient::connectProto; //Make private

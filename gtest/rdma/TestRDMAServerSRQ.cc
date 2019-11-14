@@ -53,7 +53,6 @@ TEST_F(TestRDMAServerSRQ, testSendReceive) {
 
   NodeID retNodeID = 0;
   bool poll= true;
-  std::cout << "Hanging?" << std::endl;\
   ASSERT_NO_THROW(m_rdmaServer->pollReceiveSRQ(m_srq_id, retNodeID, poll));
 
   ASSERT_EQ(localstruct1->id, remotestruct->id);

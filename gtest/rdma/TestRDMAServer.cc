@@ -6,10 +6,8 @@ void TestRDMAServer::SetUp() {
   Config::SEQUENCER_IP = "localhost";
 
   m_nodeIDSequencer = std::make_unique<NodeIDSequencer>();
-  // ASSERT_TRUE(m_nodeIDSequencer->startServer());
 
   m_rdmaServer = std::make_unique<RDMAServer<ReliableRDMA>>();
-  // ASSERT_TRUE(m_rdmaServer->startServer());
 
   m_connection = Config::getIP(Config::RDMA_INTERFACE) + ":" + to_string(Config::RDMA_PORT);
   m_rdmaClient = std::make_unique<RDMAClient<ReliableRDMA>>();
