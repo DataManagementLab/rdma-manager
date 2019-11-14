@@ -85,11 +85,10 @@ protected:
     }
 
   };
-  HelloServer* m_testServer;
-  HelloClient* m_testClient;
+  std::unique_ptr<HelloServer> m_testServer;
+  std::unique_ptr<HelloClient> m_testClient;
 
   void SetUp() override;
-  void TearDown() override;
 };
 
 #endif /* SRC_TEST_NET_TestProtoServer_H_ */

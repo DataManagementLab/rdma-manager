@@ -2,9 +2,7 @@
 
 #include "TestThread.h"
 
-void TestThread::SetUp() { m_testingThread = new TestingThread(); }
-
-void TestThread::TearDown() { delete m_testingThread; }
+void TestThread::SetUp() { m_testingThread = std::make_unique<TestingThread>(); }
 
 TEST_F(TestThread, testRun){
   ASSERT_FALSE(m_testingThread->runned);

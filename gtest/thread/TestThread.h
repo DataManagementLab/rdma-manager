@@ -20,8 +20,8 @@ class TestThread : public testing::Test {
     bool runned = false;
     void run() { runned = true; }
   };
-  TestingThread *m_testingThread;
+
+  std::unique_ptr<TestingThread> m_testingThread;
 
   void SetUp() override;
-  void TearDown() override;
 };

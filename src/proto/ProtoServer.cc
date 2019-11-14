@@ -8,6 +8,10 @@ using namespace rdma;
 ProtoServer::ProtoServer(string name, int port)
     : m_port(port), m_running(false), m_pSocket(nullptr) {
   m_name = name;
+  if (!isRunning())
+  {
+    startServer();
+  }
 }
 
 ProtoServer::~ProtoServer() {

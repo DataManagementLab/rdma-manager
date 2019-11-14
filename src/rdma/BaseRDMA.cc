@@ -72,7 +72,6 @@ void BaseRDMA::createBuffer() {
   if ((dev_list = ibv_get_device_list(&num_devices)) == nullptr) {
     throw runtime_error("Get device list failed!");
   }
-
   if (m_rdmaDevice >= num_devices) {
     ibv_free_device_list(dev_list);
     throw runtime_error("Device not present!");

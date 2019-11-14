@@ -1,19 +1,14 @@
 #include "TestProtoServer.h"
 
 void TestProtoServer::SetUp() {
-  m_testServer = new HelloServer();
-  ASSERT_TRUE(m_testServer->startServer());
+  m_testServer = std::make_unique<HelloServer> ();
+  // ASSERT_TRUE(m_testServer->startServer());
 
   //connect client
-  m_testClient = new HelloClient();
+  m_testClient = std::make_unique<HelloClient>();
   // ASSERT_TRUE(m_testClient->connect());
 }
 
-void TestProtoServer::TearDown() {
-  m_testServer->stopServer();
-  delete m_testServer;
-  delete m_testClient;
-}
 
 TEST_F(TestProtoServer,testMsgExchange) {
   string msg = "";
