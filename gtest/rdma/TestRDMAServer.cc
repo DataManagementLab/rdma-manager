@@ -59,22 +59,23 @@ TEST_F(TestRDMAServer, testRemoteFree) {
 }
 
 TEST_F(TestRDMAServer, testSendRecieve) {
-  // testMsg* localstruct = (testMsg*) m_rdmaClient->localAlloc(sizeof(testMsg));
-  // CPPUNIT_ASSERT(localstruct!=nullptr);
-  // localstruct->a = 'a';
-  // localstruct->id = 1;
-  // testMsg* remotestruct = (testMsg*) m_rdmaServer->localAlloc(sizeof(testMsg));
-  // CPPUNIT_ASSERT(remotestruct!=nullptr);
+  testMsg* localstruct = (testMsg*) m_rdmaClient->localAlloc(sizeof(testMsg));
+  ASSERT_TRUE(localstruct!=nullptr);
+  localstruct->a = 'a';
+  localstruct->id = 1;
+  testMsg* remotestruct = (testMsg*) m_rdmaServer->localAlloc(sizeof(testMsg));
+  ASSERT_TRUE(remotestruct!=nullptr);
 
 
-  // CPPUNIT_ASSERT(
-  //     m_rdmaServer->receive(ibAddr, (void* )remotestruct, sizeof(testMsg)));
-  // CPPUNIT_ASSERT(
-  //     m_rdmaClient->send(m_nodeId,(void*)localstruct,sizeof(testMsg),true));
-  // CPPUNIT_ASSERT(m_rdmaServer->pollReceive(ibAddr));
+  ASSERT_NO_THROW(
+      m_rdmaServer->receive(m_rdmaClient->getOwnNodeID(), (void* )remotestruct, sizeof(testMsg)));
+  ASSERT_NO_THROW(
+      m_rdmaClient->send(m_nodeId,(void*)localstruct,sizeof(testMsg),true));
+  bool poll = true;
+  ASSERT_NO_THROW(m_rdmaServer->pollReceive(m_rdmaClient->getOwnNodeID(), poll));
 
-  // CPPUNIT_ASSERT_EQUAL(localstruct->id, remotestruct->id);
-  // CPPUNIT_ASSERT_EQUAL(localstruct->a, remotestruct->a);
+  ASSERT_EQ(localstruct->id, remotestruct->id);
+  ASSERT_EQ(localstruct->a, remotestruct->a);
 }
 
 TEST_F(TestRDMAServer, testAtomics) {
@@ -108,5 +109,58 @@ TEST_F(TestRDMAServer, testAtomics) {
 
   //remote free
   ASSERT_TRUE(m_rdmaClient->remoteFree(m_connection, memSize, remoteOffset));
-
 } 
+
+
+TEST_F(TestRDMAServer, serverToServerCommunication) {
+
+  auto m_rdmaServer2 = std::make_unique<RDMAServer<ReliableRDMA>>("RDMAServer2", Config::RDMA_PORT +1);
+  NodeID retServerNodeID;
+  string m_connection2 = Config::getIP(Config::RDMA_INTERFACE) + ":" + to_string(Config::RDMA_PORT + 1);
+  ASSERT_TRUE(m_rdmaServer2->connect(m_connection, retServerNodeID));
+
+  // WRITE
+  size_t remoteOffset = 0;
+  size_t memSize = sizeof(int) * 2;
+
+  //allocate local array
+  int* localValues = (int*) m_rdmaServer2->localAlloc(memSize);
+  ASSERT_TRUE(localValues!=nullptr);
+
+  //remote allocate array
+  ASSERT_TRUE(
+      m_rdmaServer2->remoteAlloc(m_connection, memSize, remoteOffset));
+
+  //write to remote machine
+  localValues[0] = 1;
+  localValues[1] = 2;
+  m_rdmaServer2->write(m_nodeId, remoteOffset, localValues, memSize, true);
+
+  //read from remote machine
+  int* remoteVals = (int*) m_rdmaServer->getBuffer(remoteOffset);
+  ASSERT_EQ(remoteVals[0], localValues[0]);
+  ASSERT_EQ(remoteVals[1], localValues[1]);
+
+
+  // SEND AND RECEIVE
+
+  testMsg* localstruct = (testMsg*) m_rdmaServer2->localAlloc(sizeof(testMsg));
+  ASSERT_TRUE(localstruct!=nullptr);
+  localstruct->a = 'a';
+  localstruct->id = 1;
+  testMsg* remotestruct = (testMsg*) m_rdmaServer->localAlloc(sizeof(testMsg));
+  ASSERT_TRUE(remotestruct!=nullptr);
+
+
+  ASSERT_NO_THROW(
+      m_rdmaServer->receive(m_rdmaServer2->getOwnNodeID(), (void* )remotestruct, sizeof(testMsg)));
+  ASSERT_NO_THROW(
+      m_rdmaServer2->send(m_nodeId,(void*)localstruct,sizeof(testMsg),true));
+  bool poll = true;
+  ASSERT_NO_THROW(m_rdmaServer->pollReceive(m_rdmaServer2->getOwnNodeID(), poll));
+
+  ASSERT_EQ(localstruct->id, remotestruct->id);
+  ASSERT_EQ(localstruct->a, remotestruct->a);
+
+
+}
