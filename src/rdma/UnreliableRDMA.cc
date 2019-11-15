@@ -9,6 +9,11 @@ UnreliableRDMA::UnreliableRDMA(size_t mem_size) : BaseRDMA(mem_size) {
 }
 
 UnreliableRDMA::~UnreliableRDMA() {
+  rdmaConnID mcastID = 0;
+  for(auto& mcastConn : m_udpMcastConns){
+    (void)mcastConn;
+    leaveMCastGroup(mcastID);
+  }
   // destroy QPS
   destroyQPs();
   m_qps.clear();
@@ -336,6 +341,9 @@ void UnreliableRDMA::joinMCastGroup(string mCastAddress,
 }
 
 void UnreliableRDMA::leaveMCastGroup(const rdmaConnID rdmaConnID) {
+  if(m_udpMcastConns.empty()){
+    return;
+  }
   rdma_mcast_conn_t mCastConn = m_udpMcastConns[rdmaConnID];
 
   // leave group

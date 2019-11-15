@@ -15,10 +15,6 @@ void TestRDMAServerMCast::SetUp() {
   ASSERT_NO_THROW(m_rdmaClient->joinMCastGroup(m_mCastAddr, m_addrClient));
 }
 
-void TestRDMAServerMCast::TearDown() {
-    m_rdmaServer->leaveMCastGroup(m_addrServer);
-    m_rdmaClient->leaveMCastGroup(m_addrClient);
-}
 
 TEST_F(TestRDMAServerMCast,testSendReceive) {
   testMsg* localstruct = (testMsg*) m_rdmaClient->localAlloc(sizeof(testMsg));

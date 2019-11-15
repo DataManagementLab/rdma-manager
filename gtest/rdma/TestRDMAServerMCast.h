@@ -20,7 +20,6 @@ class TestRDMAServerMCast : public testing::Test {
 
  protected:
   void SetUp() override;
-  void TearDown() override;
 
   std::unique_ptr<RDMAServer<UnreliableRDMA>> m_rdmaServer;
   std::unique_ptr<RDMAClient<UnreliableRDMA>> m_rdmaClient;
