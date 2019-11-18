@@ -17,11 +17,12 @@
 
 namespace rdma
 {
+    template<class RDMA_API_T>
     class RPCVoidHandlerThread : public Thread
     {
 
     public:
-        RPCVoidHandlerThread(RDMAServer *rdmaServer, size_t srqID,size_t msgSize,
+        RPCVoidHandlerThread(RDMAServer<RDMA_API_T> *rdmaServer, size_t srqID,size_t msgSize,
                          size_t maxNumberMsgs,char* rpcbuffer
                           )
                 : m_rdmaServer(rdmaServer),
@@ -40,7 +41,7 @@ namespace rdma
         };
 
         //constructor without rpcbuffer
-        RPCVoidHandlerThread(RDMAServer *rdmaServer, size_t srqID,size_t msgSize,
+        RPCVoidHandlerThread(RDMAServer<RDMA_API_T> *rdmaServer, size_t srqID,size_t msgSize,
                          size_t maxNumberMsgs
         )
                 : m_rdmaServer(rdmaServer),
@@ -59,7 +60,7 @@ namespace rdma
         };
 
         //constructor without rpcbuffer and without srqID
-        RPCVoidHandlerThread(RDMAServer *rdmaServer,size_t msgSize,
+        RPCVoidHandlerThread(RDMAServer<RDMA_API_T> *rdmaServer,size_t msgSize,
                          size_t maxNumberMsgs
         )
                 : m_rdmaServer(rdmaServer),
@@ -137,11 +138,12 @@ namespace rdma
 
         //init receive calls on rpcMemory
         bool initMemory()
-        {
+        {   
+            std::cout << "Init receives " << std::endl;
             for (uint32_t i = 0; i < m_maxNumberMsgs; i++)
             {
                 auto ptr = m_rpcMemory.getNext();
-                m_rdmaServer->receive(m_srqID, (void *)ptr, m_msgSize);
+                m_rdmaServer->receiveSRQ(m_srqID, (void *)ptr, m_msgSize);
                 Logging::debug(__FILE__, __LINE__, "initMemory: POTS RECV: " + to_string(i));
             }
             return true;
@@ -152,28 +154,23 @@ namespace rdma
             while (m_processing && !killed()) {
 
                 //todo nodeId
-                ib_addr_t ibAddr;
-                auto ret = m_rdmaServer->pollReceive(m_srqID, ibAddr,m_processing);
+                NodeID ibAddr;
+                m_rdmaServer->pollReceiveSRQ(m_srqID, ibAddr,m_processing);
 
-                if (ret)
-                {
-                    auto message =  m_rpcMemory.getNext();
-                    handleRDMARPCVoid(message, ibAddr);
-                    m_rdmaServer->receive(m_srqID, (void *)message, m_msgSize);
-
-                }
-
+                auto message =  m_rpcMemory.getNext();
+                handleRDMARPCVoid(message, ibAddr);
+                m_rdmaServer->receiveSRQ(m_srqID, (void *)message, m_msgSize);
 
             }
         }
 
         //This Message needs to be implemented in subclass to handle the messages
-        void virtual handleRDMARPCVoid(void *message, ib_addr_t &returnAdd) =0;
+        void virtual handleRDMARPCVoid(void *message, NodeID &returnAdd) =0;
 
     protected:
 
 
-        RDMAServer *m_rdmaServer;
+        RDMAServer<RDMA_API_T> *m_rdmaServer;
 
 
         size_t m_srqID;
