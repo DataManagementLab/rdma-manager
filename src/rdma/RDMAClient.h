@@ -197,12 +197,12 @@ class RDMAClient : public RDMA_API_T, public ProtoClient {
       } else {
         m_nodeIDsConnection[retServerNodeID] = ipPort;
       }
+      m_connections[ipPort] = retServerNodeID;
       return true;
     }
     else
     {
-      //scan m_connections!!!
-
+      retServerNodeID = m_connections[ipPort];
       return true;
     }
 
@@ -218,6 +218,10 @@ class RDMAClient : public RDMA_API_T, public ProtoClient {
   NodeID m_ownNodeID;
   // Mapping from NodeID to IPs
   vector<string> m_nodeIDsConnection;
+
+  // Mapping from IPs to NodeIDs
+  unordered_map<string, NodeID> m_connections;
+
   std::string m_name;
   std::string m_sequencerIpPort = Config::SEQUENCER_IP + ":" + to_string(Config::SEQUENCER_PORT);
   //Can be overwritten for special use-cases where NodeIDSequencer is insufficient
