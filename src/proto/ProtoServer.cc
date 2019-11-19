@@ -8,10 +8,6 @@ using namespace rdma;
 ProtoServer::ProtoServer(string name, int port)
     : m_port(port), m_running(false), m_pSocket(nullptr) {
   m_name = name;
-  if (!isRunning())
-  {
-    startServer();
-  }
 }
 
 ProtoServer::~ProtoServer() {
@@ -26,6 +22,10 @@ ProtoServer::~ProtoServer() {
 }
 
 bool ProtoServer::startServer() {
+  if (isRunning())
+  {
+    return true;
+  }
   m_pSocket = new ProtoSocket("*", m_port, ZMQ_REP);
   start();
 

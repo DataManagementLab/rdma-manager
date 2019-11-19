@@ -4,7 +4,10 @@ using namespace rdma;
 
 NodeIDSequencer::NodeIDSequencer(/* args */) : ProtoServer("NodeIDSequencer", Config::SEQUENCER_PORT)
 {
-
+    if (!ProtoServer::isRunning())
+    {
+      ProtoServer::startServer();
+    }
 }
 
 NodeIDSequencer::~NodeIDSequencer()
@@ -82,6 +85,7 @@ void NodeIDSequencer::handle(Any *anyReq, Any *anyResp)
     }
     else
     {
+      Logging::error(__FILE__, __LINE__, "NodeIDSequencer handling message GetNodeIDForIpPortRequest: could not find nodeid for IP: " + ipPort);
       connResp.set_return_(MessageErrors::NODEID_NOT_FOUND);
     }
     anyResp->PackFrom(connResp);

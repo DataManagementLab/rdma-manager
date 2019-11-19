@@ -39,6 +39,7 @@ class RDMAClient : public RDMA_API_T, public ProtoClient {
   bool remoteAlloc(const string& connection, const size_t size,
                    size_t& offset) {
     if (!isConnected(connection)) {
+      Logging::error(__FILE__, __LINE__, "RDMAClient: remoteAlloc failed since client is not connected to ProtoServer: " + connection);
       return false;
     }
 

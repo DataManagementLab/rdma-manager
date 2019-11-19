@@ -32,12 +32,20 @@ class RDMAServer : public ProtoServer, public RDMAClient<RDMA_API_T> {
   RDMAServer(string name, int port) : RDMAServer(name, port, Config::RDMA_MEMSIZE){}
   RDMAServer(string name, int port, uint64_t memsize) : ProtoServer(name, port), RDMAClient<RDMA_API_T>(memsize, name, Config::getIP(Config::RDMA_INTERFACE) + ":" + to_string(port), NodeType::Enum::SERVER)
   {
+    if (!ProtoServer::isRunning())
+    {
+      ProtoServer::startServer();
+    }
   }
 
   ~RDMAServer() = default;
 
   // server methods
   bool startServer() {
+    if (ProtoServer::isRunning()) { 
+      return true;
+    }
+      
     // start data node server
     if (!ProtoServer::startServer()) {
       Logging::error(__FILE__, __LINE__, "RDMAServer: could not be started");

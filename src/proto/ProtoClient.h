@@ -18,11 +18,11 @@ class ProtoClient {
   void exchangeProtoMsg(std::string ipAndPortString, Any* sendMsg, Any* recMsg);
   bool connectProto(const string& connection);
 
- protected:
   bool isConnected(std::string ipAndPortString) {
     return m_connections.find(ipAndPortString) != m_connections.end();
   }
 
+ protected:
   unordered_map<string, ProtoSendSocket*> m_connections;
 };
 

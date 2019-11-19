@@ -2,7 +2,7 @@
 
 void TestProtoServer::SetUp() {
   m_testServer = std::make_unique<HelloServer> ();
-  // ASSERT_TRUE(m_testServer->startServer());
+  ASSERT_TRUE(m_testServer->startServer());
 
   //connect client
   m_testClient = std::make_unique<HelloClient>();
