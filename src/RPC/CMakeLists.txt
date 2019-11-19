@@ -1,5 +1,5 @@
 set(NET_RPC_SRC
-        RPCHandlerThread.h
+        # RPCHandlerThread.h
         RPCMemory.h
         RPCVoidHandlerThread.h
         ) # Adding headers required for portability reasons http://voices.canonical.com/jussi.pakkanen/2013/03/26/a-list-of-common-cmake-antipatterns/

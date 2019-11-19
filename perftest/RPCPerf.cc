@@ -24,12 +24,15 @@ rdma::RPCPerfThread::RPCPerfThread(vector<string>& conns,
             throw invalid_argument(
                     "RPCPerf connection failed");
         }
+        std::cout << "Connected to server Node ID " << nodeId; 
         m_addr.push_back(nodeId);
         //m_client.remoteAlloc(conn, m_size, m_remOffsets[i]);
     }
 
-    localresp = (testMsg*) m_client.localAlloc(sizeof(testMsg));
+    localresp = (testPage*) m_client.localAlloc(sizeof(testPage));
     localsend = (testMsg*) m_client.localAlloc(sizeof(testMsg));
+    localresp->id = -1;
+    returnOffset = m_client.convertPointerToOffset((void*)localresp);
 
     //m_data = m_client.localAlloc(m_size);
     //memset(m_data, 1, m_size);
@@ -60,12 +63,21 @@ void rdma::RPCPerfThread::run() {
         size_t connIdx = i % m_conns.size();
         bool signaled = (i == (m_iter - 1));
         localsend->id = i;
-        m_client.receive(m_addr[connIdx], (void*) localresp, sizeof(testMsg));
+        localsend->offset = returnOffset;
+        // m_client.receive(m_addr[connIdx], (void*) localresp, sizeof(testMsg));
+        m_client.send(m_addr[0], (void*) localsend, sizeof(testMsg), false);
+    
+#ifdef SENDReturn
+        bool poll = true;
+        m_client.pollReceive(m_addr[0], poll);
+#else
+       while(localresp->id == -1){
+        //    std::cout << "Waiting for receive" << i << std::endl;
+        __asm__("pause");
+       }
+       localresp->id = -1;
+#endif
 
-        m_client.send(m_addr[connIdx], (void*) localsend, sizeof(testMsg), false);
-
-
-        auto ret_1 = m_client.pollReceive(m_addr[connIdx]);
 
 
         //todo assert id in loclresp
@@ -121,13 +133,15 @@ rdma::RPCPerf::~RPCPerf() {
 }
 
 void rdma::RPCPerf::runServer() {
+    m_nodeIDSequencer = new NodeIDSequencer();
     size_t MAX_NUM_RPC_MSG = 4096;
-    m_dServer = new RDMAServer(m_serverPort);
-    if (!m_dServer->startServer()) {
-        throw invalid_argument("RPCPerf could not start server!");
-    }
+    std::cout << "server port " << m_serverPort << std::endl;
+    m_dServer = new RDMAServer<ReliableRDMA>("test", m_serverPort);
+    size_t srqID = 0;
+    m_dServer->createSharedReceiveQueue(srqID);
+    m_dServer->activateSRQ(srqID);
 
-    the = new TestRPCHandlerThread(m_dServer,MAX_NUM_RPC_MSG);
+    the = new TestRPCHandlerThread(m_dServer,srqID,MAX_NUM_RPC_MSG);
     the->startHandler();
 
     while (m_dServer->isRunning()) {
@@ -138,6 +152,7 @@ void rdma::RPCPerf::runServer() {
 void rdma::RPCPerf::runClient() {
     //start all client threads
     for (size_t i = 0; i < m_numThreads; i++) {
+        std::cout << "Started thread " << i << std::endl;
         RPCPerfThread* perfThread = new RPCPerfThread(m_conns,
                                                                         m_size, m_iter);
         perfThread->start();
@@ -148,7 +163,7 @@ void rdma::RPCPerf::runClient() {
     }
 
     //wait for user input
-    waitForUser();
+    // waitForUser();
 
     //send signal to run benchmark
     RPCPerf::signaled = false;

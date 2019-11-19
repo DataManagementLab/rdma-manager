@@ -10,7 +10,7 @@
 
 #include "RemoteMemoryPerf.h"
 
-// #include "RPCPerf.h"
+#include "RPCPerf.h"
 // #include "RemoteScanPerf.h"
 // #include "MulticastPerf.h"
 // #include "SwMulticastPerf.h"

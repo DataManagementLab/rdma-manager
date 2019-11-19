@@ -41,7 +41,7 @@ class RDMAServer : public ProtoServer, public RDMAClient<RDMA_API_T> {
   ~RDMAServer() = default;
 
   // server methods
-  bool startServer() {
+  bool startServer() override{
     if (ProtoServer::isRunning()) { 
       return true;
     }
@@ -56,7 +56,7 @@ class RDMAServer : public ProtoServer, public RDMAClient<RDMA_API_T> {
     return true;
   }
 
-  void stopServer() { ProtoServer::stopServer(); }
+  void stopServer() override { ProtoServer::stopServer(); }
 
 
   void *getBuffer(const size_t offset) {

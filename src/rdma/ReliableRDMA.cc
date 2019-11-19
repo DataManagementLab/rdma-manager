@@ -427,7 +427,7 @@ void ReliableRDMA::createQP(struct ib_qp_t *qp) {
   qp_init_attr.recv_cq = qp->recv_cq;
   qp_init_attr.sq_sig_all =
       0;  // In every WR, it must be decided whether to generate a WC or not
-  qp_init_attr.cap.max_inline_data = 0;
+  qp_init_attr.cap.max_inline_data = 220;
 
   // TODO: Enable atomic for DM cluster
   // qp_init_attr.max_atomic_arg = 32;
@@ -756,7 +756,7 @@ void ReliableRDMA::createQP(size_t srq_id, struct ib_qp_t &qp) {
   qp_init_attr.recv_cq = m_srqs[srq_id].recv_cq;
   qp_init_attr.sq_sig_all =
       0;  // In every WR, it must be decided whether to generate a WC or not
-  qp_init_attr.cap.max_inline_data = 0;
+  qp_init_attr.cap.max_inline_data = 220;
 
   // TODO: Enable atomic for DM cluster
   // qp_init_attr.max_atomic_arg = 32;

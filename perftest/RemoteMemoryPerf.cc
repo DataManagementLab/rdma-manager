@@ -6,6 +6,7 @@
  */
 
 #include "RemoteMemoryPerf.h"
+#include "PerfEvent.hpp"
 
 mutex rdma::RemoteMemoryPerf::waitLock;
 condition_variable rdma::RemoteMemoryPerf::waitCv;
@@ -54,15 +55,20 @@ void rdma::RemoteMemoryPerfThread::run() {
 	}
 	lck.unlock();
 
-	startTimer();
-	for (size_t i = 0; i < m_iter; ++i) {
-		size_t connIdx = i % m_conns.size();
-		bool signaled = (i == (m_iter - 1));
-		m_client.write(m_addr[connIdx],m_remOffsets[connIdx],m_data,m_size,signaled);
+	{
+		std::cout << "Perf Measurement enabled" << std::endl;
+		PerfEventBlock pb(m_iter);
+		startTimer();
+		for (size_t i = 0; i < m_iter; ++i) {
+			size_t connIdx = i % m_conns.size();
+			bool signaled = (i == (m_iter - 1));
+			m_client.write(m_addr[connIdx],m_remOffsets[connIdx],m_data,m_size,signaled);
 
 
-	}
-	endTimer();
+		}
+		endTimer();
+	}	
+
 }
 
 rdma::RemoteMemoryPerf::RemoteMemoryPerf(config_t config, bool isClient) :
@@ -94,23 +100,13 @@ rdma::RemoteMemoryPerf::~RemoteMemoryPerf() {
 			delete m_threads[i];
 		}
 		m_threads.clear();
-	} else {
-		if (m_dServer != nullptr) {
-			m_dServer->stopServer();
-			delete m_dServer;
-		}
-		m_dServer = nullptr;
 	}
 }
 
 void rdma::RemoteMemoryPerf::runServer() {
 	m_nodeIDSequencer = new NodeIDSequencer();
-	m_nodeIDSequencer->startServer();
 	
 	m_dServer = new RDMAServer<ReliableRDMA>("test", m_serverPort);
-	if (!m_dServer->startServer()) {
-		throw invalid_argument("RemoteMemoryPerf could not start server!");
-	}
 
 	while (m_dServer->isRunning()) {
 		usleep(Config::RDMA_SLEEP_INTERVAL);

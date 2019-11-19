@@ -117,9 +117,14 @@ class BaseRDMA {
 
   const list<rdma_mem_t> getFreeMemList() const { return m_rdmaMem; }
 
-  void *getOffsetToPtr(size_t offset) {
+  void *convertOffsetToPointer(size_t offset) {
     // check if already allocated
     return (void *)((char *)m_res.buffer + offset);
+  }
+
+  size_t convertPointerToOffset(void* ptr) {
+    // check if already allocated
+    return (size_t)((char *)m_res.buffer - (char*)ptr);
   }
 
   size_t getBufferSize() { return m_memSize; }
