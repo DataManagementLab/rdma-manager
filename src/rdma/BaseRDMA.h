@@ -15,6 +15,7 @@
 #include <list>
 #include <mutex>
 #include <unordered_map>
+#include <sys/mman.h>
 
 namespace rdma {
 
@@ -191,6 +192,13 @@ class BaseRDMA {
   unordered_map<size_t, rdma_mem_t> m_usedRdmaMem;
 
   static rdma_mem_t s_nillmem;
+
+
+static void* malloc_huge(size_t size) {
+   void* p = mmap(NULL, size, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
+   madvise(p, size, MADV_HUGEPAGE);
+   return p;
+} 
 };
 
 }  // namespace rdma

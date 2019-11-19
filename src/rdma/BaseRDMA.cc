@@ -90,12 +90,17 @@ void BaseRDMA::createBuffer() {
     throw runtime_error("Query port failed");
   }
 
+
 // allocate memory
-#ifdef LINUX
-  m_res.buffer = numa_alloc_onnode(m_memSize, m_numaRegion);
+#ifdef HUGEPAGE
+  m_res.buffer = malloc_huge(m_memSize);
 #else
   m_res.buffer = malloc(m_memSize);
 #endif
+// #ifdef LINUX
+//   m_res.buffer = numa_alloc_onnode(m_memSize, m_numaRegion);
+// #else
+// #endif
   memset(m_res.buffer, 0, m_memSize);
   if (m_res.buffer == 0) {
     throw runtime_error("Cannot allocate memory! Requested size: " + to_string(m_memSize));
