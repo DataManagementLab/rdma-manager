@@ -126,13 +126,18 @@ class RDMAClient : public RDMA_API_T, public ProtoClient {
           GetNodeIDForIpPortResponse connResponse;
           rcvAny.UnpackTo(&connResponse);
 
-          if (connResponse.return_() != MessageErrors::NO_ERROR)
+          size_t retries = 50;
+          size_t i = 0;
+          while (i < retries && connResponse.return_() != MessageErrors::NO_ERROR)
           {
-            throw runtime_error("GetNodeIDForIpPortResponse returned an error: " + to_string(connResponse.return_()));
+            ProtoClient::exchangeProtoMsg(m_sequencerIpPort, &getNodeIdReq, &rcvAny);
+            rcvAny.UnpackTo(&connResponse);
+            Logging::debug(__FILE__, __LINE__, "GetNodeIDForIpPortResponse returned an error: " + to_string(connResponse.return_()) + " retry " + to_string(i) + "/" + to_string(retries));
+            usleep(Config::RDMA_SLEEP_INTERVAL);
+            ++i;
           }
 
           retServerNodeID = connResponse.node_id();
-
 
           if (connResponse.ip() != ipPort)
           {
