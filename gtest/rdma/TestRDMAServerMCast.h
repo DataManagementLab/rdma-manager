@@ -20,13 +20,12 @@ class TestRDMAServerMCast : public testing::Test {
 
  protected:
   void SetUp() override;
-
   std::unique_ptr<RDMAServer<UnreliableRDMA>> m_rdmaServer;
   std::unique_ptr<RDMAClient<UnreliableRDMA>> m_rdmaClient;
   std::unique_ptr<NodeIDSequencer> m_nodeIDSequencer;
   string m_mCastAddr;
-  NodeID m_addrClient;
-  NodeID m_addrServer;
+  NodeID m_clientMCastID;
+  NodeID m_serverMCastID;
 
 struct testMsg {
   int id;

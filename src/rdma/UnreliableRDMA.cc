@@ -13,6 +13,7 @@ UnreliableRDMA::~UnreliableRDMA() {
   for(auto& mcastConn : m_udpMcastConns){
     (void)mcastConn;
     leaveMCastGroup(mcastID);
+    mcastID++;
   }
   // destroy QPS
   destroyQPs();
@@ -338,17 +339,22 @@ void UnreliableRDMA::joinMCastGroup(string mCastAddress,
 
   // done
   setMCastConn(retRdmaConnID, mCastConn);
+
+  mCastConn.active = true;
 }
 
 void UnreliableRDMA::leaveMCastGroup(const rdmaConnID rdmaConnID) {
   if(m_udpMcastConns.empty()){
     return;
   }
-  rdma_mcast_conn_t mCastConn = m_udpMcastConns[rdmaConnID];
+  rdma_mcast_conn_t &mCastConn = m_udpMcastConns[rdmaConnID];
+
+  if (!mCastConn.active)
+    return;
 
   // leave group
   if (rdma_leave_multicast(mCastConn.id, &mCastConn.mcast_sockaddr) != 0) {
-    throw runtime_error("Did not leave rdma multicast successfully");
+    throw runtime_error("Did not leave rdma multicast successfully. rdmaConnID: " + to_string(rdmaConnID));
   }
 
   // destroy resources
@@ -359,6 +365,8 @@ void UnreliableRDMA::leaveMCastGroup(const rdmaConnID rdmaConnID) {
   if (mCastConn.mr) rdma_dereg_mr(mCastConn.mr);
   if (mCastConn.pd) ibv_dealloc_pd(mCastConn.pd);
   if (mCastConn.id) rdma_destroy_id(mCastConn.id);
+  
+  mCastConn.active = false;
 }
 
 void UnreliableRDMA::sendMCast(const rdmaConnID rdmaConnID, const void* memAddr,

@@ -29,6 +29,7 @@ struct rdma_mcast_conn_t {
   uint32_t remote_qpn;
   uint32_t remote_qkey;
   pthread_t cm_thread;
+  bool active;
 };
 
 class UnreliableRDMA : public BaseRDMA {
