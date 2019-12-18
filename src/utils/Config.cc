@@ -19,7 +19,7 @@ uint32_t Config::RDMA_PORT = 5200;
 uint32_t Config::RDMA_MAX_WR = 4096;
 
 std::string Config::SEQUENCER_IP = "192.168.94.22"; //node02
-uint32_t Config::SEQUENCER_PORT = 5400;
+uint32_t Config::SEQUENCER_PORT = 5500;
 
 std::string Config::RDMA_INTERFACE = "ib0";
 

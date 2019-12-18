@@ -271,7 +271,8 @@ void ReliableRDMA::send(const rdmaConnID rdmaConnID, const void *memAddr,
       if (memAddr < m_res.buffer ||
           (char *)memAddr + size > (char *)m_res.buffer + m_res.mr->length) {
         throw runtime_error("Passed memAddr falls out of buffer addr space");
-      }) checkSignaled(signaled, rdmaConnID);
+      });
+  checkSignaled(signaled, rdmaConnID);
 
   struct ib_qp_t localQP = m_qps[rdmaConnID];
 
@@ -352,7 +353,7 @@ void ReliableRDMA::receive(const rdmaConnID rdmaConnID, const void *memAddr,
 
 //------------------------------------------------------------------------------------//
 
-void ReliableRDMA::pollReceive(const rdmaConnID rdmaConnID, bool doPoll) {
+int ReliableRDMA::pollReceive(const rdmaConnID rdmaConnID, bool doPoll) {
   int ne;
   struct ibv_wc wc;
 
@@ -368,15 +369,11 @@ void ReliableRDMA::pollReceive(const rdmaConnID rdmaConnID, bool doPoll) {
     }
   } while (ne == 0 && doPoll);
 
-  if (doPoll) {
-    if (ne < 0) {
-      throw runtime_error("RDMA polling from CQ failed!");
-    }
-    return;
-  } else if (ne > 0) {
-    return;
+  if (ne < 0) {
+    throw runtime_error("RDMA polling from CQ failed!");
   }
-  throw runtime_error("RDMA pollReceive failed!");
+
+  return ne;
 }
 
 //------------------------------------------------------------------------------------//

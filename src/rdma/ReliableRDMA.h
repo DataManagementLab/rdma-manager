@@ -48,7 +48,7 @@ class ReliableRDMA : public BaseRDMA {
             bool signaled) override;
   void receive(const rdmaConnID rdmaConnID, const void* memAddr,
                size_t size) override;
-  void pollReceive(const rdmaConnID rdmaConnID, bool doPoll) override;
+  int pollReceive(const rdmaConnID rdmaConnID, bool doPoll) override;
   void pollReceiveBatch(size_t srq_id, size_t& num_completed, bool& doPoll);
   void pollSend(const rdmaConnID rdmaConnID, bool doPoll) override;
 

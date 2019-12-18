@@ -6,6 +6,8 @@ using namespace rdma;
 UnreliableRDMA::UnreliableRDMA(size_t mem_size) : BaseRDMA(mem_size) {
   m_qpType = IBV_QPT_UD;
   m_lastMCastConnKey = 0;
+
+  initQPWithSuppliedID(0);
 }
 
 UnreliableRDMA::~UnreliableRDMA() {
@@ -26,7 +28,7 @@ void* UnreliableRDMA::localAlloc(const size_t& size) {
     return ((char*)m_res.buffer + memRes.offset +
                    Config::RDMA_UD_OFFSET);
   }
-  throw runtime_error("UnreliableRDMA allocating local memory failed!");
+  throw runtime_error("UnreliableRDMA allocating local memory failed! Size: " + to_string(size));
 }
 
 void UnreliableRDMA::localFree(const size_t& offset) {
@@ -41,6 +43,9 @@ void UnreliableRDMA::localFree(const void* ptr) {
 }
 
 void UnreliableRDMA::initQPWithSuppliedID(const rdmaConnID rdmaConnID) {
+  //TODO: Refactor such that the only QP does not need to be indexed with the rdmaConnID (Since there is only one!!)
+
+
   // check if QP is already created
   if (m_udqp.qp != nullptr) {
     setQP(rdmaConnID, m_udqp);
@@ -127,7 +132,7 @@ void UnreliableRDMA::destroyQPs() {
 
 void UnreliableRDMA::send(const rdmaConnID rdmaConnID, const void* memAddr,
                           size_t size, bool signaled) {
-  struct ib_qp_t localQP = m_qps[rdmaConnID];
+  struct ib_qp_t localQP = m_qps[rdmaConnID]; // m_udqp
   struct ib_conn_t remoteConn = m_rconns[rdmaConnID];
 
   struct ibv_send_wr sr;
@@ -173,7 +178,8 @@ void UnreliableRDMA::send(const rdmaConnID rdmaConnID, const void* memAddr,
 
 void UnreliableRDMA::receive(const rdmaConnID rdmaConnID, const void* memAddr,
                              size_t size) {
-  struct ib_qp_t localQP = m_qps[rdmaConnID];
+  // struct ib_qp_t localQP = m_qps[rdmaConnID]; //m_udqp
+  struct ib_qp_t localQP = m_udqp;
 
   struct ibv_sge sge;
   struct ibv_recv_wr wr;
@@ -195,11 +201,12 @@ void UnreliableRDMA::receive(const rdmaConnID rdmaConnID, const void* memAddr,
   }
 }
 
-void UnreliableRDMA::pollReceive(const rdmaConnID rdmaConnID, bool doPoll) {
+//Ignore rdmaConnID
+int UnreliableRDMA::pollReceive(const rdmaConnID, bool doPoll) {
   int ne;
   struct ibv_wc wc;
 
-  struct ib_qp_t localQP = m_qps[rdmaConnID];
+  struct ib_qp_t localQP = m_udqp;
 
   do {
     wc.status = IBV_WC_SUCCESS;
@@ -210,22 +217,19 @@ void UnreliableRDMA::pollReceive(const rdmaConnID rdmaConnID, bool doPoll) {
     }
   } while (ne == 0 && doPoll);
 
-  if (doPoll) {
-    if (ne < 0) {
-      throw runtime_error("RDMA polling from CQ failed!");
-    }
-    return;
-  } else if (ne > 0) {
-    return;
+  if (ne < 0) {
+    throw runtime_error("RDMA polling from CQ failed!");
   }
-  throw runtime_error("pollReceive failed!");
+
+  return ne;
 }
 
 void UnreliableRDMA::pollSend(const rdmaConnID rdmaConnID, bool doPoll) {
   int ne;
   struct ibv_wc wc;
 
-  struct ib_qp_t localQP = m_qps[rdmaConnID];
+  // struct ib_qp_t localQP = m_qps[rdmaConnID]; //m_udqp.qp
+  struct ib_qp_t localQP = m_udqp;
 
   do {
     wc.status = IBV_WC_SUCCESS;
@@ -337,22 +341,26 @@ void UnreliableRDMA::joinMCastGroup(string mCastAddress,
   }
   rdma_ack_cm_event(event);
 
+  mCastConn.active = true;
+
   // done
   setMCastConn(retRdmaConnID, mCastConn);
 
-  mCastConn.active = true;
 }
 
 void UnreliableRDMA::leaveMCastGroup(const rdmaConnID rdmaConnID) {
   if(m_udpMcastConns.empty()){
     return;
   }
+
   rdma_mcast_conn_t &mCastConn = m_udpMcastConns[rdmaConnID];
+  std::cout << "Leaving MCast. rdmaConnID: " << rdmaConnID << " active: " << mCastConn.active << std::endl;
 
   if (!mCastConn.active)
     return;
 
   // leave group
+  std::cout << "rdma_leave_multicast " << rdmaConnID << std::endl;
   if (rdma_leave_multicast(mCastConn.id, &mCastConn.mcast_sockaddr) != 0) {
     throw runtime_error("Did not leave rdma multicast successfully. rdmaConnID: " + to_string(rdmaConnID));
   }
@@ -365,6 +373,7 @@ void UnreliableRDMA::leaveMCastGroup(const rdmaConnID rdmaConnID) {
   if (mCastConn.mr) rdma_dereg_mr(mCastConn.mr);
   if (mCastConn.pd) ibv_dealloc_pd(mCastConn.pd);
   if (mCastConn.id) rdma_destroy_id(mCastConn.id);
+  if (mCastConn.channel) rdma_destroy_event_channel(mCastConn.channel);
   
   mCastConn.active = false;
 }
@@ -423,7 +432,7 @@ void UnreliableRDMA::receiveMCast(const rdmaConnID rdmaConnID,
   }
 }
 
-void UnreliableRDMA::pollReceiveMCast(const rdmaConnID rdmaConnID) {
+int UnreliableRDMA::pollReceiveMCast(const rdmaConnID rdmaConnID, bool doPoll) {
   rdma_mcast_conn_t mCastConn = m_udpMcastConns[rdmaConnID];
   int ne = 0;
   struct ibv_wc wc;
@@ -436,11 +445,13 @@ void UnreliableRDMA::pollReceiveMCast(const rdmaConnID rdmaConnID) {
                          to_string(wc.status));
     }
 
-  } while (ne == 0);
+  } while (ne == 0 && doPoll);
 
   if (ne < 0) {
     throw runtime_error("RDMA polling from multicast CQ failed!");
   }
+
+  return ne;
 }
 
 /********** private methods **********/
@@ -515,7 +526,7 @@ void UnreliableRDMA::getCmEvent(struct rdma_event_channel* channel,
   }
   /* Verify the event is the expected type */
   if (event->event != type) {
-    throw runtime_error("rdma_get_cm_event returned event did not match type!");
+    throw runtime_error("rdma_get_cm_event returned event did not match type! received: " + to_string(event->event) + " expected: " + to_string(type));
   }
   /* Pass the event back to the user if requested */
   if (!out_ev) {

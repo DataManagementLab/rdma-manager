@@ -3,7 +3,7 @@
 
 void TestRDMAServer::SetUp() {
   Config::RDMA_MEMSIZE = 1024 * 1024;
-  Config::SEQUENCER_IP = "localhost";
+  Config::SEQUENCER_IP = rdma::Config::getIP(rdma::Config::RDMA_INTERFACE);
 
   m_nodeIDSequencer = std::make_unique<NodeIDSequencer>();
 

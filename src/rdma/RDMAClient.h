@@ -101,7 +101,7 @@ class RDMAClient : public RDMA_API_T, public ProtoClient {
    * @param ipPort Ip : port string
    * @param retServerNodeID nodeId of the server connected to
    * @return true success
-   * @return false failzz
+   * @return false fail
    */
   bool connect(const string& ipPort, NodeID &retServerNodeID) {
 

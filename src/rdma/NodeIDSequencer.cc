@@ -85,7 +85,7 @@ void NodeIDSequencer::handle(Any *anyReq, Any *anyResp)
     }
     else
     {
-      Logging::error(__FILE__, __LINE__, "NodeIDSequencer handling message GetNodeIDForIpPortRequest: could not find nodeid for IP: " + ipPort);
+      Logging::warn("NodeIDSequencer handling message GetNodeIDForIpPortRequest: could not find nodeid for IP: " + ipPort);
       connResp.set_return_(MessageErrors::NODEID_NOT_FOUND);
     }
     anyResp->PackFrom(connResp);

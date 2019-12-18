@@ -28,7 +28,7 @@ TEST_F(TestRDMAServerMCast,testSendReceive) {
   ASSERT_NO_THROW(
       m_rdmaClient->sendMCast(m_clientMCastID,(void*)localstruct,sizeof(testMsg),true));
   
-  ASSERT_NO_THROW(m_rdmaServer->pollReceiveMCast(m_clientMCastID));
+  ASSERT_NO_THROW(m_rdmaServer->pollReceiveMCast(m_clientMCastID, true));
 
   ASSERT_EQ(localstruct->id, remotestruct->id);
   ASSERT_EQ(localstruct->a, remotestruct->a);
@@ -61,8 +61,8 @@ TEST_F(TestRDMAServerMCast, testMultipleConcurrentMulticast) {
   ASSERT_NO_THROW(m_rdmaClient->sendMCast(m_clientMCastID,(void*)localstruct1,sizeof(testMsg),true));
   ASSERT_NO_THROW(m_rdmaClient->sendMCast(clientMCastID2,(void*)localstruct2,sizeof(testMsg),true));
 
-  ASSERT_NO_THROW(m_rdmaServer->pollReceiveMCast(m_serverMCastID));
-  ASSERT_NO_THROW(m_rdmaServer->pollReceiveMCast(serverMCastID2));
+  ASSERT_NO_THROW(m_rdmaServer->pollReceiveMCast(m_serverMCastID, true));
+  ASSERT_NO_THROW(m_rdmaServer->pollReceiveMCast(serverMCastID2, true));
 
   ASSERT_EQ(localstruct1->id, remotestruct1->id);
   ASSERT_EQ(localstruct1->a, remotestruct1->a);

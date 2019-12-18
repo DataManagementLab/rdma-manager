@@ -45,7 +45,7 @@ class UnreliableRDMA : public BaseRDMA {
             bool signaled) override;
   void receive(const rdmaConnID rdmaConnID, const void *memAddr,
                size_t size) override;
-  void pollReceive(const rdmaConnID rdmaConnID, bool doPoll) override;
+  int pollReceive(const rdmaConnID rdmaConnID, bool doPoll) override;
   void pollSend(const rdmaConnID rdmaConnID, bool doPoll) override;
 
   void *localAlloc(const size_t &size) override;
@@ -58,7 +58,7 @@ class UnreliableRDMA : public BaseRDMA {
                  bool signaled);
   void receiveMCast(const rdmaConnID rdmaConnID, const void *memAddr,
                     size_t size);
-  void pollReceiveMCast(const rdmaConnID rdmaConnID);
+  int pollReceiveMCast(const rdmaConnID rdmaConnID, bool doPoll);
 
  private:
   void createQP(struct ib_qp_t *qp) override;
