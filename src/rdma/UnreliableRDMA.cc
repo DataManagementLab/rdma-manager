@@ -176,7 +176,7 @@ void UnreliableRDMA::send(const rdmaConnID rdmaConnID, const void* memAddr,
   }
 }
 
-void UnreliableRDMA::receive(const rdmaConnID rdmaConnID, const void* memAddr,
+void UnreliableRDMA::receive(const rdmaConnID, const void* memAddr,
                              size_t size) {
   // struct ib_qp_t localQP = m_qps[rdmaConnID]; //m_udqp
   struct ib_qp_t localQP = m_udqp;
@@ -224,7 +224,7 @@ int UnreliableRDMA::pollReceive(const rdmaConnID, bool doPoll) {
   return ne;
 }
 
-void UnreliableRDMA::pollSend(const rdmaConnID rdmaConnID, bool doPoll) {
+void UnreliableRDMA::pollSend(const rdmaConnID, bool doPoll) {
   int ne;
   struct ibv_wc wc;
 
@@ -354,13 +354,11 @@ void UnreliableRDMA::leaveMCastGroup(const rdmaConnID rdmaConnID) {
   }
 
   rdma_mcast_conn_t &mCastConn = m_udpMcastConns[rdmaConnID];
-  std::cout << "Leaving MCast. rdmaConnID: " << rdmaConnID << " active: " << mCastConn.active << std::endl;
 
   if (!mCastConn.active)
     return;
 
   // leave group
-  std::cout << "rdma_leave_multicast " << rdmaConnID << std::endl;
   if (rdma_leave_multicast(mCastConn.id, &mCastConn.mcast_sockaddr) != 0) {
     throw runtime_error("Did not leave rdma multicast successfully. rdmaConnID: " + to_string(rdmaConnID));
   }
@@ -381,6 +379,7 @@ void UnreliableRDMA::leaveMCastGroup(const rdmaConnID rdmaConnID) {
 void UnreliableRDMA::sendMCast(const rdmaConnID rdmaConnID, const void* memAddr,
                                size_t size, bool signaled) {
   rdma_mcast_conn_t mCastConn = m_udpMcastConns[rdmaConnID];
+  checkSignaledMCast(signaled, rdmaConnID);
 
   struct ibv_send_wr wr, *bad_wr;
   struct ibv_sge sge;
@@ -540,6 +539,23 @@ void UnreliableRDMA::setMCastConn(const rdmaConnID rdmaConnID,
                                   rdma_mcast_conn_t& conn) {
   if (m_udpMcastConns.size() < rdmaConnID + 1) {
     m_udpMcastConns.resize(rdmaConnID + 1);
+    m_sendMCastCount.resize(rdmaConnID + 1);
   }
   m_udpMcastConns[rdmaConnID] = conn;
 }
+
+
+
+  inline void __attribute__((always_inline))
+  UnreliableRDMA::checkSignaledMCast(bool &signaled, rdmaConnID rdmaConnID) {
+    if (signaled) 
+    {
+      m_sendMCastCount[rdmaConnID] = 0;
+      return;
+    }
+    ++m_sendMCastCount[rdmaConnID];
+    if (m_sendMCastCount[rdmaConnID] == Config::RDMA_MAX_WR) {
+      signaled = true;
+      m_sendMCastCount[rdmaConnID] = 0;
+    }
+  }

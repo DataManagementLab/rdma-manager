@@ -73,7 +73,9 @@ class UnreliableRDMA : public BaseRDMA {
 
   void getCmEvent(struct rdma_event_channel *channel,
                   enum rdma_cm_event_type type, struct rdma_cm_event **out_ev);
-
+  
+  void checkSignaledMCast(bool &signaled, rdmaConnID rdmaConnID);
+  
   // only one QP needed for all connections
   ib_qp_t m_udqp;
   ib_conn_t m_udqpConn;
@@ -81,7 +83,8 @@ class UnreliableRDMA : public BaseRDMA {
 
   // maps mcastConnkey to MCast connections
   size_t m_lastMCastConnKey;
-  vector<rdma_mcast_conn_t> m_udpMcastConns;
+  std::vector<rdma_mcast_conn_t> m_udpMcastConns;
+  std::vector<size_t> m_sendMCastCount;
 };
 
 }  // namespace rdma

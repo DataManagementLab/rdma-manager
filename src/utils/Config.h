@@ -81,6 +81,8 @@ class Config
     const static size_t RDMA_UD_OFFSET = 40;
     const static int RDMA_SLEEP_INTERVAL = 100 * 1000;
     
+    static uint32_t RDMA_UD_MTU;
+
     const static int PROTO_MAX_SOCKETS = 1024;
 
     static std::string SEQUENCER_IP;
