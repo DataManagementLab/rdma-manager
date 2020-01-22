@@ -68,8 +68,8 @@ namespace rdma {
             
             // std::cout << "response id  " <<  ((testMsg*)m_intermediateRspBufferVoid)->id << std::endl;
             local_counter++;
-            // //todo
-            // //signaled auf false?
+            //todo make sendreturn work
+
             // m_rdmaServer->send(returnAdd, (void *)m_intermediateRspBuffer,
             //                    sizeof(testMsg), true);
             // m_rdmaServer->send(returnAdd, m_intermediateRspBufferVoid, sizeof(testMsg), true);
@@ -149,7 +149,7 @@ namespace rdma {
         size_t m_size;
         size_t m_iter;
         size_t m_numThreads;
-        NodeIDSequencer *m_nodeIDSequencer;
+        unique_ptr<NodeIDSequencer> m_nodeIDSequencer;
 
         vector<RPCPerfThread*> m_threads;
 

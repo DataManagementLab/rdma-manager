@@ -11,6 +11,7 @@
 
 #include "../utils/Config.h"
 #include <thread>
+#include <atomic>
 
 namespace rdma {
 
@@ -51,8 +52,11 @@ class Thread {
   uint128_t m_startTime;
   uint128_t m_endTime;
   thread* m_thread;
-  bool volatile m_kill;
-  bool m_running;
+  //todo make std::atomic
+
+  std::atomic<bool> m_kill {false};
+
+  std::atomic<bool> m_running {false};
 };
 
 }  // end namespace rdma

@@ -656,6 +656,33 @@ void ReliableRDMA::pollReceiveSRQ(size_t srq_id, rdmaConnID &retRdmaConnID,
   throw runtime_error("pollReceiveSRQ failed!");
 }
 
+void ReliableRDMA::pollReceiveSRQ(size_t srq_id, rdmaConnID& retRdmaConnID, std::atomic<bool> & doPoll){
+        int ne;
+        struct ibv_wc wc;
+
+        do {
+            wc.status = IBV_WC_SUCCESS;
+            ne = ibv_poll_cq(m_srqs.at(srq_id).recv_cq, 1, &wc);
+            if (wc.status != IBV_WC_SUCCESS) {
+                throw runtime_error("RDMA completion event in CQ with error! " +
+                                    to_string(wc.status));
+            }
+
+        } while (ne == 0 && doPoll);
+
+        if (doPoll) {
+            if (ne < 0) {
+                throw runtime_error("RDMA polling from CQ failed!");
+            }
+            uint64_t qp = wc.qp_num;
+            retRdmaConnID = m_qpNum2connID.at(qp);
+            return;
+        } else if (ne > 0) {
+            return;
+        }
+        throw runtime_error("pollReceiveSRQ failed!");
+}
+
 //------------------------------------------------------------------------------------//
 
 void ReliableRDMA::createSharedReceiveQueue(size_t &ret_srq_id) {
