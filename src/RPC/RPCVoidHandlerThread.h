@@ -71,7 +71,7 @@ namespace rdma
 
         {
 
-            rdmaServer->createSRQ(m_srqID);
+            rdmaServer->createSharedReceiveQueue(m_srqID);
             rdmaServer->activateSRQ(m_srqID);
             m_intermediateRspBufferVoid = m_rdmaServer->localAlloc(m_msgSize);
             initMemory();
@@ -125,8 +125,9 @@ namespace rdma
             stringstream ss;
 
             if (m_processing) {
-                m_poll = false;
                 stop();
+
+                m_poll = false;
 
                 join();
                 m_poll = true;
@@ -154,13 +155,13 @@ namespace rdma
             m_processing = true;
             while (!killed()) {
 
-                //todo nodeId
                 NodeID ibAddr;
-                m_rdmaServer->pollReceiveSRQ(m_srqID, ibAddr,m_poll);
-
-                auto message =  m_rpcMemory.getNext();
-                handleRDMARPCVoid(message, ibAddr);
-                m_rdmaServer->receiveSRQ(m_srqID, (void *)message, m_msgSize);
+                int ret = m_rdmaServer->pollReceiveSRQ(m_srqID, ibAddr,m_poll);
+                if(ret){
+                    auto message =  m_rpcMemory.getNext();
+                    handleRDMARPCVoid(message, ibAddr);
+                    m_rdmaServer->receiveSRQ(m_srqID, (void *)message, m_msgSize);
+                }
 
             }
             m_processing = false;

@@ -656,7 +656,7 @@ void ReliableRDMA::pollReceiveSRQ(size_t srq_id, rdmaConnID &retRdmaConnID,
   throw runtime_error("pollReceiveSRQ failed!");
 }
 
-void ReliableRDMA::pollReceiveSRQ(size_t srq_id, rdmaConnID& retRdmaConnID, std::atomic<bool> & doPoll){
+int ReliableRDMA::pollReceiveSRQ(size_t srq_id, rdmaConnID& retRdmaConnID, std::atomic<bool> & doPoll){
         int ne;
         struct ibv_wc wc;
 
@@ -676,11 +676,10 @@ void ReliableRDMA::pollReceiveSRQ(size_t srq_id, rdmaConnID& retRdmaConnID, std:
             }
             uint64_t qp = wc.qp_num;
             retRdmaConnID = m_qpNum2connID.at(qp);
-            return;
-        } else if (ne > 0) {
-            return;
+
         }
-        throw runtime_error("pollReceiveSRQ failed!");
+        return ne;
+
 }
 
 //------------------------------------------------------------------------------------//
