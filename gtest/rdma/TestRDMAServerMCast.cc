@@ -3,6 +3,7 @@
 
 void TestRDMAServerMCast::SetUp() {
   Config::RDMA_MEMSIZE = 1024 * 1024;
+  Config::SEQUENCER_IP = rdma::Config::getIP(rdma::Config::RDMA_INTERFACE);
   m_mCastAddr = Config::getIP(Config::RDMA_INTERFACE); //Multicast address must be a valid IP of one of the RNICs
 
   m_nodeIDSequencer = std::make_unique<NodeIDSequencer>();

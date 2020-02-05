@@ -45,11 +45,12 @@ void UnreliableRDMA::localFree(const void* ptr) {
 void UnreliableRDMA::initQPWithSuppliedID(const rdmaConnID rdmaConnID) {
   //TODO: Refactor such that the only QP does not need to be indexed with the rdmaConnID (Since there is only one!!)
 
-
+  unique_lock<mutex> lck(m_cqCreateLock);
   // check if QP is already created
   if (m_udqp.qp != nullptr) {
     setQP(rdmaConnID, m_udqp);
     setLocalConnData(rdmaConnID, m_udqpConn);
+    lck.unlock();
     return;
   }
 
@@ -81,8 +82,57 @@ void UnreliableRDMA::initQPWithSuppliedID(const rdmaConnID rdmaConnID) {
   // done
   setQP(rdmaConnID, *qp);
   setLocalConnData(rdmaConnID, *qpConn);
+  lck.unlock();
 
   Logging::debug(__FILE__, __LINE__, "Created UD queue pair ");
+}
+
+
+void UnreliableRDMA::initQPWithSuppliedID(ib_qp_t** qpp, ib_conn_t** localcon) {
+
+    unique_lock<mutex> lck(m_cqCreateLock);
+    // check if QP is already created
+    if (m_udqp.qp != nullptr) {
+        *qpp =  & m_udqp;
+        *localcon = &m_udqpConn;
+        lck.unlock();
+
+        return;
+    }
+
+    ib_qp_t* qp = &m_udqp;
+    ib_conn_t* qpConn = &m_udqpConn;
+    // create completion queues
+    createCQ(qp->send_cq, qp->recv_cq);
+
+    // create QP
+    createQP(qp);
+
+
+    // create local connection data
+    union ibv_gid my_gid;
+    memset(&my_gid, 0, sizeof my_gid);
+    qpConn->buffer = (uintptr_t)m_res.buffer;
+    qpConn->qp_num = m_udqp.qp->qp_num;
+    qpConn->lid = m_res.port_attr.lid;
+    memcpy(qpConn->gid, &my_gid, sizeof my_gid);
+    qpConn->ud.psn = lrand48() & 0xffffff;
+    qpConn->ud.ah = nullptr;
+
+    // init queue pair
+    modifyQPToInit(qp->qp);
+
+    modifyQPToRTR(qp->qp);
+
+    modifyQPToRTS(qp->qp, qpConn->ud.psn);
+
+
+    *qpp = &m_udqp;
+    *localcon = &m_udqpConn;
+
+    Logging::debug(__FILE__, __LINE__, "Created UD queue pair ");
+
+    lck.unlock();
 }
 
 void UnreliableRDMA::initQP(rdmaConnID& retRdmaConnID) {

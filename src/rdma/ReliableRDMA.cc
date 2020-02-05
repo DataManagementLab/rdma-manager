@@ -75,6 +75,33 @@ void ReliableRDMA::initQPWithSuppliedID(const rdmaConnID rdmaConnID) {
   Logging::debug(__FILE__, __LINE__, "Created RC queue pair");
 }
 
+void ReliableRDMA::initQPWithSuppliedID(struct ib_qp_t** qp ,struct ib_conn_t ** localConn) {
+    // create completion queues
+    //struct ib_qp_t qp;
+    createCQ((*qp)->send_cq, (*qp)->recv_cq);
+
+    // create queues
+    createQP(*qp);
+
+    // create local connection data
+    //struct ib_conn_t localConn;
+    union ibv_gid my_gid;
+    memset(&my_gid, 0, sizeof my_gid);
+
+    (*localConn)->buffer = (uint64_t)m_res.buffer;
+    (*localConn)->rc.rkey = m_res.mr->rkey;
+    (*localConn)->qp_num = (*qp)->qp->qp_num;
+    (*localConn)->lid = m_res.port_attr.lid;
+    memcpy((*localConn)->gid, &my_gid, sizeof my_gid);
+
+    // init queue pair
+    modifyQPToInit((*qp)->qp);
+
+
+
+    Logging::debug(__FILE__, __LINE__, "Created RC queue pair");
+}
+
 //------------------------------------------------------------------------------------//
 
 void ReliableRDMA::initQP(rdmaConnID &retRdmaConnID) {

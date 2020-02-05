@@ -38,6 +38,7 @@ class UnreliableRDMA : public BaseRDMA {
   ~UnreliableRDMA();
 
   void initQPWithSuppliedID(const rdmaConnID suppliedID) override;
+  void initQPWithSuppliedID( ib_qp_t **, ib_conn_t **);
   void initQP(rdmaConnID &retRdmaConnID) override;
   void connectQP(const rdmaConnID rdmaConnID) override;
 
@@ -85,6 +86,9 @@ class UnreliableRDMA : public BaseRDMA {
   size_t m_lastMCastConnKey;
   std::vector<rdma_mcast_conn_t> m_udpMcastConns;
   std::vector<size_t> m_sendMCastCount;
+
+  mutex m_cqCreateLock;
+
 };
 
 }  // namespace rdma

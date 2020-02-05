@@ -150,20 +150,61 @@ class RDMAClient : public RDMA_API_T, public ProtoClient {
           throw runtime_error("An Error occurred while fetching NodeID for ip: " + ipPort);
         }
       }
-      // create local QP
-      RDMA_API_T::initQPWithSuppliedID(retServerNodeID);
+
+        if (retServerNodeID >= m_nodeIDsConnection.size()) {
+            m_nodeIDsConnection.resize(retServerNodeID + 1);
+            m_nodeIDsConnection[retServerNodeID] = ipPort;
+
+        } else {
+            m_nodeIDsConnection[retServerNodeID] = ipPort;
+        }
+        m_connections[ipPort] = retServerNodeID;
+
+
+
+
+        // check if other Server tried to connect
+        //only relevant if this is a Server too
+        unique_lock<mutex> lck(m_connLock);
+            if (retServerNodeID >= m_NodeIDsQPs.size()) {
+                m_NodeIDsQPs.resize(retServerNodeID + 1);
+            }
+
+            if(m_NodeIDsQPs.at(retServerNodeID) == false){
+
+                m_NodeIDsQPs[retServerNodeID] = true;
+            }else{
+                //other Server already called connect exit
+                lck.unlock();
+                return true;
+            }
+            lck.unlock();
+
+    struct ib_qp_t qp;
+    struct ib_conn_t localConn;
+
+    // need to pass pointer of pointers because of UnreliableRDMA
+    // UnreliableRDMA returns a pointer to the member of qp and locaCon
+    auto qpPt = &qp;
+    auto localConnPt = &localConn;
+
+        //srq Server to Server is not yet working
+        //init QP but dont add it to the members yet
+      RDMA_API_T::initQPWithSuppliedID(&qpPt,&localConnPt);
+
+
 
       // exchange QP info
-      ib_conn_t localConn = RDMA_API_T::getLocalConnData(retServerNodeID);
+
       RDMAConnRequest connRequest;
-      connRequest.set_buffer(localConn.buffer);
-      connRequest.set_rkey(localConn.rc.rkey);
-      connRequest.set_qp_num(localConn.qp_num);
-      connRequest.set_lid(localConn.lid);
+      connRequest.set_buffer(localConnPt->buffer);
+      connRequest.set_rkey(localConnPt->rc.rkey);
+      connRequest.set_qp_num(localConnPt->qp_num);
+      connRequest.set_lid(localConnPt->lid);
       for (int i = 0; i < 16; ++i) {
-        connRequest.add_gid(localConn.gid[i]);
+        connRequest.add_gid(localConnPt->gid[i]);
       }
-      connRequest.set_psn(localConn.ud.psn);
+      connRequest.set_psn(localConnPt->ud.psn);
       connRequest.set_nodeid(m_ownNodeID);
 
       Any sendAny;
@@ -172,7 +213,9 @@ class RDMAClient : public RDMA_API_T, public ProtoClient {
 
       ProtoClient::exchangeProtoMsg(ipPort, &sendAny, &rcvAny);
 
+
       if (rcvAny.Is<RDMAConnResponse>()) {
+          // connect request was successful
         RDMAConnResponse connResponse;
         rcvAny.UnpackTo(&connResponse);
 
@@ -185,25 +228,30 @@ class RDMAClient : public RDMA_API_T, public ProtoClient {
         for (int i = 0; i < 16; ++i) {
           remoteConn.gid[i] = connResponse.gid(i);
         }
+          //set qp to members
+          RDMA_API_T::setQP(retServerNodeID, *qpPt);
+          RDMA_API_T::setLocalConnData(retServerNodeID, *localConnPt);
 
         RDMA_API_T::setRemoteConnData(retServerNodeID, remoteConn);
       } else {
-        throw runtime_error("An Error occurred while exchanging QP info");
+          // connect request failed because other Server already connected
+          //cleanup
+          if (ibv_destroy_qp(qp.qp) != 0) {
+              throw runtime_error("Error, ibv_destroy_qp() failed");
+          }
+          RDMA_API_T::destroyCQ(qp.send_cq, qp.recv_cq);
+
+         return true;
       }
+
+
 
       // connect QPs
       RDMA_API_T::connectQP(retServerNodeID);
 
       Logging::debug(__FILE__, __LINE__, "RDMAClient: connected to server!");
 
-      if (retServerNodeID >= m_nodeIDsConnection.size()) {
-        m_nodeIDsConnection.resize(retServerNodeID + 1);
-        m_nodeIDsConnection[retServerNodeID] = ipPort;
 
-      } else {
-        m_nodeIDsConnection[retServerNodeID] = ipPort;
-      }
-      m_connections[ipPort] = retServerNodeID;
       return true;
     }
     else
@@ -224,6 +272,10 @@ class RDMAClient : public RDMA_API_T, public ProtoClient {
   NodeID m_ownNodeID;
   // Mapping from NodeID to IPs
   vector<string> m_nodeIDsConnection;
+
+  //lock for connection
+  mutex m_connLock;
+  vector<bool> m_NodeIDsQPs;
 
   // Mapping from IPs to NodeIDs
   unordered_map<string, NodeID> m_connections;
@@ -256,8 +308,11 @@ class RDMAClient : public RDMA_API_T, public ProtoClient {
   }
 
 protected:
+
+
   using ProtoClient::connectProto; //Make private
   using ProtoClient::exchangeProtoMsg; //Make private
+
 
 };
 }  // namespace rdma
