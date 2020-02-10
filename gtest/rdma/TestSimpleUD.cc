@@ -14,6 +14,8 @@ void TestSimpleUD::SetUp() {
   // run two servers
   m_rdmaServer1 = std::make_unique<RDMAServer<UnreliableRDMA>>("Server1", Config::RDMA_PORT);
   m_rdmaServer2 = std::make_unique<RDMAServer<UnreliableRDMA>>("Server2", Config::RDMA_PORT + 1);
+  ASSERT_TRUE(m_rdmaServer1->startServer());
+  ASSERT_TRUE(m_rdmaServer2->startServer());
 
   m_rdmaClient1 = std::make_unique<RDMAClient<UnreliableRDMA>>();
   m_rdmaClient2 = std::make_unique<RDMAClient<UnreliableRDMA>>();

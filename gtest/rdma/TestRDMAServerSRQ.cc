@@ -13,7 +13,7 @@ void TestRDMAServerSRQ::SetUp() {
   m_rdmaServer->createSharedReceiveQueue(m_srq_id);
   m_rdmaServer->activateSRQ(m_srq_id);
 
-  // ASSERT_TRUE(m_rdmaServer->startServer());
+  ASSERT_TRUE(m_rdmaServer->startServer());
   m_connection = Config::getIP(Config::RDMA_INTERFACE) + ":" + to_string(Config::RDMA_PORT);
   m_rdmaClient_0 = std::make_unique<RDMAClient<ReliableRDMA>>();
   ASSERT_TRUE(m_rdmaClient_0->connect(m_connection, m_nodeId));
