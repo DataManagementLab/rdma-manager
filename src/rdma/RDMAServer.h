@@ -32,16 +32,21 @@ class RDMAServer : public ProtoServer, public RDMAClient<RDMA_API_T> {
   RDMAServer(string name, int port) : RDMAServer(name, port, Config::RDMA_MEMSIZE){}
   RDMAServer(string name, int port, uint64_t memsize) : ProtoServer(name, port), RDMAClient<RDMA_API_T>(memsize, name, Config::getIP(Config::RDMA_INTERFACE) + ":" + to_string(port), NodeType::Enum::SERVER)
   {
-    if (!ProtoServer::isRunning())
-    {
-      ProtoServer::startServer();
-    }
+    // if (!ProtoServer::isRunning())
+    // {
+    //   ProtoServer::startServer();
+    // }
   }
 
   ~RDMAServer() = default;
 
   // server methods
   bool startServer() override{
+
+    if (!ProtoClient::isConnected(m_sequencerIpPort)) {
+      RDMAClient<RDMA_API_T>::m_ownNodeID = RDMAClient<RDMA_API_T>::requestNodeID(RDMAClient<RDMA_API_T>::m_sequencerIpPort, RDMAClient<RDMA_API_T>::m_ownIpPort, RDMAClient<RDMA_API_T>::m_nodeType);
+    }
+
     if (ProtoServer::isRunning()) { 
       return true;
     }

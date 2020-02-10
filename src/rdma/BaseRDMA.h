@@ -132,6 +132,16 @@ class BaseRDMA {
 
   void printBuffer();
 
+  std::vector<size_t> getConnectedConnIDs() {
+    std::vector<size_t> connIDs;
+    for (auto iter = m_connected.begin(); iter != m_connected.end(); iter++)
+    {
+      if (iter->second)
+        connIDs.push_back(iter->first);
+    }
+    return connIDs;
+  }
+
  protected:
   virtual void destroyQPs() = 0;
 
@@ -179,8 +189,6 @@ class BaseRDMA {
 
   struct ib_resource_t m_res;
 
-  // maps ibaddr.conn_keys to connection infos
-  size_t m_lastConnKey;
   vector<ib_qp_t> m_qps;  // rdmaConnID is the index of the vector
   vector<ib_conn_t> m_rconns;
   vector<ib_conn_t> m_lconns;
@@ -192,7 +200,6 @@ class BaseRDMA {
   unordered_map<size_t, rdma_mem_t> m_usedRdmaMem;
 
   static rdma_mem_t s_nillmem;
-
 
 static void* malloc_huge(size_t size) {
    void* p = mmap(NULL, size, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);

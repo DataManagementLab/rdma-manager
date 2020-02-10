@@ -1,12 +1,12 @@
 /*
- * MulticastPerf.h
+ * MulticastPerfLat.h
  *
  *  Created on: Dec 3, 2016
  *      Author: cbinnig
  */
 
-#ifndef MULTICASTPERF_H_
-#define MULTICASTPERF_H_
+#ifndef MULTICASTPERFLAT_H_
+#define MULTICASTPERFLAT_H_
 
 #include "../utils/Config.h"
 #include "../utils/StringHelper.h"
@@ -22,12 +22,12 @@
 
 namespace rdma {
 
-class MCClientPerfThread: public Thread {
+class MCClientPerfLatThread: public Thread {
 public:
-	MCClientPerfThread(int threadid, string mcastGroup, vector<string> servers, size_t size, size_t iter,
+	MCClientPerfLatThread(int threadid, string mcastGroup, vector<string> servers, size_t size, size_t iter,
 			size_t budget);
 
-	~MCClientPerfThread();
+	~MCClientPerfLatThread();
 
 	void run();
 
@@ -36,6 +36,8 @@ public:
 	}
 
 uint128_t resultedTime;
+
+  	std::vector<double> latency;
 
 private:
 	bool m_ready = false;
@@ -51,11 +53,11 @@ private:
 	
 };
 
-class MCServerPerfThread: public Thread {
+class MCServerPerfLatThread: public Thread {
 public:
-	MCServerPerfThread(string mcastGroup, size_t serverPort, size_t size,
+	MCServerPerfLatThread(string mcastGroup, size_t serverPort, size_t size,
 			size_t iter, size_t budget, size_t numThreads);
-	~MCServerPerfThread();
+	~MCServerPerfLatThread();
 	void run();
 
 	bool ready() {
@@ -76,12 +78,12 @@ private:
 	std::unique_ptr<NodeIDSequencer> m_nodeIDSequencer;
 };
 
-class MulticastPerf: public PerfTest {
+class MulticastPerfLat: public PerfTest {
 public:
-	MulticastPerf(config_t config, bool isClient);
-	MulticastPerf(string& servers, size_t serverPort, size_t size, size_t iter,
+	MulticastPerfLat(config_t config, bool isClient);
+	MulticastPerfLat(string& servers, size_t serverPort, size_t size, size_t iter,
 			size_t threads);
-	~MulticastPerf();
+	~MulticastPerfLat();
 
 	void runClient();
 	void runServer();
@@ -92,25 +94,35 @@ public:
 		if (!m_logfile.empty() && !Filehelper::fileExists(m_logfile))
 		{
 		std::ofstream log(m_logfile, std::ios_base::app | std::ios_base::out);
-		log << "Size,Iter,BW,mopsPerS,Time,threads,servers\n";
+		log << "Size,Iter,BW,mopsPerS,Time,threads,servers,latMin,latMax,latAvg,latMed\n";
 		log.flush();
 		}
 		cout << "Size\tIter\tBW\tmopsPerS\tTime\tthreads\tservers" << endl;
 	}
 
 	void printResults() {
+		double avg = 0;
+		std::sort(m_cthreads[0]->latency.begin(), m_cthreads[0]->latency.end());
+		for (size_t rtt : m_cthreads[0]->latency)
+		{
+			avg += rtt;
+		}
+		avg = avg / m_cthreads[0]->latency.size();
+		double median = m_cthreads[0]->latency[m_cthreads[0]->latency.size()/2];
+		
 		double time = (this->time()) / (1e9);
 		size_t bw = (((double) m_size * m_iter * m_budget * m_numThreads) / (1024 * 1024)) / time;
 
-//cout<<"time "<<time<<endl;	
-	double mrps = m_iter*m_budget/((1e6)*time); // million request persecond per machine
-
-
+		double mrps = m_iter*m_budget/((1e6)*time); // million request persecond per machine
+		std::cout <<m_cthreads[0]->latency.front() << "," << std::endl;
+		std::cout <<m_cthreads[0]->latency[m_cthreads[0]->latency.size()-1] << "," << std::endl;
+		std::cout <<avg << ","<<median << std::endl;
 		cout << m_size << "\t" << m_iter * m_budget << "\t" << bw << "\t" <<mrps<<"\t"<<time<<"\t"<<m_numThreads<<"\t"<<m_servers.size()<<endl;
 		if (!m_logfile.empty())
 		{
 			std::ofstream log(m_logfile, std::ios_base::app | std::ios_base::out);
-			log << m_size << "," << m_iter * m_budget << "," << bw << "," <<mrps<<","<<time<<","<<m_numThreads<<","<<m_servers.size()<<'\n';
+			log << m_size << "," << m_iter * m_budget << "," << bw << "," <<mrps<<","<<time<<","<<m_numThreads<<","<<m_servers.size()<<","
+				<<m_cthreads[0]->latency.front() << ","<<m_cthreads[0]->latency[m_cthreads[0]->latency.size()-1] << ","<<avg << ","<<median << '\n';
 			log.flush();
 			log.close();
 		}
@@ -140,10 +152,10 @@ private:
 	RDMAServer<UnreliableRDMA>* m_server;
 
 	vector<NodeID> m_serverConns;
-	vector<MCClientPerfThread*> m_cthreads;
-	MCServerPerfThread* m_sthread;
+	vector<MCClientPerfLatThread*> m_cthreads;
+	MCServerPerfLatThread* m_sthread;
 };
 
 }
 
-#endif /* MULTICASTPERF_H_ */
+#endif /* MULTICASTPERFLatLAT_H_ */

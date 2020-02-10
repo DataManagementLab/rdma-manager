@@ -4,15 +4,14 @@ using namespace rdma;
 
 NodeIDSequencer::NodeIDSequencer(/* args */) : ProtoServer("NodeIDSequencer", Config::SEQUENCER_PORT)
 {
-    if (!ProtoServer::isRunning())
-    {
-      ProtoServer::startServer();
-    }
+  if (!ProtoServer::isRunning())
+  {
+    ProtoServer::startServer();
+  }
 }
 
 NodeIDSequencer::~NodeIDSequencer()
 {
-
 }
 
 NodeID NodeIDSequencer::getNextNodeID()
@@ -22,7 +21,8 @@ NodeID NodeIDSequencer::getNextNodeID()
 
 void NodeIDSequencer::handle(Any *anyReq, Any *anyResp)
 {
-  if (anyReq->Is<NodeIDRequest>()) {
+  if (anyReq->Is<NodeIDRequest>())
+  {
     NodeIDResponse connResp;
     NodeIDRequest connReq;
     anyReq->UnpackTo(&connReq);
@@ -30,7 +30,7 @@ void NodeIDSequencer::handle(Any *anyReq, Any *anyResp)
     std::string name = connReq.name();
     NodeType::Enum nodeType = (NodeType::Enum)connReq.node_type_enum();
     NodeID newNodeID = getNextNodeID();
-    
+
     NodeEntry_t entry{IP, name, newNodeID, nodeType};
     m_entries.emplace_back(entry);
 
@@ -45,13 +45,13 @@ void NodeIDSequencer::handle(Any *anyReq, Any *anyResp)
     connResp.set_return_(MessageErrors::NO_ERROR);
 
     anyResp->PackFrom(connResp);
-  } 
-  else if (anyReq->Is<GetAllNodeIDsRequest>()) 
+  }
+  else if (anyReq->Is<GetAllNodeIDsRequest>())
   {
     GetAllNodeIDsResponse connResp;
     GetAllNodeIDsRequest connReq;
     anyReq->UnpackTo(&connReq);
-    
+
     for (auto &entry : m_entries)
     {
       auto nodeidEntry = connResp.add_nodeid_entries();
@@ -85,9 +85,13 @@ void NodeIDSequencer::handle(Any *anyReq, Any *anyResp)
     }
     else
     {
-      Logging::warn("NodeIDSequencer handling message GetNodeIDForIpPortRequest: could not find nodeid for IP: " + ipPort);
+      Logging::info("NodeIDSequencer handling message GetNodeIDForIpPortRequest: could not find nodeid for IP: " + ipPort);
       connResp.set_return_(MessageErrors::NODEID_NOT_FOUND);
     }
     anyResp->PackFrom(connResp);
+  }
+  else
+  {
+    Logging::error(__FILE__, __LINE__, "NodeIDSequencer got unknown message!");
   }
 }

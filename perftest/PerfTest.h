@@ -22,6 +22,7 @@ struct config_t {
 	size_t iter = 10000000;
 	size_t threads = 1;
 	size_t data = 2048;
+	string logfile;
 };
 
 class PerfTest {
@@ -33,9 +34,10 @@ public:
 			struct option long_options[] = { { "number", required_argument, 0,
 					'n' }, { "server", optional_argument, 0, 's' }, { "port",
 					optional_argument, 0, 'p' }, { "data", optional_argument, 0,
-					'd' }, { "threads", optional_argument, 0, 't' } };
+					'd' }, { "threads", optional_argument, 0, 't' }, { "logfile", optional_argument, 0, 'f' }, 
+					{ "iterations", optional_argument, 0, 'i' } };
 
-			int c = getopt_long(argc, argv, "n:d:s:t:p:", long_options, NULL);
+			int c = getopt_long(argc, argv, "n:d:s:t:p:f:i:", long_options, NULL);
 			if (c == -1)
 				break;
 
@@ -54,6 +56,12 @@ public:
 				break;
 			case 't':
 				config.threads = strtoul(optarg, NULL, 0);
+				break;
+			case 'i':
+				config.iter = strtoul(optarg, NULL, 0);
+				break;
+			case 'f':
+				config.logfile = string(optarg);
 				break;
 			}
 		}

@@ -36,7 +36,7 @@ bool ProtoServer::startServer() {
       Logging::error(__FILE__, __LINE__, ss.str());
       return false;
     }
-    ss << m_name << " starting done  \n";
+    ss << m_name << " starting done. port: " + to_string(m_port) + " \n";
     Logging::debug(__FILE__, __LINE__, ss.str());
     usleep(Config::RDMA_SLEEP_INTERVAL);
   }

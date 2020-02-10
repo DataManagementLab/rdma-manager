@@ -5,8 +5,10 @@ set(PERFTEST_SRC
   RemoteMemoryPerf.cc
   #RemoteScanPerf.h
   #RemoteScanPerf.cc
-  #MulticastPerf.h
-  #MulticastPerf.cc
+  MulticastPerf.h
+  MulticastPerf.cc
+  MulticastPerfLat.h
+  MulticastPerfLat.cc
   #SwMulticastPerf.h
   #SwMulticastPerf.cc
     RPCPerf.cc
@@ -24,3 +26,5 @@ target_link_libraries(
 add_executable(perf_test MainPerf.cc)
 target_link_libraries(perf_test perftest)
 	
+add_executable(multicast_order_test MulticastOrderTest.cc)
+target_link_libraries(multicast_order_test rdma_lib)
