@@ -75,6 +75,33 @@ void ReliableRDMA::initQPWithSuppliedID(const rdmaConnID rdmaConnID) {
   Logging::debug(__FILE__, __LINE__, "Created RC queue pair");
 }
 
+void ReliableRDMA::initQPWithSuppliedID(struct ib_qp_t** qp ,struct ib_conn_t ** localConn) {
+    // create completion queues
+    //struct ib_qp_t qp;
+    createCQ((*qp)->send_cq, (*qp)->recv_cq);
+
+    // create queues
+    createQP(*qp);
+
+    // create local connection data
+    //struct ib_conn_t localConn;
+    union ibv_gid my_gid;
+    memset(&my_gid, 0, sizeof my_gid);
+
+    (*localConn)->buffer = (uint64_t)m_res.buffer;
+    (*localConn)->rc.rkey = m_res.mr->rkey;
+    (*localConn)->qp_num = (*qp)->qp->qp_num;
+    (*localConn)->lid = m_res.port_attr.lid;
+    memcpy((*localConn)->gid, &my_gid, sizeof my_gid);
+
+    // init queue pair
+    modifyQPToInit((*qp)->qp);
+
+
+
+    Logging::debug(__FILE__, __LINE__, "Created RC queue pair");
+}
+
 //------------------------------------------------------------------------------------//
 
 void ReliableRDMA::initQP(rdmaConnID &retRdmaConnID) {
@@ -654,6 +681,32 @@ void ReliableRDMA::pollReceiveSRQ(size_t srq_id, rdmaConnID &retRdmaConnID,
     return;
   }
   throw runtime_error("pollReceiveSRQ failed!");
+}
+
+int ReliableRDMA::pollReceiveSRQ(size_t srq_id, rdmaConnID& retRdmaConnID, std::atomic<bool> & doPoll){
+        int ne;
+        struct ibv_wc wc;
+
+        do {
+            wc.status = IBV_WC_SUCCESS;
+            ne = ibv_poll_cq(m_srqs.at(srq_id).recv_cq, 1, &wc);
+            if (wc.status != IBV_WC_SUCCESS) {
+                throw runtime_error("RDMA completion event in CQ with error! " +
+                                    to_string(wc.status));
+            }
+
+        } while (ne == 0 && doPoll);
+
+        if (doPoll) {
+            if (ne < 0) {
+                throw runtime_error("RDMA polling from CQ failed!");
+            }
+            uint64_t qp = wc.qp_num;
+            retRdmaConnID = m_qpNum2connID.at(qp);
+
+        }
+        return ne;
+
 }
 
 //------------------------------------------------------------------------------------//

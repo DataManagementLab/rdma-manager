@@ -84,11 +84,18 @@ class RDMAServer : public ProtoServer, public RDMAClient<RDMA_API_T> {
     if (anyReq->Is<RDMAConnRequest>()) {
       RDMAConnResponse connResp;
       RDMAConnRequest connReq;
+      ErrorMessage er;
       anyReq->UnpackTo(&connReq);
-      connectQueue(&connReq, &connResp);
-      Logging::debug(__FILE__, __LINE__,
-                     "RDMAServer::handle: after connectQueue");
-      anyResp->PackFrom(connResp);
+      if(connectQueue(&connReq, &connResp)){
+          Logging::debug(__FILE__, __LINE__,
+                         "RDMAServer::handle: after connectQueue");
+          anyResp->PackFrom(connResp);
+      }else{
+          anyResp->PackFrom(er);
+          Logging::debug(__FILE__, __LINE__,
+                         "RDMAServer::handle: after connectQueue already connected");
+      }
+
     } else if (anyReq->Is<MemoryResourceRequest>()) {
       MemoryResourceResponse respMsg;
       MemoryResourceRequest reqMsg;
@@ -146,11 +153,34 @@ class RDMAServer : public ProtoServer, public RDMAClient<RDMA_API_T> {
 
   bool connectQueue(RDMAConnRequest *connRequest,
                     RDMAConnResponse *connResponse) {
-    unique_lock<mutex> lck(m_connLock);
+
+    unique_lock<mutex> lck(RDMAClient<RDMA_API_T>::m_connLock);
+      NodeID nodeID = connRequest->nodeid();
+
+      //check if client already called connect
+      if (nodeID >= RDMAClient<RDMA_API_T>::m_NodeIDsQPs.size()) {
+          RDMAClient<RDMA_API_T>::m_NodeIDsQPs.resize(nodeID + 1);
+      }
+      if(RDMAClient<RDMA_API_T>::m_NodeIDsQPs.at(nodeID) == false){
+          RDMAClient<RDMA_API_T>::m_NodeIDsQPs[nodeID] = true;
+      }else{
+          if(nodeID ==RDMAClient<RDMA_API_T>::getOwnNodeID()) {
+              //connecting to self is a problem at cleanup
+              //cout << "connect to self" << endl;
+              Logging::debug(
+                      __FILE__, __LINE__,
+                      "Connect to self. Will leak a QP right now " + to_string(nodeID));
+          }
+
+          if(nodeID < RDMAClient<RDMA_API_T>::getOwnNodeID() ){
+              //back off if my nodeID is bigger then the calling
+              lck.unlock();
+              return false;
+          }
+      }
+      //other server did not call connect yet
 
     // create local QP
-    NodeID nodeID = connRequest->nodeid();
-
     // Check if SRQ is active
     try
     {
@@ -246,7 +276,7 @@ class RDMAServer : public ProtoServer, public RDMAClient<RDMA_API_T> {
   unordered_map<string, NodeID> m_mcastAddr;  // mcast_string to ibaddr
 
   // Locks for multiple clients accessing server
-  mutex m_connLock;
+
   mutex m_memLock;
 
   size_t m_currentSRQ = SIZE_MAX;

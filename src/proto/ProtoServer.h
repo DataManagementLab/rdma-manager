@@ -40,7 +40,8 @@ class ProtoServer : public Thread {
   
  private:
   int m_port;
-  bool m_running;
+
+  std::atomic<bool> m_running {false};
   ProtoSocket* m_pSocket;
   mutex m_handleLock;
 };

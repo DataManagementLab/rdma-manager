@@ -71,7 +71,7 @@ namespace rdma
 
         {
 
-            rdmaServer->createSRQ(m_srqID);
+            rdmaServer->createSharedReceiveQueue(m_srqID);
             rdmaServer->activateSRQ(m_srqID);
             m_intermediateRspBufferVoid = m_rdmaServer->localAlloc(m_msgSize);
             initMemory();
@@ -99,6 +99,9 @@ namespace rdma
 
 
         virtual bool startHandler(){
+            if(m_processing){
+                return true;
+            }
             start();
 
             stringstream ss;
@@ -122,13 +125,12 @@ namespace rdma
             stringstream ss;
 
             if (m_processing) {
-                m_processing = false;
-
                 stop();
 
-
+                m_poll = false;
 
                 join();
+                m_poll = true;
             }
             ss << "RPC handler Thread" << " stopping done \n";
             Logging::debug(__FILE__, __LINE__, ss.str());
@@ -151,17 +153,18 @@ namespace rdma
 
         void  run() {
             m_processing = true;
-            while (m_processing && !killed()) {
+            while (!killed()) {
 
-                //todo nodeId
                 NodeID ibAddr;
-                m_rdmaServer->pollReceiveSRQ(m_srqID, ibAddr,m_processing);
-
-                auto message =  m_rpcMemory.getNext();
-                handleRDMARPCVoid(message, ibAddr);
-                m_rdmaServer->receiveSRQ(m_srqID, (void *)message, m_msgSize);
+                int ret = m_rdmaServer->pollReceiveSRQ(m_srqID, ibAddr,m_poll);
+                if(ret){
+                    auto message =  m_rpcMemory.getNext();
+                    handleRDMARPCVoid(message, ibAddr);
+                    m_rdmaServer->receiveSRQ(m_srqID, (void *)message, m_msgSize);
+                }
 
             }
+            m_processing = false;
         }
 
         //This Message needs to be implemented in subclass to handle the messages
@@ -183,7 +186,9 @@ namespace rdma
         const size_t m_msgSize;
         uint32_t m_maxNumberMsgs;
 
-        bool m_processing;
+        std::atomic<bool> m_processing {false};
+
+        std::atomic<bool> m_poll {true};
 
         RPCMemory m_rpcMemory;
 

@@ -4,6 +4,7 @@
 void TestRDMAServerSRQ::SetUp() {
   Config::RDMA_MEMSIZE = 1024 * 1024;
   m_nodeId = 0;
+  Config::SEQUENCER_IP = rdma::Config::getIP(rdma::Config::RDMA_INTERFACE);
   m_nodeIDSequencer = std::make_unique<NodeIDSequencer>();
   // ASSERT_TRUE(m_nodeIDSequencer->startServer());
   m_rdmaServer = std::make_unique<RDMAServer<ReliableRDMA>>();

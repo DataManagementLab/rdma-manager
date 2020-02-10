@@ -3,7 +3,7 @@
 //
 
 #include "RPCPerf.h"
-
+#include "memory"
 
 mutex rdma::RPCPerf::waitLock;
 condition_variable rdma::RPCPerf::waitCv;
@@ -24,7 +24,7 @@ rdma::RPCPerfThread::RPCPerfThread(vector<string>& conns,
             throw invalid_argument(
                     "RPCPerf connection failed");
         }
-        std::cout << "Connected to server Node ID " << nodeId; 
+        std::cout << "Connected to server Node ID " << nodeId <<endl;
         m_addr.push_back(nodeId);
         //m_client.remoteAlloc(conn, m_size, m_remOffsets[i]);
     }
@@ -52,6 +52,7 @@ rdma::RPCPerfThread::~RPCPerfThread() {
 }
 
 void rdma::RPCPerfThread::run() {
+    //todo make many server work again
     unique_lock < mutex > lck(RPCPerf::waitLock);
     if (!RPCPerf::signaled) {
         m_ready = true;
@@ -66,7 +67,8 @@ void rdma::RPCPerfThread::run() {
         localsend->offset = returnOffset;
         // m_client.receive(m_addr[connIdx], (void*) localresp, sizeof(testMsg));
         m_client.send(m_addr[0], (void*) localsend, sizeof(testMsg), false);
-    
+
+        //todo make sendreturn work
 #ifdef SENDReturn
         bool poll = true;
         m_client.pollReceive(m_addr[0], poll);
@@ -133,7 +135,8 @@ rdma::RPCPerf::~RPCPerf() {
 }
 
 void rdma::RPCPerf::runServer() {
-    m_nodeIDSequencer = new NodeIDSequencer();
+    Config::SEQUENCER_IP = "localhost";
+    m_nodeIDSequencer = std::make_unique<NodeIDSequencer>();
     size_t MAX_NUM_RPC_MSG = 4096;
     std::cout << "server port " << m_serverPort << std::endl;
     m_dServer = new RDMAServer<ReliableRDMA>("test", m_serverPort);
@@ -150,6 +153,11 @@ void rdma::RPCPerf::runServer() {
 }
 
 void rdma::RPCPerf::runClient() {
+    //todo make many server work again
+    //make this better
+    string str = m_conns[0];
+    //sequencer is the same IP as the rdma server here
+    Config::SEQUENCER_IP =  str.substr(0,str.find(":") );;
     //start all client threads
     for (size_t i = 0; i < m_numThreads; i++) {
         std::cout << "Started thread " << i << std::endl;

@@ -19,18 +19,18 @@
 namespace rdma
 {
     //templated RPCHandler Class
-    template <class MessageType, class RDMA_API_T>
+    template <class MessageType,typename RDMA_API_T>
     class RPCHandlerThread : public RPCVoidHandlerThread<RDMA_API_T>
     {
 
     public:
-        RPCHandlerThread(RDMAServer<RDMA_API_T> *rdmaServer, size_t srqID,
+        RPCHandlerThread(RDMAServer<ReliableRDMA> *rdmaServer, size_t srqID,
                          size_t maxNumberMsgs,char* rpcbuffer
                           )
                 :RPCVoidHandlerThread<RDMA_API_T>(rdmaServer,srqID,sizeof(MessageType),maxNumberMsgs,rpcbuffer)
 
         {
-            m_intermediateRspBuffer = static_cast<MessageType*>(m_intermediateRspBufferVoid);
+            m_intermediateRspBuffer = static_cast<MessageType*>(RPCVoidHandlerThread<RDMA_API_T>::m_intermediateRspBufferVoid);
 
 
         };
@@ -43,7 +43,7 @@ namespace rdma
 
         {
 
-            m_intermediateRspBuffer = static_cast<MessageType*>(m_intermediateRspBufferVoid);
+            m_intermediateRspBuffer = static_cast<MessageType*>(RPCVoidHandlerThread<RDMA_API_T>::m_intermediateRspBufferVoid);
 
 
         };
@@ -55,7 +55,7 @@ namespace rdma
                 :RPCVoidHandlerThread<RDMA_API_T>(rdmaServer,sizeof(MessageType),maxNumberMsgs)
 
         {
-            m_intermediateRspBuffer = static_cast<MessageType*>(m_intermediateRspBufferVoid);
+            m_intermediateRspBuffer = static_cast<MessageType*>(RPCVoidHandlerThread<RDMA_API_T>::m_intermediateRspBufferVoid);
 
         };
 

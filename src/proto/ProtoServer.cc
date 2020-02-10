@@ -52,9 +52,10 @@ void ProtoServer::run() {
     stop();
     return;
   }
+  m_running = true;
 
   while (!killed()) {
-    m_running = true;
+
 
     Any rcvMsg;
     Any respMsg;
@@ -68,6 +69,7 @@ void ProtoServer::run() {
     }
     m_handleLock.unlock();
   }
+    m_running = false;
 }
 
 bool ProtoServer::isRunning() { return m_running; }
@@ -76,7 +78,7 @@ void ProtoServer::stopServer() {
   stringstream ss;
 
   if (m_running) {
-    m_running = false;
+    //m_running = false;
     // m_pSocket->close();
     stop();
     m_pSocket->closeContext();

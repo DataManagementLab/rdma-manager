@@ -25,6 +25,8 @@ class ReliableRDMA : public BaseRDMA {
   ~ReliableRDMA();
 
   void initQPWithSuppliedID(const rdmaConnID suppliedID) override;
+  void initQPWithSuppliedID( struct ib_qp_t** qp ,struct ib_conn_t ** localConn) ;
+
   void initQP(rdmaConnID& retRdmaConnID) override;
   void connectQP(const rdmaConnID rdmaConnID) override;
 
@@ -62,6 +64,7 @@ class ReliableRDMA : public BaseRDMA {
 
   void receiveSRQ(size_t srq_id, const void* memAddr, size_t size);
   void pollReceiveSRQ(size_t srq_id, rdmaConnID& retrdmaConnID, bool& doPoll);
+  int pollReceiveSRQ(size_t srq_id, rdmaConnID& retrdmaConnID, std::atomic<bool> & doPoll);
   void createSharedReceiveQueue(size_t& ret_srq_id);
 
  protected:

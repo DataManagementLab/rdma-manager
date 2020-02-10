@@ -91,6 +91,7 @@ class BaseRDMA {
 
   // unicast connection management
   virtual void initQPWithSuppliedID(const rdmaConnID suppliedID) = 0;
+  virtual void initQPWithSuppliedID( struct ib_qp_t** qp ,struct ib_conn_t ** localConn) = 0;
   virtual void initQP(rdmaConnID &retRdmaConnID) = 0;
 
   virtual void connectQP(const rdmaConnID rdmaConnID) = 0;
