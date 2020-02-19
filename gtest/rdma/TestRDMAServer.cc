@@ -8,7 +8,7 @@ void TestRDMAServer::SetUp() {
   m_nodeIDSequencer = std::make_unique<NodeIDSequencer>();
 
   m_rdmaServer = std::make_unique<RDMAServer<ReliableRDMA>>();
-
+  m_rdmaServer->startServer();
   m_connection = Config::getIP(Config::RDMA_INTERFACE) + ":" + to_string(Config::RDMA_PORT);
   m_rdmaClient = std::make_unique<RDMAClient<ReliableRDMA>>();
 

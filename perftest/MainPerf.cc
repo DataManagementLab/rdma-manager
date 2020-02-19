@@ -12,13 +12,12 @@ static void printUsage() {
     cout << "Tests:" << endl;
     cout << "1: \t RemoteMemoryClient" << endl;
     cout << "2: \t RemoteMemoryServer" << endl;
-    /*
-    cout << "3: \t RemoteScanClient" << endl;
-    cout << "4: \t RemoteScanServer" << endl;
+    // cout << "3: \t RemoteScanClient" << endl;
+    // cout << "4: \t RemoteScanServer" << endl;
     cout << "101: \t MulticastClient" << endl;
     cout << "102: \t MulticastServer" << endl;
-    cout << "103: \t SWMulticastClient" << endl;
-    cout << "104: \t SWMulticastServer" << endl;*/
+    cout << "103: \t MulticastLatClient" << endl;
+    cout << "104: \t MulticastLatServer" << endl;
     cout << "201: \t RPCPerfClient" << endl;
     cout << "202: \t RPCPerfServer" << endl;
 
@@ -41,16 +40,16 @@ rdma::PerfTest* createTest(config_t& config) {
             //test = new RemoteScanPerf(config, false);
             break;
         case 101:
-            //test = new MulticastPerf(config, true);
+            test = new MulticastPerf(config, true);
             break;
         case 102:
-            //test = new MulticastPerf(config, false);
+            test = new MulticastPerf(config, false);
             break;
         case 103:
-            //test = new SWMulticastPerf(config, true);
+            test = new MulticastPerfLat(config, true);
             break;
         case 104:
-            //test = new SWMulticastPerf(config, false);
+            test = new MulticastPerfLat(config, false);
             break;
         case 201:
             test = new RPCPerf(config,true);
@@ -97,6 +96,6 @@ int main(int argc, char *argv[])
     delete test;
 
     //done
-    return 1;
+    return 0;
 
 }

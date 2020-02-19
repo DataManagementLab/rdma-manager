@@ -22,9 +22,8 @@ namespace rdma {
 template <typename RDMA_API_T>
 class RDMAClient : public RDMA_API_T, public ProtoClient {
  protected:
-  RDMAClient(size_t mem_size, std::string name, std::string ownIpPort, NodeType::Enum nodeType) : RDMA_API_T(mem_size), m_name(name)
+  RDMAClient(size_t mem_size, std::string name, std::string ownIpPort, NodeType::Enum nodeType) : RDMA_API_T(mem_size), m_name(name), m_ownIpPort(ownIpPort), m_nodeType(nodeType)
   {
-    m_ownNodeID = requestNodeID(m_sequencerIpPort, ownIpPort, nodeType);
   }
  public:
   RDMAClient() : RDMAClient(Config::RDMA_MEMSIZE) {}
@@ -106,7 +105,7 @@ class RDMAClient : public RDMA_API_T, public ProtoClient {
   bool connect(const string& ipPort, NodeID &retServerNodeID) {
 
     if (!ProtoClient::isConnected(m_sequencerIpPort)) {
-      throw runtime_error("RDMAClient must be connected to NodeIDSequencer");
+      m_ownNodeID = requestNodeID(m_sequencerIpPort, m_ownIpPort, m_nodeType);
     }
 
     // check if client is connected to data node
@@ -279,12 +278,16 @@ class RDMAClient : public RDMA_API_T, public ProtoClient {
 
   // Mapping from IPs to NodeIDs
   unordered_map<string, NodeID> m_connections;
-
+  
   std::string m_name;
   std::string m_sequencerIpPort = Config::SEQUENCER_IP + ":" + to_string(Config::SEQUENCER_PORT);
+  std::string m_ownIpPort;
+  NodeType::Enum m_nodeType;
+
   //Can be overwritten for special use-cases where NodeIDSequencer is insufficient
   virtual NodeID requestNodeID(std::string sequencerIpPort, std::string ownIpPort, NodeType::Enum nodeType)
   {
+    // std::cout << "Requesting IP. sequencerIpPort" << sequencerIpPort << " ownIpPort " << ownIpPort << std::endl;
     // check if client is connected to sequencer
     if (ProtoClient::isConnected(sequencerIpPort)) {
       return m_ownNodeID;
@@ -293,7 +296,7 @@ class RDMAClient : public RDMA_API_T, public ProtoClient {
 
     Any nodeIDRequest = ProtoMessageFactory::createNodeIDRequest(ownIpPort, m_name, nodeType);
     Any rcvAny;
-
+    // std::cout << "Sending nodeid request to NodeIDSequencer" << std::endl;
     ProtoClient::exchangeProtoMsg(sequencerIpPort, &nodeIDRequest, &rcvAny);
 
     if (rcvAny.Is<NodeIDResponse>()) {

@@ -5,16 +5,16 @@
  *      Author: cbinnig
  */
 
-#include "MulticastPerf.h"
+#include "MulticastPerfLat.h"
 #include "../utils/Timer.h"
 
 
-mutex rdma::MulticastPerf::waitLock;
-condition_variable rdma::MulticastPerf::waitCv;
-bool rdma::MulticastPerf::signaled;
+mutex rdma::MulticastPerfLat::waitLock;
+condition_variable rdma::MulticastPerfLat::waitCv;
+bool rdma::MulticastPerfLat::signaled;
 
 /********* client threads *********/
-rdma::MCClientPerfThread::MCClientPerfThread(int threadid, string mcastGroup, vector<string> servers, size_t size,
+rdma::MCClientPerfLatThread::MCClientPerfLatThread(int threadid, string mcastGroup, vector<string> servers, size_t size,
 		size_t iter, size_t budget) {
 	//init from parameters
 	m_size = size;
@@ -30,7 +30,7 @@ rdma::MCClientPerfThread::MCClientPerfThread(int threadid, string mcastGroup, ve
 		NodeID ibAddr;
 		string conn = servers[i];
 		if (!m_client->connect(conn, ibAddr)) {
-			throw invalid_argument("MCClientPerfThread connection failed");
+			throw invalid_argument("MCClientPerfLatThread connection failed");
 		}
 		m_serverConns.push_back(ibAddr);
 	}
@@ -40,22 +40,22 @@ rdma::MCClientPerfThread::MCClientPerfThread(int threadid, string mcastGroup, ve
 	m_signal =
 			(int*) (m_client->localAlloc(sizeof(int) * m_serverConns.size()));
 	if (m_data == nullptr || m_signal == nullptr) {
-		throw invalid_argument("MCClientPerfThread could not allocate memory");
+		throw invalid_argument("MCClientPerfLatThread could not allocate memory");
 	}
 }
 
-rdma::MCClientPerfThread::~MCClientPerfThread() {
+rdma::MCClientPerfLatThread::~MCClientPerfLatThread() {
 	//free memory
 	m_client->localFree(m_data);
 	m_client->localFree(m_signal);
 }
 
-void rdma::MCClientPerfThread::run() {
+void rdma::MCClientPerfLatThread::run() {
 	//wait for signal from perftest to start running
-	unique_lock < mutex > lck(MulticastPerf::waitLock);
+	unique_lock < mutex > lck(MulticastPerfLat::waitLock);
 	m_ready = true;
-	if (!MulticastPerf::signaled) {
-		MulticastPerf::waitCv.wait(lck);
+	if (!MulticastPerfLat::signaled) {
+		MulticastPerfLat::waitCv.wait(lck);
 	}
 	lck.unlock();
 
@@ -68,16 +68,23 @@ void rdma::MCClientPerfThread::run() {
 	startTimer();
 	uint128_t startTime = Timer::timestamp();
 	for (size_t iter = 0; iter < m_iter; ++iter) {
+		
+	    std::chrono::high_resolution_clock::time_point start = std::chrono::high_resolution_clock::now();
+
 		//send mcast data
-		for (size_t i = 0; i < m_budget; ++i) {
-			void* data = (void*) ((char*) m_data + i * m_size);
-			m_client->sendMCast(m_mcastConn, data, m_size, (i + 1 == m_budget));
-		}
+		m_client->sendMCast(m_mcastConn, m_data, m_size, false);
+
 		// std::cout << "Client " + to_string(m_threadid) + " sent " + to_string(m_budget) << std::endl;
 		//poll for receives for signals
 		for (size_t i = 0; i < m_serverConns.size(); ++i) {
 			m_client->pollReceive(m_serverConns[i], true);
 		}
+
+
+		std::chrono::high_resolution_clock::time_point end = std::chrono::high_resolution_clock::now();
+		auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count() * 1.0 / 1000;
+
+		latency.push_back(duration);
 
 		//prepare receiving signals for next iteration
 		for (size_t i = 0; i < m_serverConns.size(); ++i) {
@@ -87,11 +94,11 @@ void rdma::MCClientPerfThread::run() {
 	endTimer();
 	uint128_t endTime = Timer::timestamp();
 	resultedTime = endTime - startTime;
-	cout << "resulted time:" << resultedTime << endl;
+	std::cout << "resulted time:" << resultedTime << std::endl;
 }
 
 /********* server threads *********/
-rdma::MCServerPerfThread::MCServerPerfThread(string mcastGroup, size_t serverPort,
+rdma::MCServerPerfLatThread::MCServerPerfLatThread(string mcastGroup, size_t serverPort,
 		size_t size, size_t iter, size_t budget, size_t numThreads) {
 	//init from parameters
 	m_size = size;
@@ -105,7 +112,7 @@ rdma::MCServerPerfThread::MCServerPerfThread(string mcastGroup, size_t serverPor
 	//start server
 	m_server = new RDMAServer<UnreliableRDMA>("RDMAServer", serverPort, size * (m_budget+Config::RDMA_UD_OFFSET) + (sizeof(int)+Config::RDMA_UD_OFFSET) * m_numThreads);
 	if (!m_server->startServer()) {
-		throw invalid_argument("MCServerPerfThread could not start RDMAServer");
+		throw invalid_argument("MCServerPerfLatThread could not start RDMAServer");
 	}
 
 	//join mcast group
@@ -114,17 +121,17 @@ rdma::MCServerPerfThread::MCServerPerfThread(string mcastGroup, size_t serverPor
 	m_data = m_server->localAlloc(size * m_budget);
 	m_signal = (int*) (m_server->localAlloc(sizeof(int) * m_numThreads));
 	if (m_data == nullptr || m_signal == nullptr) {
-		throw invalid_argument("MCServerPerfThread could not allocate memory");
+		throw invalid_argument("MCServerPerfLatThread could not allocate memory");
 	}
 }
 
-rdma::MCServerPerfThread::~MCServerPerfThread() {
+rdma::MCServerPerfLatThread::~MCServerPerfLatThread() {
 	//free memory
 	m_server->localFree(m_data);
 	m_server->localFree(m_signal);
 }
 
-void rdma::MCServerPerfThread::run() {
+void rdma::MCServerPerfLatThread::run() {
 	//server thread is ready and running
 	m_ready = true;
 
@@ -160,8 +167,8 @@ void rdma::MCServerPerfThread::run() {
 	endTimer();
 }
 
-rdma::MulticastPerf::MulticastPerf(config_t config, bool isClient) :
-		MulticastPerf(config.server, config.port, config.data, config.iter,
+rdma::MulticastPerfLat::MulticastPerfLat(config_t config, bool isClient) :
+		MulticastPerfLat(config.server, config.port, config.data, config.iter,
 				config.threads) {
 	this->isClient(isClient);
 	m_logfile = config.logfile;
@@ -170,7 +177,7 @@ rdma::MulticastPerf::MulticastPerf(config_t config, bool isClient) :
 	}
 }
 
-rdma::MulticastPerf::MulticastPerf(string& servers, size_t serverPort, size_t size,
+rdma::MulticastPerfLat::MulticastPerfLat(string& servers, size_t serverPort, size_t size,
 		size_t iter, size_t threads) {
 
 	auto split_servers = StringHelper::split(servers);
@@ -189,15 +196,15 @@ rdma::MulticastPerf::MulticastPerf(string& servers, size_t serverPort, size_t si
 	m_group = split_servers[0];
 	m_serverPort = serverPort;
 	m_size = size;
-	m_budget = Config::RDMA_MAX_WR / threads;
+	m_budget = 1; //Only send 1 msg to measure latency
 	m_iter = iter / m_budget;
 	m_client = nullptr;
 	m_server = nullptr;
 	m_numThreads = threads;
-	MulticastPerf::signaled = false;
+	MulticastPerfLat::signaled = false;
 }
 
-rdma::MulticastPerf::~MulticastPerf() {
+rdma::MulticastPerfLat::~MulticastPerfLat() {
 	if (m_client != nullptr) {
 		delete m_client;
 	} else if (m_server != nullptr) {
@@ -206,11 +213,11 @@ rdma::MulticastPerf::~MulticastPerf() {
 	}
 }
 
-void rdma::MulticastPerf::runServer() {
-	std::cout << "Server budget: " << m_budget * m_numThreads << std::endl;
+void rdma::MulticastPerfLat::runServer() {
+	std::cout << "Server budget: " << m_numThreads << std::endl;
 	//start server thread
-	MCServerPerfThread* perfThread = new MCServerPerfThread(m_group,
-			m_serverPort, m_size, m_iter, m_budget * m_numThreads,
+	MCServerPerfLatThread* perfThread = new MCServerPerfLatThread(m_group,
+			m_serverPort, m_size, m_iter, m_numThreads,
 			m_numThreads);
 	perfThread->start();
 	if (!perfThread->ready()) {
@@ -223,11 +230,11 @@ void rdma::MulticastPerf::runServer() {
 	delete m_sthread;
 }
 
-void rdma::MulticastPerf::runClient() {
+void rdma::MulticastPerfLat::runClient() {
 	//prepare all client threads
 	std::cout << "Client budget: " << m_budget << std::endl;
 	for (size_t i = 0; i < m_numThreads; i++) {
-		MCClientPerfThread* perfThread = new MCClientPerfThread(0, m_group, m_servers, m_size,
+		MCClientPerfLatThread* perfThread = new MCClientPerfLatThread(0, m_group, m_servers, m_size,
 				m_iter, m_budget);
 		perfThread->start();
 		if (!perfThread->ready()) {
@@ -237,10 +244,10 @@ void rdma::MulticastPerf::runClient() {
 	}
 
 	//simultaneously start all clients
-	MulticastPerf::signaled = false;
-	unique_lock < mutex > lck(MulticastPerf::waitLock);
-	MulticastPerf::waitCv.notify_all();
-	MulticastPerf::signaled = true;
+	MulticastPerfLat::signaled = false;
+	unique_lock < mutex > lck(MulticastPerfLat::waitLock);
+	MulticastPerfLat::waitCv.notify_all();
+	MulticastPerfLat::signaled = true;
 	lck.unlock();
 
 	//wait for clients threads to finish
@@ -250,7 +257,7 @@ void rdma::MulticastPerf::runClient() {
 	}
 }
 
-double rdma::MulticastPerf::time() {
+double rdma::MulticastPerfLat::time() {
 	uint128_t totalTime = 0;
 	for (size_t i = 0; i < m_cthreads.size(); i++) {
 		totalTime += m_cthreads[i]->resultedTime;

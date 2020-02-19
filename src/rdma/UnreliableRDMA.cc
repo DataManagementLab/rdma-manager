@@ -182,7 +182,11 @@ void UnreliableRDMA::destroyQPs() {
 
 void UnreliableRDMA::send(const rdmaConnID rdmaConnID, const void* memAddr,
                           size_t size, bool signaled) {
-  struct ib_qp_t localQP = m_qps[rdmaConnID]; // m_udqp
+
+  //todo check signaled 
+  checkSignaled(signaled, 0);
+
+  struct ib_qp_t localQP = m_udqp; //m_qps[rdmaConnID]; 
   struct ib_conn_t remoteConn = m_rconns[rdmaConnID];
 
   struct ibv_send_wr sr;

@@ -9,6 +9,7 @@ void TestRDMAServerMCast::SetUp() {
   m_nodeIDSequencer = std::make_unique<NodeIDSequencer>();
 
   m_rdmaServer = std::make_unique<RDMAServer<UnreliableRDMA>>();
+  m_rdmaServer->startServer();
 
   ASSERT_NO_THROW(m_rdmaServer->joinMCastGroup(m_mCastAddr, m_serverMCastID));
 

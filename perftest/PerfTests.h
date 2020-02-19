@@ -12,7 +12,8 @@
 
 #include "RPCPerf.h"
 // #include "RemoteScanPerf.h"
-// #include "MulticastPerf.h"
+#include "MulticastPerf.h"
+#include "MulticastPerfLat.h"
 // #include "SwMulticastPerf.h"
 
 #endif /* PERFTESTS_H_ */

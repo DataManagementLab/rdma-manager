@@ -10,7 +10,7 @@ void TestRDMAServerMultClients::SetUp() {
   // ASSERT_TRUE(m_nodeIDSequencer->startServer());
 
   m_rdmaServer = std::make_unique<RDMAServer<ReliableRDMA>>();
-  // ASSERT_TRUE(m_rdmaServer->startServer());
+  ASSERT_TRUE(m_rdmaServer->startServer());
 
   m_connection = Config::getIP(Config::RDMA_INTERFACE) + ":" + to_string(Config::RDMA_PORT);
   m_rdmaClient_0 = std::make_unique<RDMAClient<ReliableRDMA>>();

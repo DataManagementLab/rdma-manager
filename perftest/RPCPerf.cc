@@ -61,8 +61,8 @@ void rdma::RPCPerfThread::run() {
     lck.unlock();
     startTimer();
     for (size_t i = 0; i < m_iter; ++i) {
-        size_t connIdx = i % m_conns.size();
-        bool signaled = (i == (m_iter - 1));
+        // size_t connIdx = i % m_conns.size();
+        // bool signaled = (i == (m_iter - 1));
         localsend->id = i;
         localsend->offset = returnOffset;
         // m_client.receive(m_addr[connIdx], (void*) localresp, sizeof(testMsg));
@@ -106,7 +106,7 @@ rdma::RPCPerf::RPCPerf(config_t config, bool isClient) :
 
 //todo remove size
 rdma::RPCPerf::RPCPerf(string& conns, size_t serverPort,
-                                         size_t size, size_t iter, size_t threads) {
+                                         size_t, size_t iter, size_t threads) {
     m_conns = StringHelper::split(conns);
     m_serverPort = serverPort;
     //m_size = size;

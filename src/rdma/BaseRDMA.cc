@@ -23,7 +23,6 @@ BaseRDMA::BaseRDMA(size_t mem_size) {
   m_ibPort = Config::RDMA_IBPORT;
   m_gidIdx = -1;
   m_rdmaMem.push_back(rdma_mem_t(m_memSize, true, 0));
-  m_lastConnKey = 0;
 
   createBuffer();
 }
