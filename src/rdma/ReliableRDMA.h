@@ -32,6 +32,9 @@ class ReliableRDMA : public BaseRDMA {
 
   void write(const rdmaConnID rdmaConnID, size_t offset, const void* memAddr,
              size_t size, bool signaled);
+
+  void writeImm(const rdmaConnID rdmaConnID, size_t offset, const void* memAddr,
+             size_t size, uint32_t , bool signaled);
   void read(const rdmaConnID rdmaConnID, size_t offset, const void* memAddr,
             size_t size, bool signaled);
   void requestRead(const rdmaConnID rdmaConnID, size_t offset,
@@ -50,7 +53,7 @@ class ReliableRDMA : public BaseRDMA {
             bool signaled) override;
   void receive(const rdmaConnID rdmaConnID, const void* memAddr,
                size_t size) override;
-  int pollReceive(const rdmaConnID rdmaConnID, bool doPoll) override;
+  int pollReceive(const rdmaConnID rdmaConnID, bool doPoll = true,uint32_t* = nullptr) override;
   void pollReceiveBatch(size_t srq_id, size_t& num_completed, bool& doPoll);
   void pollSend(const rdmaConnID rdmaConnID, bool doPoll) override;
 
@@ -65,13 +68,14 @@ class ReliableRDMA : public BaseRDMA {
   void receiveSRQ(size_t srq_id, const void* memAddr, size_t size);
   void pollReceiveSRQ(size_t srq_id, rdmaConnID& retrdmaConnID, bool& doPoll);
   int pollReceiveSRQ(size_t srq_id, rdmaConnID& retrdmaConnID, std::atomic<bool> & doPoll);
+  int pollReceiveSRQ(size_t srq_id, rdmaConnID &retRdmaConnID, uint32_t *imm, atomic<bool> &doPoll);
   void createSharedReceiveQueue(size_t& ret_srq_id);
 
  protected:
   // RDMA operations
   inline void __attribute__((always_inline))
   remoteAccess(const rdmaConnID rdmaConnID, size_t offset, const void* memAddr,
-               size_t size, bool signaled, bool wait, enum ibv_wr_opcode verb) {
+               size_t size, bool signaled, bool wait, enum ibv_wr_opcode verb,uint32_t * imm = nullptr) {
     DebugCode(
       if (memAddr < m_res.buffer || (char*)memAddr + size > (char*)m_res.buffer + m_res.mr->length) {
         Logging::error(__FILE__, __LINE__,
@@ -101,6 +105,9 @@ class ReliableRDMA : public BaseRDMA {
     // calculate remote address using offset in local buffer
     sr.wr.rdma.remote_addr = remoteConn.buffer + offset;
     sr.wr.rdma.rkey = remoteConn.rc.rkey;
+
+    if(imm!= nullptr)
+        sr.imm_data = *imm;
 
     struct ibv_send_wr* bad_wr = nullptr;
     if ((errno = ibv_post_send(localQP.qp, &sr, &bad_wr))) {
@@ -143,6 +150,8 @@ class ReliableRDMA : public BaseRDMA {
   map<size_t, sharedrq_t> m_srqs;
   size_t m_srqCounter = 0;
   map<size_t, vector<rdmaConnID>> m_connectedQPs;
+
+
 };
 
 }  // namespace rdma

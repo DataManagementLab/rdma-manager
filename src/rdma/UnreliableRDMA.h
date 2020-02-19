@@ -46,7 +46,7 @@ class UnreliableRDMA : public BaseRDMA {
             bool signaled) override;
   void receive(const rdmaConnID rdmaConnID, const void *memAddr,
                size_t size) override;
-  int pollReceive(const rdmaConnID rdmaConnID, bool doPoll) override;
+  int pollReceive(const rdmaConnID rdmaConnID,  bool doPoll = true,uint32_t* = nullptr) override;
   void pollSend(const rdmaConnID rdmaConnID, bool doPoll) override;
 
   void *localAlloc(const size_t &size) override;

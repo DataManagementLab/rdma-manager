@@ -13,7 +13,7 @@ void TestRDMAServerSRQ::SetUp() {
   m_rdmaServer->createSharedReceiveQueue(m_srq_id);
   m_rdmaServer->activateSRQ(m_srq_id);
 
-  // ASSERT_TRUE(m_rdmaServer->startServer());
+   ASSERT_TRUE(m_rdmaServer->startServer());
   m_connection = Config::getIP(Config::RDMA_INTERFACE) + ":" + to_string(Config::RDMA_PORT);
   m_rdmaClient_0 = std::make_unique<RDMAClient<ReliableRDMA>>();
   ASSERT_TRUE(m_rdmaClient_0->connect(m_connection, m_nodeId));
@@ -35,8 +35,8 @@ TEST_F(TestRDMAServerSRQ, testSendReceive) {
 
   testMsg* localstruct2 = (testMsg*) m_rdmaClient_1->localAlloc(
       sizeof(testMsg));
-  localstruct2->a = 'a';
-  localstruct2->id = 1;
+  localstruct2->a = 'b';
+  localstruct2->id = 2;
 
 
   testMsg* remotestruct = (testMsg*) m_rdmaServer->localAlloc(sizeof(testMsg));
@@ -56,8 +56,74 @@ TEST_F(TestRDMAServerSRQ, testSendReceive) {
   bool poll= true;
   ASSERT_NO_THROW(m_rdmaServer->pollReceiveSRQ(m_srq_id, retNodeID, poll));
 
+
   ASSERT_EQ(localstruct1->id, remotestruct->id);
   ASSERT_EQ(localstruct1->a, remotestruct->a);
+
+
+  ASSERT_NO_THROW(m_rdmaServer->pollReceiveSRQ(m_srq_id, retNodeID, poll));
+
+
+  ASSERT_EQ(localstruct2->id, remotestruct2->id);
+  ASSERT_EQ(localstruct2->a, remotestruct2->a);
+}
+
+TEST_F(TestRDMAServerSRQ, testWriteImmReceive) {
+
+    Logging::debug("TestRDMAServerSRQ started", __LINE__, __FILE__);
+
+    testMsg* localstruct1 = (testMsg*) m_rdmaClient_0->localAlloc(
+            sizeof(testMsg));
+    localstruct1->a = 'a';
+    localstruct1->id = 1;
+
+    testMsg* localstruct2 = (testMsg*) m_rdmaClient_1->localAlloc(
+            sizeof(testMsg));
+    localstruct2->a = 'b';
+    localstruct2->id = 2;
+
+
+    testMsg* remotestruct = (testMsg*) m_rdmaServer->localAlloc(sizeof(testMsg));
+    testMsg* remotestruct2 = (testMsg*) m_rdmaServer->localAlloc(sizeof(testMsg));
+
+    ASSERT_TRUE(remotestruct != nullptr);
+    ASSERT_TRUE(remotestruct2 != nullptr);
+
+    //receive does not need mem address
+    ASSERT_NO_THROW(m_rdmaServer->receiveSRQ(m_srq_id, nullptr, 0));
+    ASSERT_NO_THROW(m_rdmaServer->receiveSRQ(m_srq_id, nullptr, 0));
+
+    uint32_t imm1 = 12345678;
+    uint32_t imm2 = 87654321;
+
+
+    ASSERT_NO_THROW( m_rdmaClient_0->writeImm(m_nodeId,m_rdmaServer->convertPointerToOffset((void*)remotestruct),(void*)localstruct1, sizeof(testMsg),imm1,false));
+    ASSERT_NO_THROW( m_rdmaClient_1->writeImm(m_nodeId,m_rdmaServer->convertPointerToOffset((void*)remotestruct2),(void*)localstruct2, sizeof(testMsg),imm2,false));
+
+    NodeID retNodeID = 0;
+
+    uint32_t imm1Re =0;
+    uint32_t imm2Re =0;
+    atomic<bool> poll = true;
+    ASSERT_NO_THROW(m_rdmaServer->pollReceiveSRQ(m_srq_id, retNodeID,&imm1Re, poll));
+
+    //if m_rdmaClient_0 was not first swap input
+    if(retNodeID !=m_rdmaClient_0->getOwnNodeID()){
+      std::swap(imm1,imm2);
+    }
+
+    ASSERT_NO_THROW(m_rdmaServer->pollReceiveSRQ(m_srq_id, retNodeID,&imm2Re, poll));
+
+    ASSERT_EQ(imm1, imm1Re);
+    ASSERT_EQ(imm2, imm2Re);
+
+
+    ASSERT_EQ(localstruct1->id, remotestruct->id);
+    ASSERT_EQ(localstruct1->a, remotestruct->a);
+    ASSERT_EQ(localstruct2->id, remotestruct2->id);
+    ASSERT_EQ(localstruct2->a, remotestruct2->a);
+
+
 }
 
 

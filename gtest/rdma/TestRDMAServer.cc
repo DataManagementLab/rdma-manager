@@ -42,6 +42,70 @@ TEST_F(TestRDMAServer, testWrite) {
   ASSERT_TRUE(m_rdmaClient->remoteFree(m_connection, memSize, remoteOffset));
 }
 
+TEST_F(TestRDMAServer, testWriteImm) {
+    size_t remoteOffset = 0;
+    size_t memSize = sizeof(int) * 2;
+
+    //allocate local array
+    int* localValues = (int*) m_rdmaClient->localAlloc(memSize);
+    ASSERT_TRUE(localValues!=nullptr);
+
+    //remote allocate array
+    ASSERT_TRUE(
+            m_rdmaClient->remoteAlloc(m_connection, memSize, remoteOffset));
+
+    //write to remote machine
+    localValues[0] = 1;
+    localValues[1] = 2;
+    uint32_t immData = 123456789;
+
+    testMsg* remotestruct = (testMsg*) m_rdmaServer->localAlloc(sizeof(testMsg));
+    ASSERT_TRUE(remotestruct!=nullptr);
+
+
+    //writeImm consumes RR
+    //remotestruct only needed for valid mem adress
+    m_rdmaServer->receive(m_rdmaClient->getOwnNodeID(), (void*)remotestruct, 0);
+
+    m_rdmaClient->writeImm(m_nodeId, remoteOffset, localValues, memSize,immData, false);
+
+    //poll
+    //maybe consider htonl and ntohl because immediate value is in network order
+    uint32_t immRvc;
+    int ne = m_rdmaServer->pollReceive(m_rdmaClient->getOwnNodeID(),true,&immRvc);
+    ASSERT_TRUE(ne == 1);
+    ASSERT_EQ(immData,immRvc);
+
+    //read from remote machine
+    int* remoteVals = (int*) m_rdmaServer->getBuffer(remoteOffset);
+    ASSERT_EQ(remoteVals[0], localValues[0]);
+    ASSERT_EQ(remoteVals[1], localValues[1]);
+
+
+
+    immData = 96347165;
+    //writeImm consumes RR
+    //remotestruct only needed for valid mem adress
+    m_rdmaServer->receive(m_rdmaClient->getOwnNodeID(), (void*)remotestruct, 0);
+
+    m_rdmaClient->writeImm(m_nodeId, remoteOffset, localValues, memSize,immData, false);
+
+    //poll
+    //maybe consider htonl and ntohl because immediate value is in network order
+
+    ne = m_rdmaServer->pollReceive(m_rdmaClient->getOwnNodeID(),true,&immRvc);
+    ASSERT_TRUE(ne == 1);
+    ASSERT_EQ(immData,immRvc);
+
+    //read from remote machine
+    remoteVals = (int*) m_rdmaServer->getBuffer(remoteOffset);
+    ASSERT_EQ(remoteVals[0], localValues[0]);
+    ASSERT_EQ(remoteVals[1], localValues[1]);
+
+    //remote free
+    ASSERT_TRUE(m_rdmaClient->remoteFree(m_connection, memSize, remoteOffset));
+}
+
 TEST_F(TestRDMAServer, restRemoteAlloc) {
   size_t memSize = 10;
   size_t offset = 0;  // arbitrary value greater memSize

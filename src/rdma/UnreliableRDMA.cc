@@ -252,7 +252,7 @@ void UnreliableRDMA::receive(const rdmaConnID, const void* memAddr,
 }
 
 //Ignore rdmaConnID
-int UnreliableRDMA::pollReceive(const rdmaConnID, bool doPoll) {
+int UnreliableRDMA::pollReceive(const rdmaConnID, bool doPoll,uint32_t* imm) {
   int ne;
   struct ibv_wc wc;
 
@@ -269,6 +269,9 @@ int UnreliableRDMA::pollReceive(const rdmaConnID, bool doPoll) {
 
   if (ne < 0) {
     throw runtime_error("RDMA polling from CQ failed!");
+  }
+  if(imm!= nullptr){
+      * imm =wc.imm_data;
   }
 
   return ne;

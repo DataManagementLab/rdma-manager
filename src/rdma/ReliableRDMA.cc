@@ -162,6 +162,14 @@ void ReliableRDMA::write(const rdmaConnID rdmaConnID, size_t offset,
 
 //------------------------------------------------------------------------------------//
 
+void ReliableRDMA::writeImm(const rdmaConnID rdmaConnID, size_t offset,
+                         const void *memAddr, size_t size, uint32_t imm, bool signaled) {
+  remoteAccess(rdmaConnID, offset, memAddr, size, signaled, true,
+               IBV_WR_RDMA_WRITE_WITH_IMM,&imm);
+}
+
+//------------------------------------------------------------------------------------//
+
 void ReliableRDMA::read(const rdmaConnID rdmaConnID, size_t offset,
                         const void *memAddr, size_t size, bool signaled) {
   remoteAccess(rdmaConnID, offset, memAddr, size, signaled, true,
@@ -380,7 +388,7 @@ void ReliableRDMA::receive(const rdmaConnID rdmaConnID, const void *memAddr,
 
 //------------------------------------------------------------------------------------//
 
-int ReliableRDMA::pollReceive(const rdmaConnID rdmaConnID, bool doPoll) {
+int ReliableRDMA::pollReceive(const rdmaConnID rdmaConnID, bool doPoll,uint32_t* imm) {
   int ne;
   struct ibv_wc wc;
 
@@ -398,6 +406,9 @@ int ReliableRDMA::pollReceive(const rdmaConnID rdmaConnID, bool doPoll) {
 
   if (ne < 0) {
     throw runtime_error("RDMA polling from CQ failed!");
+  }
+  if(imm !=nullptr&& ne > 0){
+    *imm = wc.imm_data;
   }
 
   return ne;
@@ -446,7 +457,7 @@ void ReliableRDMA::createQP(struct ib_qp_t *qp) {
     throw runtime_error("Error, ibv_query_device() failed");
   }
 
-  // qp_init_attr.pd = m_res.pd;
+    // qp_init_attr.pd = m_res.pd
   qp_init_attr.send_cq = qp->send_cq;
   qp_init_attr.recv_cq = qp->recv_cq;
   qp_init_attr.sq_sig_all = 0;  // In every WR, it must be decided whether to generate a WC or not
@@ -706,6 +717,32 @@ int ReliableRDMA::pollReceiveSRQ(size_t srq_id, rdmaConnID& retRdmaConnID, std::
 
         }
         return ne;
+
+}
+
+int ReliableRDMA::pollReceiveSRQ(size_t srq_id, rdmaConnID& retRdmaConnID,uint32_t *imm, std::atomic<bool> & doPoll){
+    int ne;
+    struct ibv_wc wc;
+
+    do {
+        wc.status = IBV_WC_SUCCESS;
+        ne = ibv_poll_cq(m_srqs.at(srq_id).recv_cq, 1, &wc);
+        if (wc.status != IBV_WC_SUCCESS) {
+            throw runtime_error("RDMA completion event in CQ with error! " +
+                                to_string(wc.status));
+        }
+
+    } while (ne == 0 && doPoll);
+
+    if (doPoll) {
+        if (ne < 0) {
+            throw runtime_error("RDMA polling from CQ failed!");
+        }
+        uint64_t qp = wc.qp_num;
+        retRdmaConnID = m_qpNum2connID.at(qp);
+        *imm = wc.imm_data;
+    }
+    return ne;
 
 }
 

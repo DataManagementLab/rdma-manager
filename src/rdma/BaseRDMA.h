@@ -83,7 +83,7 @@ class BaseRDMA {
                     size_t size, bool signaled) = 0;
   virtual void receive(const rdmaConnID rdmaConnID, const void *memAddr,
                        size_t size) = 0;
-  virtual int pollReceive(const rdmaConnID rdmaConnID, bool doPoll = true) = 0;
+  virtual int pollReceive(const rdmaConnID rdmaConnID, bool doPoll = true,uint32_t* = nullptr) = 0;
   // virtual void pollReceive(const rdmaConnID rdmaConnID, uint32_t &ret_qp_num)
   // = 0;
 
@@ -126,7 +126,7 @@ class BaseRDMA {
 
   size_t convertPointerToOffset(void* ptr) {
     // check if already allocated
-    return (size_t)((char *)m_res.buffer - (char*)ptr);
+    return (size_t)((char *)ptr - (char*) m_res.buffer);
   }
 
   size_t getBufferSize() { return m_memSize; }
