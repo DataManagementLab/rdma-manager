@@ -125,7 +125,7 @@ class RDMAClient : public RDMA_API_T, public ProtoClient {
           GetNodeIDForIpPortResponse connResponse;
           rcvAny.UnpackTo(&connResponse);
 
-          size_t retries = 50;
+          size_t retries = 150;
           size_t i = 0;
           while (i < retries && connResponse.return_() != MessageErrors::NO_ERROR)
           {
@@ -134,6 +134,12 @@ class RDMAClient : public RDMA_API_T, public ProtoClient {
             Logging::debug(__FILE__, __LINE__, "GetNodeIDForIpPortResponse returned an error: " + to_string(connResponse.return_()) + " retry " + to_string(i) + "/" + to_string(retries));
             usleep(Config::RDMA_SLEEP_INTERVAL);
             ++i;
+          }
+
+          if (connResponse.return_() != MessageErrors::NO_ERROR)
+          {
+            Logging::error(__FILE__, __LINE__, m_name + " could not fetch node id of server on connect! Address: " + ipPort);
+            return false;
           }
 
           retServerNodeID = connResponse.node_id();

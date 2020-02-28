@@ -8,6 +8,7 @@
 
 #ifdef LINUX
 #include <numa.h>
+#include <numaif.h>
 #endif
 
 using namespace rdma;
@@ -18,7 +19,6 @@ rdma_mem_t BaseRDMA::s_nillmem;
 
 BaseRDMA::BaseRDMA(size_t mem_size) {
   m_memSize = mem_size;
-  m_numaRegion = Config::RDMA_NUMAREGION;
   m_rdmaDevice = Config::RDMA_DEVICE;
   m_ibPort = Config::RDMA_IBPORT;
   m_gidIdx = -1;
@@ -38,8 +38,8 @@ BaseRDMA::~BaseRDMA() {
 
   // free memory
   if (m_res.buffer != nullptr) {
-#ifdef LINUX
-    numa_free(m_res.buffer, m_memSize);
+#ifdef HUGEPAGE
+    munmap(m_res.buffer, m_memSize);
 #else
     free(m_res.buffer);
 #endif
@@ -89,17 +89,15 @@ void BaseRDMA::createBuffer() {
     throw runtime_error("Query port failed");
   }
 
-
 // allocate memory
 #ifdef HUGEPAGE
   m_res.buffer = malloc_huge(m_memSize);
 #else
   m_res.buffer = malloc(m_memSize);
 #endif
-// #ifdef LINUX
-//   m_res.buffer = numa_alloc_onnode(m_memSize, m_numaRegion);
-// #else
-// #endif
+#ifdef LINUX
+   numa_tonode_memory(m_res.buffer, m_memSize, Config::RDMA_NUMAREGION);
+#endif
   memset(m_res.buffer, 0, m_memSize);
   if (m_res.buffer == 0) {
     throw runtime_error("Cannot allocate memory! Requested size: " + to_string(m_memSize));

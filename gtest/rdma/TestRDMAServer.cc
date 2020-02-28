@@ -1,6 +1,9 @@
 
 #include "TestRDMAServer.h"
 
+#include <numa.h>
+#include <numaif.h>
+
 void TestRDMAServer::SetUp() {
   Config::RDMA_MEMSIZE = 1024 * 1024;
   Config::SEQUENCER_IP = rdma::Config::getIP(rdma::Config::RDMA_INTERFACE);
@@ -227,4 +230,23 @@ TEST_F(TestRDMAServer, serverToServerCommunication) {
   ASSERT_EQ(localstruct->a, remotestruct->a);
 
 
+}
+
+
+TEST_F(TestRDMAServer, testNumaRegion) {
+  
+  Config::RDMA_NUMAREGION = numa_max_node();
+
+  std::cout << "Allocating on NUMA node: " << Config::RDMA_NUMAREGION << std::endl;
+  auto server = new RDMAServer<ReliableRDMA>("server", Config::RDMA_PORT+1, 1024);
+
+  //allocate local array
+  int* buffer = (int*) server->getBuffer(0);
+
+  int numa_node = -1;
+    if (get_mempolicy(&numa_node, NULL, 0, buffer, MPOL_F_NODE | MPOL_F_ADDR) < 0)
+        std::cout << "WARNING: get_mempolicy failed" << std::endl;
+
+  ASSERT_EQ(numa_node, Config::RDMA_NUMAREGION);
+  delete server;
 }

@@ -17,6 +17,7 @@
 #include <unordered_map>
 #include <sys/mman.h>
 
+
 namespace rdma {
 
 enum rdma_transport_t { rc, ud };
@@ -183,7 +184,6 @@ class BaseRDMA {
 
   ibv_qp_type m_qpType;
   size_t m_memSize;
-  int m_numaRegion;
   int m_rdmaDevice;
   int m_ibPort;
   int m_gidIdx;

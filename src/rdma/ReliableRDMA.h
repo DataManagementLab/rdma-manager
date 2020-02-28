@@ -8,7 +8,7 @@
 #define ReliableRDMA_H_
 
 #include "../utils/Config.h"
-
+#include <atomic>
 #include "BaseRDMA.h"
 
 namespace rdma {

@@ -12,8 +12,8 @@ int Config::HELLO_PORT = 4001;
 
 //RDMA
 size_t Config::RDMA_MEMSIZE = 1024ul * 1024 * 1024 * 5;  //1GB
-uint32_t Config::RDMA_NUMAREGION = 1;
-uint32_t Config::RDMA_DEVICE = 1;
+uint32_t Config::RDMA_NUMAREGION = 0;
+uint32_t Config::RDMA_DEVICE = 0;
 uint32_t Config::RDMA_IBPORT = 1;
 uint32_t Config::RDMA_PORT = 5200;
 uint32_t Config::RDMA_MAX_WR = 4096;
