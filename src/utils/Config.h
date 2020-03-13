@@ -33,6 +33,8 @@
 #include <net/if.h>
 #include <arpa/inet.h>
 
+#include "CpuNumaUtils.h"
+
 using namespace std;
 
 // #define DEBUGCODE
@@ -63,6 +65,9 @@ class Config
     Config(const string& prog_name)
     {
         load(prog_name);
+        auto num_cpu_cores = 0;
+        auto num_numa_nodes = 0;
+        NUMA_THREAD_CPUS = CpuNumaUtils::get_cpu_numa_map(num_cpu_cores, num_numa_nodes);
     }
 
     ~Config()
@@ -74,7 +79,7 @@ class Config
     static size_t RDMA_MEMSIZE;
     static uint32_t RDMA_PORT;
     static uint32_t RDMA_NUMAREGION;
-    static uint32_t RDMA_DEVICE;
+    static std::string RDMA_DEVICE_FILE_PATH;
     static uint32_t RDMA_IBPORT;
     static uint32_t RDMA_MAX_WR;
     const static uint32_t RDMA_MAX_SGE = 1;
@@ -95,7 +100,8 @@ class Config
 
     //THREAD
     static vector<int> THREAD_CPUS;
-
+    static vector<vector<int>> NUMA_THREAD_CPUS;
+    
     //LOGGING
     static int LOGGING_LEVEL; //0=all, 1=ERR, 2=DBG, 3=INF, (>=4)=NONE
 

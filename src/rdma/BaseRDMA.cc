@@ -19,7 +19,6 @@ rdma_mem_t BaseRDMA::s_nillmem;
 
 BaseRDMA::BaseRDMA(size_t mem_size) {
   m_memSize = mem_size;
-  m_rdmaDevice = Config::RDMA_DEVICE;
   m_ibPort = Config::RDMA_IBPORT;
   m_gidIdx = -1;
   m_rdmaMem.push_back(rdma_mem_t(m_memSize, true, 0));
@@ -71,12 +70,31 @@ void BaseRDMA::createBuffer() {
   if ((dev_list = ibv_get_device_list(&num_devices)) == nullptr) {
     throw runtime_error("Get device list failed!");
   }
-  if (m_rdmaDevice >= num_devices) {
+
+  bool found = false;
+  //Choose rdma device on the correct numa node
+  for (size_t i = 0; i < num_devices; i++)
+  {
+    ifstream numa_node_file;
+    numa_node_file.open(std::string(dev_list[i]->ibdev_path)+"/device/numa_node");
+    int numa_node = -1;
+    numa_node_file >> numa_node;
+    if (numa_node == Config::RDMA_NUMAREGION)
+    {
+      ib_dev = dev_list[i];
+      found = true;
+      break;
+    }
+  }
+  
+  if (!found)
+  {
     ibv_free_device_list(dev_list);
-    throw runtime_error("Device not present!");
+    throw runtime_error("Did not find a device connected to specified numa node (Config::RDMA_NUMAREGION)");
   }
 
-  ib_dev = dev_list[m_rdmaDevice];
+  Config::RDMA_DEVICE_FILE_PATH = ib_dev->ibdev_path;
+
   ibv_free_device_list(dev_list);
 
   // open device

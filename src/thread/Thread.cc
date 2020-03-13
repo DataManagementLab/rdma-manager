@@ -45,7 +45,7 @@ void Thread::execute(void* arg, int threadid) {
       CPU_SET(threadid, &cpuset);
   else
   {
-    for (int& cpu : Config::THREAD_CPUS) {
+    for (int& cpu : Config::NUMA_THREAD_CPUS[Config::RDMA_NUMAREGION]) {
       CPU_SET(cpu, &cpuset);
     }
   }

@@ -184,7 +184,6 @@ class BaseRDMA {
 
   ibv_qp_type m_qpType;
   size_t m_memSize;
-  int m_rdmaDevice;
   int m_ibPort;
   int m_gidIdx;
 
