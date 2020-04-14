@@ -74,7 +74,7 @@ namespace rdma
         }
 
         //This Message needs to be implemented in subclass to handle the messages
-        void virtual handleRDMARPC(MessageType* message,NodeID & returnAdd) =0;
+        virtual void  handleRDMARPC(MessageType* message,NodeID & returnAdd) =0;
 
 
         protected:

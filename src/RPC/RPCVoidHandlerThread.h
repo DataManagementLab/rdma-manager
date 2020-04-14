@@ -141,7 +141,7 @@ namespace rdma
         //init receive calls on rpcMemory
         bool initMemory()
         {   
-            std::cout << "Init receives " << std::endl;
+            //std::cout << "Init receives " << std::endl;
             for (uint32_t i = 0; i < m_maxNumberMsgs; i++)
             {
                 auto ptr = m_rpcMemory.getNext();
@@ -159,16 +159,20 @@ namespace rdma
                 int ret = m_rdmaServer->pollReceiveSRQ(m_srqID, ibAddr,m_poll);
                 if(ret){
                     auto message =  m_rpcMemory.getNext();
+
                     handleRDMARPCVoid(message, ibAddr);
+
                     m_rdmaServer->receiveSRQ(m_srqID, (void *)message, m_msgSize);
-                }
+                }/*else{
+                    cout << "ret null should not happen except on shutdown" << endl;
+                }*/
 
             }
             m_processing = false;
         }
 
         //This Message needs to be implemented in subclass to handle the messages
-        void virtual handleRDMARPCVoid(void *message, NodeID &returnAdd) =0;
+        virtual void handleRDMARPCVoid(void *message, NodeID &returnAdd) =0;
 
     protected:
 

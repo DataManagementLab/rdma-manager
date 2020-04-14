@@ -706,6 +706,7 @@ int ReliableRDMA::pollReceiveSRQ(size_t srq_id, rdmaConnID& retRdmaConnID, std::
                                     to_string(wc.status));
             }
 
+
         } while (ne == 0 && doPoll);
 
         if (doPoll) {
