@@ -3,6 +3,7 @@
 #include "BaseRDMA.h"
 #include "../message/ProtoMessageFactory.h"
 #include "../utils/Logging.h"
+#include "../utils/Filehelper.h"
 #include "ReliableRDMA.h"
 #include "UnreliableRDMA.h"
 
@@ -73,29 +74,35 @@ void BaseRDMA::createBuffer() {
 
   bool found = false;
   //Choose rdma device on the correct numa node
-  for (size_t i = 0; i < num_devices; i++)
+  for (int i = 0; i < num_devices; i++)
   {
     ifstream numa_node_file;
     numa_node_file.open(std::string(dev_list[i]->ibdev_path)+"/device/numa_node");
     int numa_node = -1;
     numa_node_file >> numa_node;
-    if (numa_node == Config::RDMA_NUMAREGION)
+    if (numa_node == (int)Config::RDMA_NUMAREGION)
     {
       ib_dev = dev_list[i];
       found = true;
       break;
     }
   }
+  Config::RDMA_DEVICE_FILE_PATH = ib_dev->ibdev_path;
+  ibv_free_device_list(dev_list);
   
   if (!found)
   {
-    ibv_free_device_list(dev_list);
     throw runtime_error("Did not find a device connected to specified numa node (Config::RDMA_NUMAREGION)");
   }
 
-  Config::RDMA_DEVICE_FILE_PATH = ib_dev->ibdev_path;
-
-  ibv_free_device_list(dev_list);
+  if (!Filehelper::isDirectory(Config::RDMA_DEVICE_FILE_PATH + "/device/net/" + Config::RDMA_INTERFACE))
+  {
+    Logging::error(__FILE__, __LINE__, "rdma::Config::RDMA_INTERFACE (" + Config::RDMA_INTERFACE + ") does not match chosen RDMA device! I.e. interface not found under: " + Config::RDMA_DEVICE_FILE_PATH + "/device/net/");
+  }
+// std::cout << ib_dev->ibdev_path << std::endl;
+// std::cout << ib_dev->dev_name << std::endl;
+// std::cout << ib_dev->name << std::endl;
+// std::cout << ib_dev->dev_path << std::endl;
 
   // open device
   if (!(m_res.ib_ctx = ibv_open_device(ib_dev))) {
@@ -197,7 +204,7 @@ void BaseRDMA::internalFree(const size_t &offset) {
   size_t lastOffset = 0;
   rdma_mem_t memResFree = m_usedRdmaMem[offset];
   m_usedRdmaMem.erase(offset);
-
+  // std::cout << "offset: " << offset << " m_rdmaMem.size() " << m_rdmaMem.size() << std::endl;
   // lookup the memory region that was assigned to this pointer
   auto listIter = m_rdmaMem.begin();
   if (listIter != m_rdmaMem.end()) {

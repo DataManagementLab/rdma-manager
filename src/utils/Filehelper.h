@@ -40,43 +40,6 @@ class Filehelper {
     return hash;
   }
 
-  static vector<string> createFileSchema(string file, int numOfPart) {
-    vector<string> outFiles;
-    string remove = ".tbl";
-    file = getFileName(file);
-    std::string::size_type i = file.find(remove);
-    if (i != std::string::npos)
-      file.erase(i, remove.length());
-    for (int i = 1; i <= numOfPart; i++) {
-      stringstream ss;
-      ss << file << "_" << i << ".tbl";
-      outFiles.push_back(ss.str());
-    }
-
-    return outFiles;
-  }
-
-  static vector<string> createFileSchemaFullPath(string file, int numOfPart,
-                                                 bool isHash) {
-    vector<string> outFiles;
-    string remove = ".tbl";
-    std::string::size_type i = file.find(remove);
-    if (i != std::string::npos)
-      file.erase(i, remove.length());
-    for (int i = 1; i <= numOfPart; i++) {
-      stringstream ss;
-      if (isHash) {
-        ss << file << "_hash_" << i << ".tbl";
-      } else {
-        ss << file << "_roundR_" << i << ".tbl";
-      }
-      outFiles.push_back(ss.str());
-      cout << ss.str() << endl;
-    }
-
-    return outFiles;
-  }
-
   static string getFileName(const string& s) {
 
     char sep = '/';

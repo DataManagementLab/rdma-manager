@@ -100,7 +100,7 @@ class ReliableRDMA : public BaseRDMA {
     sr.num_sge = 1;
     sr.opcode = verb;
     sr.next = nullptr;
-    sr.send_flags = (signaled) ? IBV_SEND_SIGNALED : 0;
+    sr.send_flags = ((signaled) ? IBV_SEND_SIGNALED : 0) | (size < 220 && verb == IBV_WR_RDMA_WRITE ? IBV_SEND_INLINE: 0);
 
     // calculate remote address using offset in local buffer
     sr.wr.rdma.remote_addr = remoteConn.buffer + offset;

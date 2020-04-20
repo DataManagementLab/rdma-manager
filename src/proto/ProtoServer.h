@@ -25,7 +25,7 @@ namespace rdma {
 
 class ProtoServer : public Thread {
  public:
-  ProtoServer(string name, int port);
+  ProtoServer(string name, int port, std::string ip = "*");
   virtual ~ProtoServer();
   virtual bool startServer();
   virtual void stopServer();
@@ -36,10 +36,11 @@ class ProtoServer : public Thread {
   int getPort() { return m_port; }
 
  protected:
-  string m_name;
-  
- private:
+  std::string m_name;
   int m_port;
+  std::string m_ip;
+
+ private:
 
   std::atomic<bool> m_running {false};
   ProtoSocket* m_pSocket;

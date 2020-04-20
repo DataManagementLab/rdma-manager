@@ -235,7 +235,10 @@ TEST_F(TestRDMAServer, serverToServerCommunication) {
 
 TEST_F(TestRDMAServer, testNumaRegion) {
   
+  auto old_numa_region = Config::RDMA_NUMAREGION;
+  auto old_rdma_interface = Config::RDMA_INTERFACE;
   Config::RDMA_NUMAREGION = numa_max_node();
+  Config::RDMA_INTERFACE = "ib" + to_string(Config::RDMA_NUMAREGION);
 
   std::cout << "Allocating on NUMA node: " << Config::RDMA_NUMAREGION << std::endl;
   auto server = new RDMAServer<ReliableRDMA>("server", Config::RDMA_PORT+1, 1024);
@@ -249,4 +252,6 @@ TEST_F(TestRDMAServer, testNumaRegion) {
 
   ASSERT_EQ(numa_node, Config::RDMA_NUMAREGION);
   delete server;
+  Config::RDMA_NUMAREGION = old_numa_region;
+  Config::RDMA_INTERFACE = old_rdma_interface;
 }

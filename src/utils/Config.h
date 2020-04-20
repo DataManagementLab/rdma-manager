@@ -96,7 +96,7 @@ class Config
     static std::string RDMA_INTERFACE;
 
     //SYSTEM
-    static uint32_t CACHELINE_SIZE;
+    const static uint32_t CACHELINE_SIZE = 64;
 
     //THREAD
     static vector<int> THREAD_CPUS;
