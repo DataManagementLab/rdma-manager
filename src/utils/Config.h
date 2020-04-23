@@ -95,6 +95,9 @@ class Config
 
     static std::string RDMA_INTERFACE;
 
+    const static uint32_t MAX_RC_INLINE_SEND = 220;
+    const static uint32_t MAX_UD_INLINE_SEND = 188;
+
     //SYSTEM
     const static uint32_t CACHELINE_SIZE = 64;
 
