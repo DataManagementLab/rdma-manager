@@ -376,6 +376,8 @@ void UnreliableRDMA::joinMCastGroup(string mCastAddress,
   attr.cap.max_recv_wr = Config::RDMA_MAX_WR;
   attr.cap.max_send_sge = Config::RDMA_MAX_SGE;
   attr.cap.max_recv_sge = Config::RDMA_MAX_SGE;
+  attr.cap.max_inline_data = Config::MAX_UD_INLINE_SEND;
+
   if (rdma_create_qp(mCastConn.id, mCastConn.pd, &attr) != 0) {
     throw runtime_error("Could not create multicast queue pairs!");
   }
@@ -448,7 +450,7 @@ void UnreliableRDMA::sendMCast(const rdmaConnID rdmaConnID, const void* memAddr,
   wr.sg_list = &sge;
   wr.num_sge = 1;
   wr.opcode = IBV_WR_SEND_WITH_IMM;
-  wr.send_flags = (signaled) ? IBV_SEND_SIGNALED : 0;
+  wr.send_flags = (signaled) ? IBV_SEND_SIGNALED : 0 | (size < Config::MAX_UD_INLINE_SEND ? IBV_SEND_INLINE : 0);
   wr.wr_id = 0;
   wr.imm_data = htonl(mCastConn.id->qp->qp_num);
   wr.wr.ud.ah = mCastConn.ah;
@@ -483,6 +485,9 @@ void UnreliableRDMA::receiveMCast(const rdmaConnID rdmaConnID,
   rdma_mcast_conn_t mCastConn = m_udpMcastConns[rdmaConnID];
 
   void* buffer = (void*)(((char*)memAddr) - Config::RDMA_UD_OFFSET);
+  
+  assert(buffer > m_res.buffer || (char *)buffer + size < (char *)m_res.buffer + m_res.mr->length);
+  
   if (rdma_post_recv(mCastConn.id, nullptr, buffer, size + Config::RDMA_UD_OFFSET, mCastConn.mr) != 0) {
     throw runtime_error("Receiving multicast data failed");
   }

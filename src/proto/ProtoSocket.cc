@@ -4,7 +4,7 @@
 
 using namespace rdma;
 
-ProtoSocket::ProtoSocket(string addr, int port, int sockType)
+ProtoSocket::ProtoSocket(string ip, int port, int sockType)
     : m_sockType(sockType), m_isOpen(false) {
   m_pCtx = new zmq::context_t(1, Config::PROTO_MAX_SOCKETS);
 
@@ -15,7 +15,7 @@ ProtoSocket::ProtoSocket(string addr, int port, int sockType)
 
   if (m_sockType == ZMQ_SUB) m_pSock->setsockopt(ZMQ_SUBSCRIBE, NULL, 0);
 
-  m_conn = "tcp://" + addr + ":" + to_string(port);
+  m_conn = "tcp://" + ip + ":" + to_string(port);
 }
 
 ProtoSocket::~ProtoSocket() {

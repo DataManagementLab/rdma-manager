@@ -33,12 +33,10 @@ class TestConfig : public testing::Test {
 
     confFile << " \n\
     RDMA_NUMAREGION = 4 \n\
-    RDMA_DEVICE = 5 \n\
     RDMA_IBPORT = 6 \n\
     RDMA_PORT = 1234 \n\
     LOGGING_LEVEL=1 \n\
     RDMA_MEMSIZE = 1234567 \n\
-    THREAD_CPUS = 10,11,12,13,   14,15,16, 17,18,19 \n\
   " << std::endl;
 
     

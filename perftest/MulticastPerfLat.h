@@ -103,7 +103,7 @@ public:
 	void printResults() {
 		double avg = 0;
 		std::sort(m_cthreads[0]->latency.begin(), m_cthreads[0]->latency.end());
-		for (size_t rtt : m_cthreads[0]->latency)
+		for (double rtt : m_cthreads[0]->latency)
 		{
 			avg += rtt;
 		}
@@ -114,9 +114,6 @@ public:
 		size_t bw = (((double) m_size * m_iter * m_budget * m_numThreads) / (1024 * 1024)) / time;
 
 		double mrps = m_iter*m_budget/((1e6)*time); // million request persecond per machine
-		std::cout <<m_cthreads[0]->latency.front() << "," << std::endl;
-		std::cout <<m_cthreads[0]->latency[m_cthreads[0]->latency.size()-1] << "," << std::endl;
-		std::cout <<avg << ","<<median << std::endl;
 		cout << m_size << "\t" << m_iter * m_budget << "\t" << bw << "\t" <<mrps<<"\t"<<time<<"\t"<<m_numThreads<<"\t"<<m_servers.size()<<endl;
 		if (!m_logfile.empty())
 		{

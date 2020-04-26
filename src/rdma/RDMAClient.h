@@ -132,8 +132,14 @@ class RDMAClient : public RDMA_API_T, public ProtoClient {
             ProtoClient::exchangeProtoMsg(m_sequencerIpPort, &getNodeIdReq, &rcvAny);
             rcvAny.UnpackTo(&connResponse);
             Logging::debug(__FILE__, __LINE__, "GetNodeIDForIpPortResponse returned an error: " + to_string(connResponse.return_()) + " retry " + to_string(i) + "/" + to_string(retries));
-            usleep(Config::RDMA_SLEEP_INTERVAL);
+            usleep(Config::RDMA_SLEEP_INTERVAL * i);
             ++i;
+          }
+
+          if (connResponse.return_() != MessageErrors::NO_ERROR)
+          {
+            Logging::error(__FILE__, __LINE__, m_name + " could not fetch node id of server on connect! Address: " + ipPort);
+            return false;
           }
 
           retServerNodeID = connResponse.node_id();

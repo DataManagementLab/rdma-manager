@@ -5,9 +5,8 @@
 
 using namespace rdma;
 
-ProtoServer::ProtoServer(string name, int port)
-    : m_port(port), m_running(false), m_pSocket(nullptr) {
-  m_name = name;
+ProtoServer::ProtoServer(string name, int port, std::string ip)
+    : m_name(name), m_port(port), m_ip(ip), m_running(false), m_pSocket(nullptr) {
 }
 
 ProtoServer::~ProtoServer() {
@@ -26,7 +25,7 @@ bool ProtoServer::startServer() {
   {
     return true;
   }
-  m_pSocket = new ProtoSocket("*", m_port, ZMQ_REP);
+  m_pSocket = new ProtoSocket(m_ip, m_port, ZMQ_REP);
   start();
 
   stringstream ss;

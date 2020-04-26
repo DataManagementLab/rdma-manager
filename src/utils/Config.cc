@@ -12,8 +12,8 @@ int Config::HELLO_PORT = 4001;
 
 //RDMA
 size_t Config::RDMA_MEMSIZE = 1024ul * 1024 * 1024 * 5;  //1GB
-uint32_t Config::RDMA_NUMAREGION = 1;
-uint32_t Config::RDMA_DEVICE = 1;
+uint32_t Config::RDMA_NUMAREGION = 0;
+std::string Config::RDMA_DEVICE_FILE_PATH;
 uint32_t Config::RDMA_IBPORT = 1;
 uint32_t Config::RDMA_PORT = 5200;
 uint32_t Config::RDMA_MAX_WR = 4096;
@@ -25,11 +25,8 @@ uint32_t Config::SEQUENCER_PORT = 5500;
 
 std::string Config::RDMA_INTERFACE = "ib0";
 
-//SYSTEM
-uint32_t Config::CACHELINE_SIZE = 64;
-
 //THREADING
-vector<int> Config::THREAD_CPUS = { 0,1,2,3,4,5,6,7,8,9,10,11,12,13};
+vector<vector<int>> Config::NUMA_THREAD_CPUS = {{0,1,2,3,4,5,6,7,8,9,10,11,12,13}, {14,15,16,17,18,19,20,21,22,23,24,25,26,27}}; //DM-cluster cpus
 
 //LOGGING
 int Config::LOGGING_LEVEL = 3;
@@ -127,16 +124,10 @@ void Config::set(string key, string value) {
     Config::RDMA_MEMSIZE = strtoul(value.c_str(), nullptr, 0);
   } else if (key.compare("RDMA_NUMAREGION") == 0) {
     Config::RDMA_NUMAREGION = stoi(value);
-  } else if (key.compare("RDMA_DEVICE") == 0) {
-    Config::RDMA_DEVICE = stoi(value);
   } else if (key.compare("RDMA_IBPORT") == 0) {
     Config::RDMA_IBPORT = stoi(value);
-  } else if (key.compare("THREAD_CPUS") == 0) {
-    init_vector(Config::THREAD_CPUS, value);
   }else if (key.compare("LOGGING_LEVEL") == 0) {
     Config::LOGGING_LEVEL = stoi(value);
-  }else if (key.compare("CACHELINE_SIZE") == 0) {
-    Config::CACHELINE_SIZE = stoi(value);
   }
 }
 

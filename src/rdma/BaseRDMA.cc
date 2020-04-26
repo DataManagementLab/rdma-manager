@@ -3,11 +3,13 @@
 #include "BaseRDMA.h"
 #include "../message/ProtoMessageFactory.h"
 #include "../utils/Logging.h"
+#include "../utils/Filehelper.h"
 #include "ReliableRDMA.h"
 #include "UnreliableRDMA.h"
 
 #ifdef LINUX
 #include <numa.h>
+#include <numaif.h>
 #endif
 
 using namespace rdma;
@@ -18,8 +20,6 @@ rdma_mem_t BaseRDMA::s_nillmem;
 
 BaseRDMA::BaseRDMA(size_t mem_size) {
   m_memSize = mem_size;
-  m_numaRegion = Config::RDMA_NUMAREGION;
-  m_rdmaDevice = Config::RDMA_DEVICE;
   m_ibPort = Config::RDMA_IBPORT;
   m_gidIdx = -1;
   m_rdmaMem.push_back(rdma_mem_t(m_memSize, true, 0));
@@ -38,8 +38,8 @@ BaseRDMA::~BaseRDMA() {
 
   // free memory
   if (m_res.buffer != nullptr) {
-#ifdef LINUX
-    numa_free(m_res.buffer, m_memSize);
+#ifdef HUGEPAGE
+    munmap(m_res.buffer, m_memSize);
 #else
     free(m_res.buffer);
 #endif
@@ -71,13 +71,38 @@ void BaseRDMA::createBuffer() {
   if ((dev_list = ibv_get_device_list(&num_devices)) == nullptr) {
     throw runtime_error("Get device list failed!");
   }
-  if (m_rdmaDevice >= num_devices) {
-    ibv_free_device_list(dev_list);
-    throw runtime_error("Device not present!");
+
+  bool found = false;
+  //Choose rdma device on the correct numa node
+  for (int i = 0; i < num_devices; i++)
+  {
+    ifstream numa_node_file;
+    numa_node_file.open(std::string(dev_list[i]->ibdev_path)+"/device/numa_node");
+    int numa_node = -1;
+    numa_node_file >> numa_node;
+    if (numa_node == (int)Config::RDMA_NUMAREGION)
+    {
+      ib_dev = dev_list[i];
+      found = true;
+      break;
+    }
+  }
+  Config::RDMA_DEVICE_FILE_PATH = ib_dev->ibdev_path;
+  ibv_free_device_list(dev_list);
+  
+  if (!found)
+  {
+    throw runtime_error("Did not find a device connected to specified numa node (Config::RDMA_NUMAREGION)");
   }
 
-  ib_dev = dev_list[m_rdmaDevice];
-  ibv_free_device_list(dev_list);
+  if (!Filehelper::isDirectory(Config::RDMA_DEVICE_FILE_PATH + "/device/net/" + Config::RDMA_INTERFACE))
+  {
+    Logging::error(__FILE__, __LINE__, "rdma::Config::RDMA_INTERFACE (" + Config::RDMA_INTERFACE + ") does not match chosen RDMA device! I.e. interface not found under: " + Config::RDMA_DEVICE_FILE_PATH + "/device/net/");
+  }
+// std::cout << ib_dev->ibdev_path << std::endl;
+// std::cout << ib_dev->dev_name << std::endl;
+// std::cout << ib_dev->name << std::endl;
+// std::cout << ib_dev->dev_path << std::endl;
 
   // open device
   if (!(m_res.ib_ctx = ibv_open_device(ib_dev))) {
@@ -89,17 +114,15 @@ void BaseRDMA::createBuffer() {
     throw runtime_error("Query port failed");
   }
 
-
 // allocate memory
 #ifdef HUGEPAGE
   m_res.buffer = malloc_huge(m_memSize);
 #else
   m_res.buffer = malloc(m_memSize);
 #endif
-// #ifdef LINUX
-//   m_res.buffer = numa_alloc_onnode(m_memSize, m_numaRegion);
-// #else
-// #endif
+#ifdef LINUX
+   numa_tonode_memory(m_res.buffer, m_memSize, Config::RDMA_NUMAREGION);
+#endif
   memset(m_res.buffer, 0, m_memSize);
   if (m_res.buffer == 0) {
     throw runtime_error("Cannot allocate memory! Requested size: " + to_string(m_memSize));
@@ -181,7 +204,7 @@ void BaseRDMA::internalFree(const size_t &offset) {
   size_t lastOffset = 0;
   rdma_mem_t memResFree = m_usedRdmaMem[offset];
   m_usedRdmaMem.erase(offset);
-
+  // std::cout << "offset: " << offset << " m_rdmaMem.size() " << m_rdmaMem.size() << std::endl;
   // lookup the memory region that was assigned to this pointer
   auto listIter = m_rdmaMem.begin();
   if (listIter != m_rdmaMem.end()) {

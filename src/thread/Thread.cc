@@ -20,8 +20,8 @@ Thread::~Thread() {
   }
 }
 
-void Thread::start() {
-  m_thread = new thread(Thread::execute, this);
+void Thread::start(int threadid) {
+  m_thread = new thread(Thread::execute, this, threadid);
 }
 
 void Thread::join() {
@@ -37,12 +37,17 @@ void Thread::stop() {
   m_kill = true;
 }
 
-void Thread::execute(void* arg) {
+void Thread::execute(void* arg, int threadid) {
   //set affinity
   cpu_set_t cpuset;
   CPU_ZERO(&cpuset);
-  for (int& cpu : Config::THREAD_CPUS) {
-    CPU_SET(cpu, &cpuset);
+  if (threadid != -1)
+      CPU_SET(threadid, &cpuset);
+  else
+  {
+    for (int& cpu : Config::NUMA_THREAD_CPUS[Config::RDMA_NUMAREGION]) {
+      CPU_SET(cpu, &cpuset);
+    }
   }
   sched_setaffinity(0, sizeof(cpuset), &cpuset);
 

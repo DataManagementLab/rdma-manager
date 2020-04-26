@@ -21,7 +21,7 @@ class Thread {
 
   virtual ~Thread();
 
-  void start();
+  void start(int threadid = -1);
 
   void join();
 
@@ -46,13 +46,12 @@ class Thread {
     char temp;
     cin.get(temp);
   }
- private:
-  static void execute(void* arg);
+ protected:
+  static void execute(void* arg, int threadid);
 
   uint128_t m_startTime;
   uint128_t m_endTime;
   thread* m_thread;
-  //todo make std::atomic
 
   std::atomic<bool> m_kill {false};
 
