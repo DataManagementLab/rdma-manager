@@ -65,10 +65,17 @@ class ReliableRDMA : public BaseRDMA {
   void initQPForSRQWithSuppliedID(size_t srq_id, const rdmaConnID rdmaConnID);
   void initQPForSRQ(size_t srq_id, rdmaConnID& retRdmaConnID);
 
+  //remove these
   void receiveSRQ(size_t srq_id, const void* memAddr, size_t size);
   void pollReceiveSRQ(size_t srq_id, rdmaConnID& retrdmaConnID, bool& doPoll);
   int pollReceiveSRQ(size_t srq_id, rdmaConnID& retrdmaConnID, std::atomic<bool> & doPoll);
   int pollReceiveSRQ(size_t srq_id, rdmaConnID &retRdmaConnID, uint32_t *imm, atomic<bool> &doPoll);
+
+
+  void receiveSRQ(size_t srq_id, size_t memoryIndex ,const void* memAddr, size_t size);
+  int pollReceiveSRQ(size_t srq_id, rdmaConnID& retrdmaConnID, size_t& retMemoryIdx, std::atomic<bool>& doPoll);
+  int pollReceiveSRQ(size_t srq_id, rdmaConnID& retrdmaConnID, size_t& retMemoryIdx, uint32_t *imm, std::atomic<bool>& doPoll);
+
   void createSharedReceiveQueue(size_t& ret_srq_id);
 
  protected:
