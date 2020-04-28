@@ -344,8 +344,10 @@ void UnreliableRDMA::joinMCastGroup(string mCastAddress,
 
   getCmEvent(mCastConn.channel, RDMA_CM_EVENT_ADDR_RESOLVED, nullptr);
   memcpy(&mCastConn.mcast_sockaddr, mcast_rai->ai_dst_addr, sizeof(struct sockaddr));
+  rdma_freeaddrinfo(mcast_rai);
 
-  // create protection domain
+
+    // create protection domain
   mCastConn.pd = ibv_alloc_pd(mCastConn.id->verbs);
   if (!mCastConn.pd) {
     throw runtime_error("Could not create multicast protection domain!");
