@@ -58,7 +58,7 @@ namespace rdma {
 
 
 
-        virtual void handleRDMARPCVoid(void* msg, NodeID &returnAdd) override{
+         void handleRDMARPCVoid(void* msg, NodeID &returnAdd) override{
 
 
             // std::cout << "local_counter  " <<  local_counter << std::endl;
@@ -87,21 +87,19 @@ namespace rdma {
     class RPCPerfThread: public Thread {
     public:
         RPCPerfThread(vector<string>& conns, size_t size, size_t iter);
-        ~RPCPerfThread();
-        void run();
-        bool ready() {
+        ~RPCPerfThread() override;
+        void run() override;
+        bool ready() const {
             return m_ready;
         }
 
     private:
         bool m_ready = false;
         RDMAClient<ReliableRDMA> m_client;
-        //void* m_data;
         size_t m_size;
         size_t m_iter;
         vector<string> m_conns;
         vector<NodeID> m_addr;
-        //size_t* m_remOffsets;
         testPage *localresp;
         testMsg *localsend;
         size_t returnOffset;
@@ -114,30 +112,30 @@ namespace rdma {
         RPCPerf(string& region, size_t serverPort, size_t size,
                          size_t iter, size_t threads);
 
-        ~RPCPerf();
+        ~RPCPerf() override;
 
-        void printHeader() {
-            cout << "Iter\t bw \tmPingPongs" << endl;
+        void printHeader() override {
+            cout << "Iter\t bw \tmops" << endl;
         }
 
-        void printResults() {
+        void printResults() override {
             double time = (this->time()) / (1e9);
             size_t bw = (((double) sizeof(testPage) * m_iter * m_numThreads ) / (1024 * 1024)) / time;
             double mops = (((double) m_iter * m_numThreads) / time) / (1e6);
 
-            cout  << "\t" << m_iter << "\t"  << bw << "\t" << mops << endl;
+            cout  << m_iter << "\t"  << bw << "\t" << mops << endl;
 
             cout <<  time  << " time" << endl;
         }
 
-        void printUsage() {
+        void printUsage() override {
             cout << "perf_test ... -s #servers ";
             cout << "(-p #serverPort -t #threadNum)?" << endl;
         }
 
-        void runClient();
-        void runServer();
-        double time();
+        void runClient() override;
+        void runServer() override;
+        double time() override;
 
         static mutex waitLock;
         static condition_variable waitCv;
@@ -146,16 +144,16 @@ namespace rdma {
     private:
         vector<string> m_conns;
         size_t m_serverPort;
-        size_t m_size;
+        size_t m_size{};
         size_t m_iter;
         size_t m_numThreads;
         unique_ptr<NodeIDSequencer> m_nodeIDSequencer;
 
         vector<RPCPerfThread*> m_threads;
 
-        RDMAServer<ReliableRDMA>* m_dServer;
+        RDMAServer<ReliableRDMA>* m_dServer{};
 
-        TestRPCHandlerThread *the;
+        TestRPCHandlerThread *the{};
     };
 
 }

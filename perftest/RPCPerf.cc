@@ -16,10 +16,9 @@ rdma::RPCPerfThread::RPCPerfThread(vector<string>& conns,
     m_conns = conns;
     //m_remOffsets = new size_t[m_conns.size()];
 
-    for (size_t i = 0; i < m_conns.size(); ++i) {
+    for (const auto& conn : m_conns) {
         NodeID  nodeId = 0;
         //ib_addr_t ibAddr;
-        string conn = m_conns[i];
         if (!m_client.connect(conn, nodeId)) {
             throw invalid_argument(
                     "RPCPerf connection failed");
@@ -138,13 +137,18 @@ void rdma::RPCPerf::runServer() {
     Config::SEQUENCER_IP = "localhost";
     m_nodeIDSequencer = std::make_unique<NodeIDSequencer>();
     size_t MAX_NUM_RPC_MSG = 4096;
+    cout << "Server Ip Adress: " << rdma::Config::getIP(Config::RDMA_INTERFACE) << endl;
     std::cout << "server port " << m_serverPort << std::endl;
+    std::cout << "sizeof(testpage) = "<<sizeof(testPage) << endl;
     m_dServer = new RDMAServer<ReliableRDMA>("test", m_serverPort);
     size_t srqID = 0;
     m_dServer->createSharedReceiveQueue(srqID);
     m_dServer->activateSRQ(srqID);
 
     the = new TestRPCHandlerThread(m_dServer,srqID,MAX_NUM_RPC_MSG);
+    m_dServer->startServer();
+
+
     the->startHandler();
 
     while (m_dServer->isRunning()) {
@@ -161,8 +165,7 @@ void rdma::RPCPerf::runClient() {
     //start all client threads
     for (size_t i = 0; i < m_numThreads; i++) {
         std::cout << "Started thread " << i << std::endl;
-        RPCPerfThread* perfThread = new RPCPerfThread(m_conns,
-                                                                        m_size, m_iter);
+        auto* perfThread = new RPCPerfThread(m_conns,m_size, m_iter);
         perfThread->start();
         if (!perfThread->ready()) {
             usleep(Config::RDMA_SLEEP_INTERVAL);
@@ -179,15 +182,15 @@ void rdma::RPCPerf::runClient() {
     RPCPerf::waitCv.notify_all();
     RPCPerf::signaled = true;
     lck.unlock();
-    for (size_t i = 0; i < m_threads.size(); i++) {
-        m_threads[i]->join();
+    for (auto & m_thread : m_threads) {
+        m_thread->join();
     }
 }
 
 double rdma::RPCPerf::time() {
     uint128_t totalTime = 0;
-    for (size_t i = 0; i < m_threads.size(); i++) {
-        totalTime += m_threads[i]->time();
+    for (auto & m_thread : m_threads) {
+        totalTime += m_thread->time();
     }
     return ((double) totalTime) / m_threads.size();
 }
