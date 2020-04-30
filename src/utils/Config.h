@@ -67,7 +67,12 @@ class Config
         load(prog_name);
         auto num_cpu_cores = 0;
         auto num_numa_nodes = 0;
+        
         NUMA_THREAD_CPUS = CpuNumaUtils::get_cpu_numa_map(num_cpu_cores, num_numa_nodes);
+
+        setenv("MLX5_SINGLE_THREADED", to_string(Config::MLX5_SINGLE_THREADED).c_str(), true);
+
+        std::cout << getenv("MLX5_SINGLE_THREADED") << std::endl;
     }
 
     ~Config()
@@ -97,6 +102,8 @@ class Config
 
     const static uint32_t MAX_RC_INLINE_SEND = 220;
     const static uint32_t MAX_UD_INLINE_SEND = 188;
+
+    static uint32_t MLX5_SINGLE_THREADED; //If set to 1 -> disables all spin locking on queues. Note: overwrites environment the variable!
 
     //SYSTEM
     const static uint32_t CACHELINE_SIZE = 64;
