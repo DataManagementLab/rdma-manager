@@ -92,7 +92,7 @@ void rdma::RPCPerfThread::run() {
 //todo remove size
 rdma::RPCPerf::RPCPerf(config_t config, bool isClient) :
         RPCPerf(config.server, config.port, config.data, config.iter,
-                         config.threads) {
+                         config.threads,config.returnMethod,config.old) {
     this->isClient(isClient);
 
     //check parameters
@@ -104,15 +104,18 @@ rdma::RPCPerf::RPCPerf(config_t config, bool isClient) :
 }
 
 //todo remove size
-rdma::RPCPerf::RPCPerf(string& conns, size_t serverPort,
-                                         size_t, size_t iter, size_t threads) {
+rdma::RPCPerf::RPCPerf(string& conns, size_t serverPort, size_t, size_t iter, size_t threads,std::size_t returnMethod,bool old) {
     m_conns = StringHelper::split(conns);
     m_serverPort = serverPort;
     //m_size = size;
     m_iter = iter;
     m_numThreads = threads;
+    m_old = old;
+    m_returnMethod = returnMethod;
     RPCPerf::signaled = false;
 }
+
+
 
 rdma::RPCPerf::~RPCPerf() {
     if (this->isClient()) {
@@ -140,12 +143,21 @@ void rdma::RPCPerf::runServer() {
     cout << "Server Ip Adress: " << rdma::Config::getIP(Config::RDMA_INTERFACE) << endl;
     std::cout << "server port " << m_serverPort << std::endl;
     std::cout << "sizeof(testpage) = "<<sizeof(testPage) << endl;
+    std::cout << "old = "<< m_old << endl;
+    std::cout << "returnMethod = "<< m_returnMethod << endl;
     m_dServer = new RDMAServer<ReliableRDMA>("test", m_serverPort);
     size_t srqID = 0;
     m_dServer->createSharedReceiveQueue(srqID);
     m_dServer->activateSRQ(srqID);
 
-    the = new TestRPCHandlerThread(m_dServer,srqID,MAX_NUM_RPC_MSG);
+
+    if(m_old){
+        the = new TestRPCHandlerThreadOld(m_dServer,srqID,MAX_NUM_RPC_MSG);
+    }else{
+        the = new TestRPCHandlerThread(m_dServer,srqID,MAX_NUM_RPC_MSG);
+    }
+
+
     m_dServer->startServer();
 
 
@@ -161,7 +173,7 @@ void rdma::RPCPerf::runClient() {
     //make this better
     string str = m_conns[0];
     //sequencer is the same IP as the rdma server here
-    Config::SEQUENCER_IP =  str.substr(0,str.find(":") );;
+    Config::SEQUENCER_IP =  str.substr(0,str.find(':') );;
     //start all client threads
     for (size_t i = 0; i < m_numThreads; i++) {
         std::cout << "Started thread " << i << std::endl;

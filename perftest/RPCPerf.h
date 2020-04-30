@@ -12,6 +12,7 @@
 #include "../rdma/RDMAServer.h"
 #include "PerfTest.h"
 #include "../RPC/RPCVoidHandlerThread.h"
+#include "../RPC/RPCHandlerThread.h"
 
 #include <vector>
 #include <mutex>
@@ -36,20 +37,53 @@ namespace rdma {
         size_t offset;
         char payload[4096];
 
-        testPage(int n, size_t t)
+        /*testPage(int n, size_t t)
                 : id(n),
                   offset(t)  // Create an object of type _book.
         {
-        };
+        };*/
     };
 
 
 
+    //todo fix to page response
+    class TestRPCHandlerThreadOld : public RPCHandlerThreadOld<testMsg,ReliableRDMA>{
+    public:
 
-    class TestRPCHandlerThread: public RPCVoidHandlerThread<ReliableRDMA> {
+        TestRPCHandlerThreadOld(RDMAServer<ReliableRDMA> *rdmaServer, size_t srqID,size_t maxNumberMsgs):
+        RPCHandlerThreadOld (rdmaServer,srqID,maxNumberMsgs)
+        {
+            localPageBuffer = m_rdmaServer->localAlloc(sizeof(testPage));
+        }
+
+        void handleRDMARPC(testMsg* msg, NodeID &returnAdd) override {
+
+            // std::cout << "local_counter  " <<  local_counter << std::endl;
+
+            *m_intermediateRspBuffer = *msg;
+            ((testMsg*)localPageBuffer)->id = local_counter;
+
+            // std::cout << "response id  " <<  ((testMsg*)m_intermediateRspBufferVoid)->id << std::endl;
+            local_counter++;
+            //todo make sendreturn work
+
+            // m_rdmaServer->send(returnAdd, (void *)m_intermediateRspBuffer,
+            //                    sizeof(testMsg), true);
+            // m_rdmaServer->send(returnAdd, m_intermediateRspBufferVoid, sizeof(testMsg), true);
+            // std::cout << "Return address " << returnAdd << std::endl;
+            m_rdmaServer->write(returnAdd, 0, localPageBuffer, sizeof(testPage), false);
+        };
+
+        void* localPageBuffer;
+        size_t local_counter = 0;
+    };
+
+
+
+    class TestRPCHandlerThread: public RPCHandlerThread<testMsg,ReliableRDMA> {
     public:
         TestRPCHandlerThread(RDMAServer<ReliableRDMA> *rdmaServer, size_t srqID,
-                             size_t maxNumberMsgs):RPCVoidHandlerThread<ReliableRDMA> (rdmaServer,  srqID,sizeof(testMsg),
+                             size_t maxNumberMsgs):RPCHandlerThread (rdmaServer,  srqID,
                                                                             maxNumberMsgs)
         { 
 
@@ -58,12 +92,12 @@ namespace rdma {
 
 
 
-         void handleRDMARPCVoid(void* msg, NodeID &returnAdd) override{
+         void handleRDMARPC(testMsg* msg, NodeID &returnAdd) override{
 
 
             // std::cout << "local_counter  " <<  local_counter << std::endl;
             
-            m_intermediateRspBufferVoid = msg;
+            *m_intermediateRspBuffer = *msg;
             ((testMsg*)localPageBuffer)->id = local_counter;
             
             // std::cout << "response id  " <<  ((testMsg*)m_intermediateRspBufferVoid)->id << std::endl;
@@ -110,7 +144,7 @@ namespace rdma {
         RPCPerf(config_t config, bool isClient);
 
         RPCPerf(string& region, size_t serverPort, size_t size,
-                         size_t iter, size_t threads);
+                         size_t iter, size_t threads,std::size_t returnMethod,bool old);
 
         ~RPCPerf() override;
 
@@ -153,7 +187,9 @@ namespace rdma {
 
         RDMAServer<ReliableRDMA>* m_dServer{};
 
-        TestRPCHandlerThread *the{};
+        RPCVoidHandlerBase<ReliableRDMA> *the{};
+        bool m_old;
+        size_t m_returnMethod;
     };
 
 }
