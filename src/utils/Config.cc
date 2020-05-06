@@ -25,6 +25,8 @@ uint32_t Config::SEQUENCER_PORT = 5500;
 
 std::string Config::RDMA_INTERFACE = "ib0";
 
+uint32_t Config::MLX5_SINGLE_THREADED = 1;
+
 //THREADING
 vector<vector<int>> Config::NUMA_THREAD_CPUS = {{0,1,2,3,4,5,6,7,8,9,10,11,12,13}, {14,15,16,17,18,19,20,21,22,23,24,25,26,27}}; //DM-cluster cpus
 
@@ -128,6 +130,10 @@ void Config::set(string key, string value) {
     Config::RDMA_IBPORT = stoi(value);
   }else if (key.compare("LOGGING_LEVEL") == 0) {
     Config::LOGGING_LEVEL = stoi(value);
+  }else if (key.compare("MLX5_SINGLE_THREADED") == 0) {
+    Config::MLX5_SINGLE_THREADED = stoi(value);
+  }else if (key.compare("RDMA_INTERFACE") == 0) {
+    Config::RDMA_INTERFACE = value;
   }
 }
 
