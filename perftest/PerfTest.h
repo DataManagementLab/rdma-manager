@@ -25,6 +25,7 @@ struct config_t {
 	string logfile;
 	std::size_t returnMethod = 0;
 	bool old = false;
+	bool signaled = false;
 
 };
 
@@ -44,9 +45,10 @@ public:
 					{ "iterations", optional_argument, nullptr, 'i' },
                     { "return", optional_argument, nullptr, 'r' },
                     { "old", no_argument, nullptr, 'o' },
+                    { "signaled", no_argument, nullptr, 'g' },
 			};
 
-			int c = getopt_long(argc, argv, "n:d:s:t:p:f:i:r:o", long_options, nullptr);
+			int c = getopt_long(argc, argv, "n:d:s:t:p:f:i:r:og", long_options, nullptr);
 			if (c == -1)
 				break;
 
@@ -77,6 +79,9 @@ public:
                 break;
             case 'o':
                 config.old = true;
+                break;
+            case 'g':
+                config.signaled = true;
                 break;
             default:
                 break;

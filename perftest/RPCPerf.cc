@@ -9,11 +9,14 @@ mutex rdma::RPCPerf::waitLock;
 condition_variable rdma::RPCPerf::waitCv;
 bool rdma::RPCPerf::signaled;
 
+
 rdma::RPCPerfThread::RPCPerfThread(vector<string>& conns,
-                                                     size_t size, size_t iter) {
+                                   size_t size, size_t iter, std::size_t returnMethod,bool signaled) {
     m_size = size;
     m_iter = iter;
     m_conns = conns;
+    m_returnMethod = returnMethod;
+    m_signaled = signaled;
     //m_remOffsets = new size_t[m_conns.size()];
 
     for (const auto& conn : m_conns) {
@@ -25,12 +28,13 @@ rdma::RPCPerfThread::RPCPerfThread(vector<string>& conns,
         }
         std::cout << "Connected to server Node ID " << nodeId <<endl;
         m_addr.push_back(nodeId);
-        //m_client.remoteAlloc(conn, m_size, m_remOffsets[i]);
     }
 
-    localresp = (testPage*) m_client.localAlloc(sizeof(testPage));
+    localresp = (char*) m_client.localAlloc(m_size);
     localsend = (testMsg*) m_client.localAlloc(sizeof(testMsg));
-    localresp->id = -1;
+
+
+
     returnOffset = m_client.convertPointerToOffset((void*)localresp);
 
     //m_data = m_client.localAlloc(m_size);
@@ -59,40 +63,87 @@ void rdma::RPCPerfThread::run() {
     }
     lck.unlock();
     startTimer();
-    for (size_t i = 0; i < m_iter; ++i) {
-        // size_t connIdx = i % m_conns.size();
-        // bool signaled = (i == (m_iter - 1));
-        localsend->id = i;
-        localsend->offset = returnOffset;
-        // m_client.receive(m_addr[connIdx], (void*) localresp, sizeof(testMsg));
-        m_client.send(m_addr[0], (void*) localsend, sizeof(testMsg), false);
+    switch (m_returnMethod) {
+        case 0:
+            poll();
+            break;
+        case 1:
+            imm();
+            break;
+        case 2:
+            send();
+            break;
+        default:
+            poll();
 
-        //todo make sendreturn work
-#ifdef SENDReturn
-        bool poll = true;
-        m_client.pollReceive(m_addr[0], poll);
-#else
-       while(localresp->id == -1){
-        //    std::cout << "Waiting for receive" << i << std::endl;
-        __asm__("pause");
-       }
-       localresp->id = -1;
-#endif
-
-
-
-        //todo assert id in loclresp
-
-
+            //todo assert id in loclresp
 
     }
     endTimer();
 }
 
-//todo remove size
+void rdma::RPCPerfThread::poll()  {
+    for (size_t i = 0; i < this->m_iter; ++i) {
+        // size_t connIdx = i % m_conns.size();
+        // bool signaled = (i == (m_iter - 1));
+        this->localsend->id = i;
+        this->localsend->offset = this->returnOffset;
+        auto ft = (rdma::testFooter*) (this->localresp + this->m_size - sizeof(rdma::testFooter));
+        ft->ret = -1;
+        this->m_client.send(this->m_addr[0], (void*) this->localsend, sizeof(rdma::testMsg), m_signaled);
+
+        while(ft->ret == -1){
+            //std::cout << "Waiting for receive" << i << std::endl;
+            __asm__("pause");
+        }
+        //ft->ret = -1;
+
+}
+}
+
+void rdma::RPCPerfThread::imm() {
+    for (size_t i = 0; i < this->m_iter; ++i) {
+        // size_t connIdx = i % m_conns.size();
+        // bool signaled = (i == (m_iter - 1));
+        this->localsend->id = i;
+        this->localsend->offset = this->returnOffset;
+
+        m_client.receive(m_addr[0], (void*) localresp, 0);
+
+        this->m_client.send(this->m_addr[0], (void*) this->localsend, sizeof(rdma::testMsg), m_signaled);
+
+
+        bool poll = true;
+        uint32_t immVal;
+        m_client.pollReceive(m_addr[0], poll,&immVal);
+        //check immVal
+
+
+
+    }
+}
+
+void rdma::RPCPerfThread::send() {
+    for (size_t i = 0; i < this->m_iter; ++i) {
+        // size_t connIdx = i % m_conns.size();
+        // bool signaled = (i == (m_iter - 1));
+        this->localsend->id = i;
+        this->localsend->offset = this->returnOffset;
+
+        m_client.receive(m_addr[0], (void*) localresp, m_size);
+
+        this->m_client.send(this->m_addr[0], (void*) this->localsend, sizeof(rdma::testMsg), m_signaled);
+
+        bool poll = true;
+        m_client.pollReceive(m_addr[0], poll);
+        //check immVal
+
+    }
+}
+
 rdma::RPCPerf::RPCPerf(config_t config, bool isClient) :
         RPCPerf(config.server, config.port, config.data, config.iter,
-                         config.threads,config.returnMethod,config.old) {
+                         config.threads,config.returnMethod,config.old,config.signaled) {
     this->isClient(isClient);
 
     //check parameters
@@ -103,15 +154,16 @@ rdma::RPCPerf::RPCPerf(config_t config, bool isClient) :
     }
 }
 
-//todo remove size
-rdma::RPCPerf::RPCPerf(string& conns, size_t serverPort, size_t, size_t iter, size_t threads,std::size_t returnMethod,bool old) {
+rdma::RPCPerf::RPCPerf(string& conns, size_t serverPort, size_t size, size_t iter, size_t threads,std::size_t returnMethod,
+        bool old,bool signaledCall) {
     m_conns = StringHelper::split(conns);
     m_serverPort = serverPort;
-    //m_size = size;
+    m_size = size;
     m_iter = iter;
     m_numThreads = threads;
     m_old = old;
     m_returnMethod = returnMethod;
+    m_signaled = signaledCall;
     RPCPerf::signaled = false;
 }
 
@@ -137,14 +189,20 @@ rdma::RPCPerf::~RPCPerf() {
 }
 
 void rdma::RPCPerf::runServer() {
+
     Config::SEQUENCER_IP = "localhost";
     m_nodeIDSequencer = std::make_unique<NodeIDSequencer>();
     size_t MAX_NUM_RPC_MSG = 4096;
     cout << "Server Ip Adress: " << rdma::Config::getIP(Config::RDMA_INTERFACE) << endl;
     std::cout << "server port " << m_serverPort << std::endl;
-    std::cout << "sizeof(testpage) = "<<sizeof(testPage) << endl;
     std::cout << "old = "<< m_old << endl;
     std::cout << "returnMethod = "<< m_returnMethod << endl;
+    std::cout << "size = " << m_size << endl;
+    std::cout << "m_signaled = " << m_signaled << endl;
+    if(m_size< sizeof(testFooter)){
+        cout << "Error size (-d) must be bigger then " << sizeof(testFooter) << endl;
+        exit(1);
+    }
     m_dServer = new RDMAServer<ReliableRDMA>("test", m_serverPort);
     size_t srqID = 0;
     m_dServer->createSharedReceiveQueue(srqID);
@@ -152,9 +210,23 @@ void rdma::RPCPerf::runServer() {
 
 
     if(m_old){
-        the = new TestRPCHandlerThreadOld(m_dServer,srqID,MAX_NUM_RPC_MSG);
+        the = new TestRPCHandlerThreadOld(m_dServer,srqID,MAX_NUM_RPC_MSG,m_size,m_returnMethod);
     }else{
-        the = new TestRPCHandlerThread(m_dServer,srqID,MAX_NUM_RPC_MSG);
+        switch (m_returnMethod) {
+            case 0:
+                the = new TestRPCHandlerThreadPoll(m_dServer,srqID,MAX_NUM_RPC_MSG,m_size,m_signaled);
+                break;
+            case 1:
+                the = new TestRPCHandlerThreadImm(m_dServer,srqID,MAX_NUM_RPC_MSG,m_size,m_signaled);
+                break;
+            case 2:
+                the = new TestRPCHandlerThreadSend(m_dServer,srqID,MAX_NUM_RPC_MSG,m_size,m_signaled);
+                break;
+            default:
+                the = new TestRPCHandlerThreadPoll(m_dServer,srqID,MAX_NUM_RPC_MSG,m_size,m_signaled);
+
+        }
+
     }
 
 
@@ -169,15 +241,24 @@ void rdma::RPCPerf::runServer() {
 }
 
 void rdma::RPCPerf::runClient() {
+    std::cout << "returnMethod = "<< m_returnMethod << endl;
+    std::cout << "size = " << m_size << endl;
+    std::cout << "m_signaled = " << m_signaled << endl;
+
+    if(m_size< sizeof(testFooter)){
+        cout << "Error size (-d) must be bigger then " << sizeof(testFooter) << endl;
+        exit(1);
+    }
+
     //todo make many server work again
     //make this better
     string str = m_conns[0];
     //sequencer is the same IP as the rdma server here
-    Config::SEQUENCER_IP =  str.substr(0,str.find(':') );;
+    Config::SEQUENCER_IP =  str.substr(0,str.find(':') );
     //start all client threads
     for (size_t i = 0; i < m_numThreads; i++) {
         std::cout << "Started thread " << i << std::endl;
-        auto* perfThread = new RPCPerfThread(m_conns,m_size, m_iter);
+        auto* perfThread = new RPCPerfThread(m_conns,m_size, m_iter,m_returnMethod,m_signaled);
         perfThread->start();
         if (!perfThread->ready()) {
             usleep(Config::RDMA_SLEEP_INTERVAL);
