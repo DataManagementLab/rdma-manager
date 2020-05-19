@@ -5,7 +5,7 @@
 
 namespace rdma {
     
-class MainMemory : public BaseMemory<void> {
+class MainMemory : public BaseMemory {
 
 public:
 

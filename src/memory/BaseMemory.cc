@@ -5,22 +5,14 @@
 using namespace rdma;
 
 // constructor
-template<typename P>
-BaseMemory<P>::BaseMemory(size_t mem_size){
+BaseMemory::BaseMemory(size_t mem_size){
     this->mem_size = mem_size;
 }
 
-template<typename P>
-size_t BaseMemory<P>::getSize(){
+size_t BaseMemory::getSize(){
     return this->mem_size;
 }
 
-template<typename P>
-size_t BaseMemory<P>::getSizeInBytes(){
-    return this->mem_size * sizeof(P);
-}
-
-template<typename P>
-P* BaseMemory<P>::ptr(){
-    return this->buf;
+void* BaseMemory::pointer(){
+    return this->buffer;
 }

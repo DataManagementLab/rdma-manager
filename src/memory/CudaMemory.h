@@ -6,7 +6,7 @@
 
 namespace rdma {
     
-class CudaMemory : public BaseMemory<void> {
+class CudaMemory : public BaseMemory {
 
 protected:
     int device_index;
@@ -29,7 +29,7 @@ protected:
      * ---------------------
      * Selects the device where the memory is/should be allocated
      *
-     * return
+     * return:  index of the previously selected GPU device index
      */
     int selectDevice(){
         if(this->device_index < 0) return -1;
@@ -40,6 +40,13 @@ protected:
         return previous_device_index;
     }
 
+    /* Function:  resetDevice
+     * ---------------------
+     * Sets the selected GPU device to the given device index
+     *
+     * previous_device_index:  index of the GPU device that should be selected
+     *
+     */
     void resetDevice(int previous_device_index){
         if(this->device_index < 0 || this->device_index == previous_device_index) return;
         checkCudaError(cudaSetDevice(previous_device_index), "CudaMemory::resetDevice could not reset selected device\n");

@@ -5,12 +5,11 @@
 
 namespace rdma {
 
-template<typename P>
 class BaseMemory {
 
 protected:
     size_t mem_size;
-    P *buf = NULL;
+    void *buffer = NULL;
 
 public:
 
@@ -37,15 +36,7 @@ public:
      */
     size_t getSize();
 
-    /* Function:  getSizeInBytes
-     * ---------------------
-     * Returns the size in bytes of the allocated memory
-     * 
-     * return:  size in bytes of allocated memory
-     */
-    size_t getSizeInBytes();
-
-    /* Function:  ptr
+    /* Function:  pointer
      * ---------------------
      * Returns the pointer of the allocated memory.
      * What type of memory and how to handle the pointer is
@@ -53,7 +44,7 @@ public:
      *
      * return:  pointer of the allocated memory
      */
-    P* ptr();
+    void* pointer();
 
     /* Function:  setMemory
      * ---------------------

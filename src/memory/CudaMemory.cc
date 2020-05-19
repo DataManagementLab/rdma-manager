@@ -7,14 +7,14 @@ CudaMemory::CudaMemory(size_t mem_size, int device_index) : BaseMemory(mem_size)
     this->device_index = device_index;
     
     int previous_device_index = selectDevice();
-    checkCudaError(cudaMalloc(&this->buf, mem_size), "CudaMemory::CudaMemory could not allocate memory\n");
+    checkCudaError(cudaMalloc(&this->buffer, mem_size), "CudaMemory::CudaMemory could not allocate memory\n");
     resetDevice(previous_device_index);
 }
 
 // destructor
 CudaMemory::~CudaMemory(){
     int previous_device_index = selectDevice();
-    checkCudaError(cudaFree(this->buf), "CudaMemory::~CudaMemory could not free memory\n");
+    checkCudaError(cudaFree(this->buffer), "CudaMemory::~CudaMemory could not free memory\n");
     resetDevice(previous_device_index);
 }
 
@@ -24,7 +24,7 @@ void CudaMemory::setMemory(int value){
 
 void CudaMemory::setMemory(int value, size_t num){
     int previous_device_index = selectDevice();
-    checkCudaError(cudaMemset(this->buf, value, num), "CudaMemory::setMemory could not set memory to value\n");
+    checkCudaError(cudaMemset(this->buffer, value, num), "CudaMemory::setMemory could not set memory to value\n");
     resetDevice(previous_device_index);
 }
 
@@ -34,7 +34,7 @@ void CudaMemory::copyTo(void *destination){
 
 void CudaMemory::copyTo(void *destination, size_t num){
     int previous_device_index = selectDevice();
-    checkCudaError(cudaMemcpy(destination, this->buf, num, cudaMemcpyDeviceToHost), "CudaMemory::copyTo could not copy data to given destination\n");
+    checkCudaError(cudaMemcpy(destination, this->buffer, num, cudaMemcpyDeviceToHost), "CudaMemory::copyTo could not copy data to given destination\n");
     resetDevice(previous_device_index);
 }
 
@@ -44,6 +44,6 @@ void CudaMemory::copyFrom(void *source){
 
 void CudaMemory::copyFrom(void *source, size_t num){
     int previous_device_index = selectDevice();
-    checkCudaError(cudaMemcpy(this->buf, source, num, cudaMemcpyHostToDevice), "CudaMemory::copyFrom could not copy data from given source\n");
+    checkCudaError(cudaMemcpy(this->buffer, source, num, cudaMemcpyHostToDevice), "CudaMemory::copyFrom could not copy data from given source\n");
     resetDevice(previous_device_index);
 }
