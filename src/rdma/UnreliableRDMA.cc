@@ -9,6 +9,18 @@ UnreliableRDMA::UnreliableRDMA(size_t mem_size) : BaseRDMA(mem_size) {
 
   initQPWithSuppliedID(0);
 }
+UnreliableRDMA::UnreliableRDMA(size_t mem_size, bool huge) : BaseRDMA(mem_size, huge) {
+  m_qpType = IBV_QPT_UD;
+  m_lastMCastConnKey = 0;
+
+  initQPWithSuppliedID(0);
+}
+UnreliableRDMA::UnreliableRDMA(BaseMemory buffer) : BaseRDMA(buffer) {
+  m_qpType = IBV_QPT_UD;
+  m_lastMCastConnKey = 0;
+
+  initQPWithSuppliedID(0);
+}
 
 UnreliableRDMA::~UnreliableRDMA() {
   rdmaConnID mcastID = 0;
@@ -25,8 +37,7 @@ UnreliableRDMA::~UnreliableRDMA() {
 void* UnreliableRDMA::localAlloc(const size_t& size) {
   rdma_mem_t memRes = internalAlloc(size + Config::RDMA_UD_OFFSET);
   if (!memRes.isnull) {
-    return ((char*)m_res.buffer + memRes.offset +
-                   Config::RDMA_UD_OFFSET);
+    return ((char*)m_buffer.pointer() + memRes.offset + Config::RDMA_UD_OFFSET);
   }
   throw runtime_error("UnreliableRDMA allocating local memory failed! Size: " + to_string(size));
 }
@@ -36,7 +47,7 @@ void UnreliableRDMA::localFree(const size_t& offset) {
 }
 
 void UnreliableRDMA::localFree(const void* ptr) {
-  char* begin = (char*)m_res.buffer;
+  char* begin = (char*)m_buffer.pointer();
   char* end = (char*)ptr;
   size_t offset = (end - begin) - Config::RDMA_UD_OFFSET;
   internalFree(offset);
@@ -65,7 +76,7 @@ void UnreliableRDMA::initQPWithSuppliedID(const rdmaConnID rdmaConnID) {
   // create local connection data
   union ibv_gid my_gid;
   memset(&my_gid, 0, sizeof my_gid);
-  qpConn->buffer = (uintptr_t)m_res.buffer;
+  qpConn->buffer = (uintptr_t)m_buffer.pointer();
   qpConn->qp_num = m_udqp.qp->qp_num;
   qpConn->lid = m_res.port_attr.lid;
   memcpy(qpConn->gid, &my_gid, sizeof my_gid);
@@ -112,7 +123,7 @@ void UnreliableRDMA::initQPWithSuppliedID(ib_qp_t** qpp, ib_conn_t** localcon) {
     // create local connection data
     union ibv_gid my_gid;
     memset(&my_gid, 0, sizeof my_gid);
-    qpConn->buffer = (uintptr_t)m_res.buffer;
+    qpConn->buffer = (uintptr_t)m_buffer.pointer();
     qpConn->qp_num = m_udqp.qp->qp_num;
     qpConn->lid = m_res.port_attr.lid;
     memcpy(qpConn->gid, &my_gid, sizeof my_gid);
@@ -354,7 +365,7 @@ void UnreliableRDMA::joinMCastGroup(string mCastAddress,
   }
 
   mCastConn.mr =
-      ibv_reg_mr(mCastConn.pd, m_res.buffer, m_memSize, IBV_ACCESS_LOCAL_WRITE);
+      ibv_reg_mr(mCastConn.pd, m_buffer.pointer(), m_buffer.getSize(), IBV_ACCESS_LOCAL_WRITE);
   if (!mCastConn.mr) {
     throw runtime_error("Could not assign memory region to multicast protection domain!");
   }
@@ -488,7 +499,7 @@ void UnreliableRDMA::receiveMCast(const rdmaConnID rdmaConnID,
 
   void* buffer = (void*)(((char*)memAddr) - Config::RDMA_UD_OFFSET);
   
-  assert(buffer > m_res.buffer || (char *)buffer + size < (char *)m_res.buffer + m_res.mr->length);
+  assert(buffer > m_buffer.pointer() || (char *)buffer + size < (char *)m_buffer.pointer() + m_res.mr->length);
   
   if (rdma_post_recv(mCastConn.id, nullptr, buffer, size + Config::RDMA_UD_OFFSET, mCastConn.mr) != 0) {
     throw runtime_error("Receiving multicast data failed");

@@ -25,4 +25,5 @@ target_link_libraries(rdma_lib
   rdma_utils
   net_message
   rdma_proto
+  rdma_memory_lib
 )

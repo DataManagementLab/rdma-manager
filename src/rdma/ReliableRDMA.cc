@@ -12,6 +12,12 @@ ReliableRDMA::ReliableRDMA() : ReliableRDMA(Config::RDMA_MEMSIZE) {}
 ReliableRDMA::ReliableRDMA(size_t mem_size) : BaseRDMA(mem_size) {
   m_qpType = IBV_QPT_RC;
 }
+ReliableRDMA::ReliableRDMA(size_t mem_size, bool huge) : BaseRDMA(mem_size, huge) {
+  m_qpType = IBV_QPT_RC;
+}
+ReliableRDMA::ReliableRDMA(BaseMemory buffer) : BaseRDMA(buffer) {
+  m_qpType = IBV_QPT_RC;
+}
 
 //------------------------------------------------------------------------------------//
 
@@ -26,7 +32,7 @@ ReliableRDMA::~ReliableRDMA() {
 void *ReliableRDMA::localAlloc(const size_t &size) {
   rdma_mem_t memRes = internalAlloc(size);
   if (!memRes.isnull) {
-    return (void *)((char *)m_res.buffer + memRes.offset);
+    return (void *)((char *)m_buffer.pointer() + memRes.offset);
   }
   throw runtime_error("Could not allocate local rdma memory");
 }
@@ -38,7 +44,7 @@ void ReliableRDMA::localFree(const size_t &offset) { internalFree(offset); }
 //------------------------------------------------------------------------------------//
 
 void ReliableRDMA::localFree(const void *ptr) {
-  char *begin = (char *)m_res.buffer;
+  char *begin = (char *)m_buffer.pointer();
   char *end = (char *)ptr;
   size_t offset = end - begin;
   internalFree(offset);
@@ -59,7 +65,7 @@ void ReliableRDMA::initQPWithSuppliedID(const rdmaConnID rdmaConnID) {
   union ibv_gid my_gid;
   memset(&my_gid, 0, sizeof my_gid);
 
-  localConn.buffer = (uint64_t)m_res.buffer;
+  localConn.buffer = (uint64_t)m_buffer.pointer();
   localConn.rc.rkey = m_res.mr->rkey;
   localConn.qp_num = qp.qp->qp_num;
   localConn.lid = m_res.port_attr.lid;
@@ -88,7 +94,7 @@ void ReliableRDMA::initQPWithSuppliedID(struct ib_qp_t** qp ,struct ib_conn_t **
     union ibv_gid my_gid;
     memset(&my_gid, 0, sizeof my_gid);
 
-    (*localConn)->buffer = (uint64_t)m_res.buffer;
+    (*localConn)->buffer = (uint64_t)m_buffer.pointer();
     (*localConn)->rc.rkey = m_res.mr->rkey;
     (*localConn)->qp_num = (*qp)->qp->qp_num;
     (*localConn)->lid = m_res.port_attr.lid;
@@ -873,7 +879,7 @@ void ReliableRDMA::initQPForSRQWithSuppliedID(size_t srq_id,
   union ibv_gid my_gid;
   memset(&my_gid, 0, sizeof my_gid);
 
-  localConn.buffer = (uint64_t)m_res.buffer;
+  localConn.buffer = (uint64_t)m_buffer.pointer();
   localConn.rc.rkey = m_res.mr->rkey;
   localConn.qp_num = qp.qp->qp_num;
   localConn.lid = m_res.port_attr.lid;

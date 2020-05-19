@@ -7,6 +7,7 @@
 #ifndef BaseRDMA_H_
 #define BaseRDMA_H_
 
+#include "../memory/BaseMemory.h"
 #include "../proto/ProtoClient.h"
 #include "../utils/Config.h"
 
@@ -24,7 +25,7 @@ enum rdma_transport_t { rc, ud };
 
 struct ib_resource_t {
   /* Memory region */
-  void *buffer;      /* memory buffer pointer */
+  // void *buffer;  replace with m_buffer
   struct ibv_pd *pd; /* PD handle */
   struct ibv_mr *mr; /* MR handle for buf */
 
@@ -75,7 +76,9 @@ class BaseRDMA {
 
  public:
   // constructors and destructor
+  BaseRDMA(BaseMemory buffer);
   BaseRDMA(size_t mem_size);
+  BaseRDMA(size_t mem_size, bool huge);
 
   virtual ~BaseRDMA();
 
@@ -116,21 +119,21 @@ class BaseRDMA {
   virtual void localFree(const void *ptr) = 0;
   virtual void localFree(const size_t &offset) = 0;
 
-  void *getBuffer() { return m_res.buffer; }
+  void *getBuffer() { return m_buffer.pointer(); }
 
   const list<rdma_mem_t> getFreeMemList() const { return m_rdmaMem; }
 
   void *convertOffsetToPointer(size_t offset) {
     // check if already allocated
-    return (void *)((char *)m_res.buffer + offset);
+    return (void *)((char *)m_buffer.pointer() + offset);
   }
 
   size_t convertPointerToOffset(void* ptr) {
     // check if already allocated
-    return (size_t)((char *)ptr - (char*) m_res.buffer);
+    return (size_t)((char *)ptr - (char*) m_buffer.pointer());
   }
 
-  size_t getBufferSize() { return m_memSize; }
+  size_t getBufferSize() { return m_buffer.getSize(); }
 
   void printBuffer();
 
@@ -183,9 +186,9 @@ class BaseRDMA {
   vector<size_t> m_countWR;
 
   ibv_qp_type m_qpType;
-  size_t m_memSize;
-  int m_ibPort;
-  int m_gidIdx;
+  BaseMemory m_buffer;
+  int m_ibPort = 1;
+  int m_gidIdx = -1;
 
   struct ib_resource_t m_res;
 
@@ -201,11 +204,12 @@ class BaseRDMA {
 
   static rdma_mem_t s_nillmem;
 
+/* No longer needed
 static void* malloc_huge(size_t size) {
    void* p = mmap(NULL, size, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
    madvise(p, size, MADV_HUGEPAGE);
    return p;
-} 
+} */
 };
 
 }  // namespace rdma

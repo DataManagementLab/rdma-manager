@@ -22,6 +22,8 @@ class ReliableRDMA : public BaseRDMA {
  public:
   ReliableRDMA();
   ReliableRDMA(size_t mem_size);
+  ReliableRDMA(size_t mem_size, bool huge);
+  ReliableRDMA(BaseMemory buffer);
   ~ReliableRDMA();
 
   void initQPWithSuppliedID(const rdmaConnID suppliedID) override;
