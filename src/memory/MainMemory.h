@@ -7,6 +7,9 @@ namespace rdma {
     
 class MainMemory : public BaseMemory {
 
+protected:
+    bool huge;
+
 public:
 
     /* Constructor
@@ -18,6 +21,18 @@ public:
      *
      */
     MainMemory(size_t mem_size);
+
+    /* Constructor
+     * --------------
+     * Allocates main memory.
+     * Uses therefore malloc() or mmap()
+     *
+     * mem_size:  size how much memory should be allocated
+     * huge:      If true then a huge memory block can be 
+     *            allocated (uses therefore mmap())
+     *
+     */
+    MainMemory(size_t mem_size, bool huge);
 
     // destructor
     ~MainMemory();

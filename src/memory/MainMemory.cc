@@ -1,17 +1,29 @@
 #include "MainMemory.h"
 #include <stdlib.h>
 #include <string.h>
+#include <sys/mman.h>
 
 using namespace rdma;
 
-// constructor
-MainMemory::MainMemory(size_t mem_size) : BaseMemory(mem_size){
-    this->buffer = malloc(mem_size);
+// constructors
+MainMemory::MainMemory(size_t mem_size) : MainMemory(mem_size, false){}
+MainMemory::MainMemory(size_t mem_size, bool huge) : BaseMemory(mem_size){
+    this->huge = huge;
+    if(huge){
+        this->buffer = mmap(NULL, mem_size, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
+        madvise(this->buffer, mem_size, MADV_HUGEPAGE);
+    } else {
+        this->buffer = malloc(mem_size);
+    }
 }
 
 // destructor
 MainMemory::~MainMemory(){
-    free(this->buffer);
+    if(this->huge){
+        munmap(this->buffer, this->mem_size);
+    } else {
+        free(this->buffer);
+    }
 }
 
 void MainMemory::setMemory(int value){
