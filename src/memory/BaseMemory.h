@@ -45,7 +45,7 @@ public:
      * return:  pointer of the allocated memory
      */
     void* pointer();
-
+    
     /* Function:  setMemory
      * ---------------------
      * Sets each byte of the allocated memory to a given value.
