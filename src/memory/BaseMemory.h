@@ -54,7 +54,7 @@ public:
      * value:  value that should be set for each byte
      *
      */
-    virtual void setMemory(int value);
+    virtual void setMemory(int value) = 0;
 
     /* Function:  setMemory
      * ---------------------
@@ -65,7 +65,7 @@ public:
      * num:    how many bytes should be set
      *
      */
-    virtual void setMemory(int value, size_t num);
+    virtual void setMemory(int value, size_t num) = 0;
 
     /* Function:  copyTo
      * ---------------------
@@ -75,7 +75,7 @@ public:
      * destination:  the data in the allocated memory should be copied to
      *
      */
-    virtual void copyTo(void *destination);
+    virtual void copyTo(void *destination) = 0;
 
     /* Function:  copyTo
      * ---------------------
@@ -86,7 +86,7 @@ public:
      * num:          how many bytes should be copied
      *
      */
-    virtual void copyTo(void *destination, size_t num);
+    virtual void copyTo(void *destination, size_t num) = 0;
 
     /* Function:  copyFrom
      * ---------------------
@@ -96,7 +96,7 @@ public:
      * source:  the data that should be copied to
      *
      */
-    virtual void copyFrom(void *source);
+    virtual void copyFrom(void *source) = 0;
 
     /* Function:  copyFrom
      * ---------------------
@@ -107,7 +107,7 @@ public:
      * num:     how many bytes should be copied
      *
      */
-    virtual void copyFrom(void *source, size_t num);
+    virtual void copyFrom(void *source, size_t num) = 0;
 
 };
 
