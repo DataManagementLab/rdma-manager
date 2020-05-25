@@ -14,6 +14,7 @@
 #include <infiniband/verbs.h>
 #include <infiniband/verbs_exp.h>
 #include <list>
+#include <memory>
 #include <mutex>
 #include <unordered_map>
 #include <sys/mman.h>
@@ -76,7 +77,7 @@ class BaseRDMA {
 
  public:
   // constructors and destructor
-  BaseRDMA(BaseMemory buffer);
+  BaseRDMA(BaseMemory *buffer);
   BaseRDMA(size_t mem_size);
   BaseRDMA(size_t mem_size, bool huge);
 
@@ -119,21 +120,21 @@ class BaseRDMA {
   virtual void localFree(const void *ptr) = 0;
   virtual void localFree(const size_t &offset) = 0;
 
-  void *getBuffer() { return m_buffer.pointer(); }
+  void *getBuffer() { return m_buffer->pointer(); }
 
   const list<rdma_mem_t> getFreeMemList() const { return m_rdmaMem; }
 
   void *convertOffsetToPointer(size_t offset) {
     // check if already allocated
-    return (void *)((char *)m_buffer.pointer() + offset);
+    return (void *)((char *)m_buffer->pointer() + offset);
   }
 
   size_t convertPointerToOffset(void* ptr) {
     // check if already allocated
-    return (size_t)((char *)ptr - (char*) m_buffer.pointer());
+    return (size_t)((char *)ptr - (char*) m_buffer->pointer());
   }
 
-  size_t getBufferSize() { return m_buffer.getSize(); }
+  size_t getBufferSize() { return m_buffer->getSize(); }
 
   void printBuffer();
 
@@ -186,7 +187,7 @@ class BaseRDMA {
   vector<size_t> m_countWR;
 
   ibv_qp_type m_qpType;
-  BaseMemory m_buffer;
+  std::unique_ptr<BaseMemory> m_buffer;
   int m_ibPort = 1;
   int m_gidIdx = -1;
 

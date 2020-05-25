@@ -18,17 +18,17 @@ using namespace rdma;
 rdma_mem_t BaseRDMA::s_nillmem;
 
 //------------------------------------------------------------------------------------//
-BaseRDMA::BaseRDMA(BaseMemory buffer) : m_buffer(buffer) {
+BaseRDMA::BaseRDMA(BaseMemory *buffer) : m_buffer(buffer) {
   m_ibPort = Config::RDMA_IBPORT;
   m_gidIdx = -1;
-  m_rdmaMem.push_back(rdma_mem_t(m_buffer.getSize(), true, 0));
+  m_rdmaMem.push_back(rdma_mem_t(m_buffer->getSize(), true, 0));
 
   createBuffer();
 }
 
-BaseRDMA::BaseRDMA(size_t mem_size) : BaseRDMA(*new MainMemory(mem_size)) {}
+BaseRDMA::BaseRDMA(size_t mem_size) : BaseRDMA(new MainMemory(mem_size, false)) {}
 
-BaseRDMA::BaseRDMA(size_t mem_size, bool huge) : BaseRDMA(*new MainMemory(mem_size, huge)) {}
+BaseRDMA::BaseRDMA(size_t mem_size, bool huge) : BaseRDMA(new MainMemory(mem_size, huge)) {}
 
 //------------------------------------------------------------------------------------//
 
@@ -128,11 +128,11 @@ void BaseRDMA::createBuffer() {
 #endif
 */
 #ifdef LINUX
-   numa_tonode_memory(m_buffer.pointer(), m_buffer.getSize(), Config::RDMA_NUMAREGION);
+   numa_tonode_memory(m_buffer->pointer(), m_buffer->getSize(), Config::RDMA_NUMAREGION);
 #endif
-  memset(m_buffer.pointer(), 0, m_buffer.getSize());
-  if (m_buffer.pointer() == 0) {
-    throw runtime_error("Cannot allocate memory! Requested size: " + to_string(m_buffer.getSize()));
+  memset(m_buffer->pointer(), 0, m_buffer->getSize());
+  if (m_buffer->pointer() == 0) {
+    throw runtime_error("Cannot allocate memory! Requested size: " + to_string(m_buffer->getSize()));
   }
 
   // create protected domain
@@ -145,7 +145,7 @@ void BaseRDMA::createBuffer() {
   int mr_flags = IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ |
                  IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_ATOMIC;
 
-  m_res.mr = ibv_reg_mr(m_res.pd, m_buffer.pointer(), m_buffer.getSize(), mr_flags);
+  m_res.mr = ibv_reg_mr(m_res.pd, m_buffer->pointer(), m_buffer->getSize(), mr_flags);
   if (m_res.mr == 0) {
     throw runtime_error("Cannot register memory!");
   }

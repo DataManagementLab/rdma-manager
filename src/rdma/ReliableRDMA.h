@@ -23,7 +23,7 @@ class ReliableRDMA : public BaseRDMA {
   ReliableRDMA();
   ReliableRDMA(size_t mem_size);
   ReliableRDMA(size_t mem_size, bool huge);
-  ReliableRDMA(BaseMemory buffer);
+  ReliableRDMA(BaseMemory *buffer);
   ~ReliableRDMA();
 
   void initQPWithSuppliedID(const rdmaConnID suppliedID) override;
@@ -86,7 +86,7 @@ class ReliableRDMA : public BaseRDMA {
   remoteAccess(const rdmaConnID rdmaConnID, size_t offset, const void* memAddr,
                size_t size, bool signaled, bool wait, enum ibv_wr_opcode verb,uint32_t * imm = nullptr) {
     DebugCode(
-      if (memAddr < m_res.buffer || (char*)memAddr + size > (char*)m_res.buffer + m_res.mr->length) {
+      if (memAddr < m_res.buffer->pointer() || (char*)memAddr + size > (char*)m_res.buffer->pointer() + m_res.mr->length) {
         Logging::error(__FILE__, __LINE__,
                         "Passed memAddr falls out of buffer addr space");
     })

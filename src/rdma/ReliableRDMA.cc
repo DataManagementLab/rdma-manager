@@ -15,7 +15,7 @@ ReliableRDMA::ReliableRDMA(size_t mem_size) : BaseRDMA(mem_size) {
 ReliableRDMA::ReliableRDMA(size_t mem_size, bool huge) : BaseRDMA(mem_size, huge) {
   m_qpType = IBV_QPT_RC;
 }
-ReliableRDMA::ReliableRDMA(BaseMemory buffer) : BaseRDMA(buffer) {
+ReliableRDMA::ReliableRDMA(BaseMemory *buffer) : BaseRDMA(buffer) {
   m_qpType = IBV_QPT_RC;
 }
 
@@ -32,7 +32,7 @@ ReliableRDMA::~ReliableRDMA() {
 void *ReliableRDMA::localAlloc(const size_t &size) {
   rdma_mem_t memRes = internalAlloc(size);
   if (!memRes.isnull) {
-    return (void *)((char *)m_buffer.pointer() + memRes.offset);
+    return (void *)((char *)m_buffer->pointer() + memRes.offset);
   }
   throw runtime_error("Could not allocate local rdma memory");
 }
@@ -44,7 +44,7 @@ void ReliableRDMA::localFree(const size_t &offset) { internalFree(offset); }
 //------------------------------------------------------------------------------------//
 
 void ReliableRDMA::localFree(const void *ptr) {
-  char *begin = (char *)m_buffer.pointer();
+  char *begin = (char *)m_buffer->pointer();
   char *end = (char *)ptr;
   size_t offset = end - begin;
   internalFree(offset);
@@ -65,7 +65,7 @@ void ReliableRDMA::initQPWithSuppliedID(const rdmaConnID rdmaConnID) {
   union ibv_gid my_gid;
   memset(&my_gid, 0, sizeof my_gid);
 
-  localConn.buffer = (uint64_t)m_buffer.pointer();
+  localConn.buffer = (uint64_t)m_buffer->pointer();
   localConn.rc.rkey = m_res.mr->rkey;
   localConn.qp_num = qp.qp->qp_num;
   localConn.lid = m_res.port_attr.lid;
@@ -94,7 +94,7 @@ void ReliableRDMA::initQPWithSuppliedID(struct ib_qp_t** qp ,struct ib_conn_t **
     union ibv_gid my_gid;
     memset(&my_gid, 0, sizeof my_gid);
 
-    (*localConn)->buffer = (uint64_t)m_buffer.pointer();
+    (*localConn)->buffer = (uint64_t)m_buffer->pointer();
     (*localConn)->rc.rkey = m_res.mr->rkey;
     (*localConn)->qp_num = (*qp)->qp->qp_num;
     (*localConn)->lid = m_res.port_attr.lid;
@@ -309,8 +309,8 @@ void ReliableRDMA::compareAndSwap(const rdmaConnID rdmaConnID, size_t offset,
 void ReliableRDMA::send(const rdmaConnID rdmaConnID, const void *memAddr,
                         size_t size, bool signaled) {
   DebugCode(
-      if (memAddr < m_res.buffer ||
-          (char *)memAddr + size > (char *)m_res.buffer + m_res.mr->length) {
+      if (memAddr < m_res.buffer->pointer() ||
+          (char *)memAddr + size > (char *)m_res.buffer->pointer() + m_res.mr->length) {
         throw runtime_error("Passed memAddr falls out of buffer addr space");
       });
   checkSignaled(signaled, rdmaConnID);
@@ -365,8 +365,8 @@ void ReliableRDMA::send(const rdmaConnID rdmaConnID, const void *memAddr,
 
 void ReliableRDMA::receive(const rdmaConnID rdmaConnID, const void *memAddr,
                            size_t size) {
-  DebugCode(if (memAddr < m_res.buffer ||
-                memAddr > (char *)m_res.buffer + m_res.mr->length) {
+  DebugCode(if (memAddr < m_res.buffer->pointer() ||
+                memAddr > (char *)m_res.buffer->pointer() + m_res.mr->length) {
     Logging::error(__FILE__, __LINE__,
                    "Passed memAddr falls out of buffer addr space");
   })
@@ -879,7 +879,7 @@ void ReliableRDMA::initQPForSRQWithSuppliedID(size_t srq_id,
   union ibv_gid my_gid;
   memset(&my_gid, 0, sizeof my_gid);
 
-  localConn.buffer = (uint64_t)m_buffer.pointer();
+  localConn.buffer = (uint64_t)m_buffer->pointer();
   localConn.rc.rkey = m_res.mr->rkey;
   localConn.qp_num = qp.qp->qp_num;
   localConn.lid = m_res.port_attr.lid;

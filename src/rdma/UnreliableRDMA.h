@@ -36,7 +36,7 @@ class UnreliableRDMA : public BaseRDMA {
  public:
   UnreliableRDMA(size_t mem_size = Config::RDMA_MEMSIZE);
   UnreliableRDMA(size_t mem_size, bool huge);
-  UnreliableRDMA(BaseMemory buffer);
+  UnreliableRDMA(BaseMemory *buffer);
   ~UnreliableRDMA();
 
   void initQPWithSuppliedID(const rdmaConnID suppliedID) override;
