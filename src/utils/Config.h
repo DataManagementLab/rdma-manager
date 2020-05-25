@@ -62,23 +62,8 @@ namespace rdma
 class Config
 {
   public:
-    Config(const string& prog_name)
-    {
-        load(prog_name);
-        auto num_cpu_cores = 0;
-        auto num_numa_nodes = 0;
-        
-        NUMA_THREAD_CPUS = CpuNumaUtils::get_cpu_numa_map(num_cpu_cores, num_numa_nodes);
-
-        setenv("MLX5_SINGLE_THREADED", to_string(Config::MLX5_SINGLE_THREADED).c_str(), true);
-
-        std::cout << getenv("MLX5_SINGLE_THREADED") << std::endl;
-    }
-
-    ~Config()
-    {
-        unload();
-    }
+    Config(const std::string& prog_name);
+    ~Config();
 
     //RDMA
     static size_t RDMA_MEMSIZE;

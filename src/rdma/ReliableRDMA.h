@@ -85,8 +85,7 @@ class ReliableRDMA : public BaseRDMA {
                size_t size, bool signaled, bool wait, enum ibv_wr_opcode verb,uint32_t * imm = nullptr) {
     DebugCode(
       if (memAddr < m_res.buffer || (char*)memAddr + size > (char*)m_res.buffer + m_res.mr->length) {
-        Logging::error(__FILE__, __LINE__,
-                        "Passed memAddr falls out of buffer addr space");
+        throw new runtime_error("Passed memAddr falls out of buffer addr space");
     })
 
     checkSignaled(signaled, rdmaConnID);

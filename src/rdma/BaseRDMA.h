@@ -11,7 +11,6 @@
 #include "../utils/Config.h"
 
 #include <infiniband/verbs.h>
-#include <infiniband/verbs_exp.h>
 #include <list>
 #include <mutex>
 #include <unordered_map>

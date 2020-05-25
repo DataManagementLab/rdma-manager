@@ -6,6 +6,23 @@
 
 using namespace rdma;
 
+Config::Config(const std::string& prog_name)
+{
+    Config::load(prog_name);
+    auto num_cpu_cores = 0;
+    auto num_numa_nodes = 0;
+    
+    NUMA_THREAD_CPUS = CpuNumaUtils::get_cpu_numa_map(num_cpu_cores, num_numa_nodes);
+
+    setenv("MLX5_SINGLE_THREADED", to_string(Config::MLX5_SINGLE_THREADED).c_str(), true);
+}
+
+Config::~Config()
+{
+    Config::unload();
+}
+
+
 //TEST
 int Config::HELLO_PORT = 4001;
 
@@ -21,7 +38,7 @@ uint32_t Config::RDMA_MAX_WR = 4096;
 uint32_t Config::RDMA_UD_MTU = 4096;
 
 std::string Config::SEQUENCER_IP = "192.168.94.22"; //node02
-uint32_t Config::SEQUENCER_PORT = 5500;
+uint32_t Config::SEQUENCER_PORT = 5600;
 
 std::string Config::RDMA_INTERFACE = "ib0";
 
@@ -31,7 +48,7 @@ uint32_t Config::MLX5_SINGLE_THREADED = 1;
 vector<vector<int>> Config::NUMA_THREAD_CPUS = {{0,1,2,3,4,5,6,7,8,9,10,11,12,13}, {14,15,16,17,18,19,20,21,22,23,24,25,26,27}}; //DM-cluster cpus
 
 //LOGGING
-int Config::LOGGING_LEVEL = 3;
+int Config::LOGGING_LEVEL = 1;
 
 // string& Config::getIPFromNodeId(NodeID& node_id){
 //   return Config::DPI_NODES.at(node_id -1);
