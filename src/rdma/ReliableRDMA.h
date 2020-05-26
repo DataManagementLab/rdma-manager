@@ -86,7 +86,7 @@ class ReliableRDMA : public BaseRDMA {
   remoteAccess(const rdmaConnID rdmaConnID, size_t offset, const void* memAddr,
                size_t size, bool signaled, bool wait, enum ibv_wr_opcode verb,uint32_t * imm = nullptr) {
     DebugCode(
-      if (memAddr < m_res.buffer->pointer() || (char*)memAddr + size > (char*)m_res.buffer->pointer() + m_res.mr->length) {
+      if (memAddr < m_buffer->pointer() || (char*)memAddr + size > (char*)m_buffer->pointer() + m_buffer->ib_mr()->length) {
         Logging::error(__FILE__, __LINE__,
                         "Passed memAddr falls out of buffer addr space");
     })
@@ -102,7 +102,7 @@ class ReliableRDMA : public BaseRDMA {
     struct ibv_sge sge;
     memset(&sge, 0, sizeof(sge));
     sge.addr = (uintptr_t)memAddr;
-    sge.lkey = m_res.mr->lkey;
+    sge.lkey = m_buffer->ib_mr()->lkey;
     sge.length = size;
     memset(&sr, 0, sizeof(sr));
     sr.sg_list = &sge;

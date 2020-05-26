@@ -8,7 +8,10 @@ CudaMemory::CudaMemory(size_t mem_size, int device_index) : BaseMemory(mem_size)
     
     int previous_device_index = selectDevice();
     checkCudaError(cudaMalloc(&this->buffer, mem_size), "CudaMemory::CudaMemory could not allocate memory\n");
+    checkCudaError(cudaMemset(this->buffer, 0, mem_size), "CudaMemory::CudaMemory could not set allocated memory to zero\n");
     resetDevice(previous_device_index);
+
+    this->init();
 }
 
 // destructor

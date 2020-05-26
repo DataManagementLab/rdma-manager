@@ -9,4 +9,9 @@ set(RDMA_MEMORY_SRC
 add_library(rdma_memory_lib ${RDMA_MEMORY_SRC})
 target_include_directories(rdma_memory_lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
-# target_link_libraries(rdma_memory_lib rdma_lib)
+find_package(IBVerbs)
+target_link_libraries(rdma_memory_lib ${IBVERBS_LIBRARY})
+find_package(Numa)
+target_link_libraries(rdma_memory_lib ${NUMA_LIBRARY})
+
+# target_link_libraries(rdma_memory_lib ${RDMA_LINKER_FLAGS})

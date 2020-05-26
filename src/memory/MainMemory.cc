@@ -15,6 +15,15 @@ MainMemory::MainMemory(size_t mem_size, bool huge) : BaseMemory(mem_size){
     } else {
         this->buffer = malloc(mem_size);
     }
+    #ifdef LINUX
+    numa_tonode_memory(this->buffer, this->mem_size, Config::RDMA_NUMAREGION);
+    #endif
+    memset(this->buffer, 0, this->mem_size);
+    if (this->buffer == 0) {
+        throw runtime_error("Cannot allocate memory! Requested size: " + to_string(this->mem_size));
+    }
+
+    this->init();
 }
 
 // destructor

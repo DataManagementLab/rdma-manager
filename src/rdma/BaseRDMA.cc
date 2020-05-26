@@ -4,7 +4,6 @@
 #include "../memory/MainMemory.h"
 #include "../message/ProtoMessageFactory.h"
 #include "../utils/Logging.h"
-#include "../utils/Filehelper.h"
 #include "ReliableRDMA.h"
 #include "UnreliableRDMA.h"
 
@@ -19,11 +18,8 @@ rdma_mem_t BaseRDMA::s_nillmem;
 
 //------------------------------------------------------------------------------------//
 BaseRDMA::BaseRDMA(BaseMemory *buffer) : m_buffer(buffer) {
-  m_ibPort = Config::RDMA_IBPORT;
   m_gidIdx = -1;
   m_rdmaMem.push_back(rdma_mem_t(m_buffer->getSize(), true, 0));
-
-  createBuffer();
 }
 
 BaseRDMA::BaseRDMA(size_t mem_size) : BaseRDMA(new MainMemory(mem_size, false)) {}
@@ -32,135 +28,20 @@ BaseRDMA::BaseRDMA(size_t mem_size, bool huge) : BaseRDMA(new MainMemory(mem_siz
 
 //------------------------------------------------------------------------------------//
 
-BaseRDMA::~BaseRDMA() {
-  // de-register memory region
-  if (m_res.mr != nullptr) {
-    ibv_dereg_mr(m_res.mr);
-    m_res.mr = nullptr;
-  }
+BaseRDMA::~BaseRDMA(){
 
-  // free memory
-  /* No longer needed, will be automatically released in the destructor call of m_buffer
-  if (m_res.buffer != nullptr) {
-#ifdef HUGEPAGE
-    munmap(m_res.buffer, m_memSize);
-#else
-    free(m_res.buffer);
-#endif
-    m_res.buffer = nullptr;
-  }
-  */
-
-  // de-allocate protection domain
-  if (m_res.pd != nullptr) {
-    ibv_dealloc_pd(m_res.pd);
-    m_res.pd = nullptr;
-  }
-
-  // close device
-  if (m_res.ib_ctx != nullptr) {
-    ibv_close_device(m_res.ib_ctx);
-    m_res.ib_ctx = nullptr;
-  }
-}
-
-//------------------------------------------------------------------------------------//
-void BaseRDMA::createBuffer() {
-  // Logging::debug(__FILE__, __LINE__, "Create memory region");
-
-  struct ibv_device **dev_list = nullptr;
-  struct ibv_device *ib_dev = nullptr;
-  int num_devices = 0;
-
-  // get devices
-  if ((dev_list = ibv_get_device_list(&num_devices)) == nullptr) {
-    throw runtime_error("Get device list failed!");
-  }
-
-  bool found = false;
-  //Choose rdma device on the correct numa node
-  for (int i = 0; i < num_devices; i++)
-  {
-    ifstream numa_node_file;
-    numa_node_file.open(std::string(dev_list[i]->ibdev_path)+"/device/numa_node");
-    int numa_node = -1;
-    numa_node_file >> numa_node;
-    if (numa_node == (int)Config::RDMA_NUMAREGION)
-    {
-      ib_dev = dev_list[i];
-      found = true;
-      break;
-    }
-  }
-  Config::RDMA_DEVICE_FILE_PATH = ib_dev->ibdev_path;
-  ibv_free_device_list(dev_list);
-  
-  if (!found)
-  {
-    throw runtime_error("Did not find a device connected to specified numa node (Config::RDMA_NUMAREGION)");
-  }
-
-  if (!Filehelper::isDirectory(Config::RDMA_DEVICE_FILE_PATH + "/device/net/" + Config::RDMA_INTERFACE))
-  {
-    Logging::error(__FILE__, __LINE__, "rdma::Config::RDMA_INTERFACE (" + Config::RDMA_INTERFACE + ") does not match chosen RDMA device! I.e. interface not found under: " + Config::RDMA_DEVICE_FILE_PATH + "/device/net/");
-  }
-// std::cout << ib_dev->ibdev_path << std::endl;
-// std::cout << ib_dev->dev_name << std::endl;
-// std::cout << ib_dev->name << std::endl;
-// std::cout << ib_dev->dev_path << std::endl;
-
-  // open device
-  if (!(m_res.ib_ctx = ibv_open_device(ib_dev))) {
-    throw runtime_error("Open device failed!");
-  }
-
-  // get port properties
-  if ((errno = ibv_query_port(m_res.ib_ctx, m_ibPort, &m_res.port_attr)) != 0) {
-    throw runtime_error("Query port failed");
-  }
-
-// allocate memory
-/* Memory already allocated in m_buffer
-#ifdef HUGEPAGE
-  m_res.buffer = malloc_huge(m_memSize);
-#else
-  m_res.buffer = malloc(m_memSize);
-#endif
-*/
-#ifdef LINUX
-   numa_tonode_memory(m_buffer->pointer(), m_buffer->getSize(), Config::RDMA_NUMAREGION);
-#endif
-  memset(m_buffer->pointer(), 0, m_buffer->getSize());
-  if (m_buffer->pointer() == 0) {
-    throw runtime_error("Cannot allocate memory! Requested size: " + to_string(m_buffer->getSize()));
-  }
-
-  // create protected domain
-  m_res.pd = ibv_alloc_pd(m_res.ib_ctx);
-  if (m_res.pd == 0) {
-    throw runtime_error("Cannot create protected domain!");
-  }
-
-  // register memory
-  int mr_flags = IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ |
-                 IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_ATOMIC;
-
-  m_res.mr = ibv_reg_mr(m_res.pd, m_buffer->pointer(), m_buffer->getSize(), mr_flags);
-  if (m_res.mr == 0) {
-    throw runtime_error("Cannot register memory!");
-  }
 }
 
 //------------------------------------------------------------------------------------//
 
 void BaseRDMA::createCQ(ibv_cq *&send_cq, ibv_cq *&rcv_cq) {
   // send queue
-  if (!(send_cq = ibv_create_cq(m_res.ib_ctx, Config::RDMA_MAX_WR + 1, nullptr, nullptr, 0))) {
+  if (!(send_cq = ibv_create_cq(m_buffer->ib_context(), Config::RDMA_MAX_WR + 1, nullptr, nullptr, 0))) {
     throw runtime_error("Cannot create send CQ!");
   }
 
   // receive queue
-  if (!(rcv_cq = ibv_create_cq(m_res.ib_ctx, Config::RDMA_MAX_WR + 1, nullptr, nullptr, 0))) {
+  if (!(rcv_cq = ibv_create_cq(m_buffer->ib_context(), Config::RDMA_MAX_WR + 1, nullptr, nullptr, 0))) {
     throw runtime_error("Cannot create receive CQ!");
   }
 

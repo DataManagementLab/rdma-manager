@@ -12,7 +12,6 @@
 #include "../utils/Config.h"
 
 #include <infiniband/verbs.h>
-#include <infiniband/verbs_exp.h>
 #include <list>
 #include <memory>
 #include <mutex>
@@ -24,17 +23,19 @@ namespace rdma {
 
 enum rdma_transport_t { rc, ud };
 
+/*
 struct ib_resource_t {
-  /* Memory region */
-  // void *buffer;  replace with m_buffer
-  struct ibv_pd *pd; /* PD handle */
-  struct ibv_mr *mr; /* MR handle for buf */
+  // Memory region 
+  void *buffer;  replaced with m_buffer
+  struct ibv_pd *pd; // PD handle
+  struct ibv_mr *mr; // MR handle for buf
 
-  /* Device attributes */
+  //Device attributes
   struct ibv_device_attr device_attr;
-  struct ibv_port_attr port_attr; /* IB port attributes */
-  struct ibv_context *ib_ctx;     /* device handle */
+  struct ibv_port_attr port_attr; // IB port attributes
+  struct ibv_context *ib_ctx;     // device handle
 };
+*/
 
 struct ib_qp_t {
   struct ibv_qp *qp;      /* Queue pair */
@@ -188,10 +189,7 @@ class BaseRDMA {
 
   ibv_qp_type m_qpType;
   std::unique_ptr<BaseMemory> m_buffer;
-  int m_ibPort = 1;
   int m_gidIdx = -1;
-
-  struct ib_resource_t m_res;
 
   vector<ib_qp_t> m_qps;  // rdmaConnID is the index of the vector
   vector<ib_conn_t> m_rconns;
