@@ -149,7 +149,7 @@ public:
      * source:  the data that should be copied to
      *
      */
-    virtual void copyFrom(void *source) = 0;
+    virtual void copyFrom(const void *source) = 0;
 
     /* Function:  copyFrom
      * ---------------------
@@ -160,7 +160,7 @@ public:
      * num:     how many bytes should be copied
      *
      */
-    virtual void copyFrom(void *source, size_t num) = 0;
+    virtual void copyFrom(const void *source, size_t num) = 0;
 
 };
 

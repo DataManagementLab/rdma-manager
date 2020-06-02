@@ -1,3 +1,5 @@
+#ifdef CUDA_ENABLED /* defined in CMakeLists.txt to globally enable/disable CUDA support */
+
 #ifndef CudaMemory_H_
 #define CudaMemory_H_
 
@@ -97,12 +99,13 @@ public:
 
     virtual void copyTo(void *destination, size_t num) override;
 
-    virtual void copyFrom(void *source) override;
+    virtual void copyFrom(const void *source) override;
 
-    virtual void copyFrom(void *source, size_t num) override;
+    virtual void copyFrom(const void *source, size_t num) override;
 
 };
 
 } // namespace rdma
 
 #endif /* CudaMemory_H_ */
+#endif /* CUDA support */

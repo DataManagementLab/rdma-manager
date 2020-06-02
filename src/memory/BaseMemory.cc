@@ -1,6 +1,9 @@
 #include "BaseMemory.h"
 #include "MainMemory.h"
+#ifdef CUDA_ENABLED /* defined in CMakeLists.txt to globally enable/disable CUDA support */
 #include "CudaMemory.h"
+#endif /* CUDA support */
+
 #include "../utils/Logging.h"
 #include "../utils/Filehelper.h"
 

@@ -29,10 +29,11 @@ MainMemory::MainMemory(size_t mem_size, bool huge, int numa_node) : BaseMemory(m
         this->buffer = malloc(this->mem_size);
     #endif
 
-    memset(this->buffer, 0, this->mem_size);
     if (this->buffer == 0) {
         throw runtime_error("Cannot allocate memory! Requested size: " + to_string(this->mem_size));
     }
+
+    memset(this->buffer, 0, this->mem_size);
 
     this->init();
 }
@@ -68,17 +69,19 @@ void MainMemory::setMemory(int value, size_t num){
 }
 
 void MainMemory::copyTo(void *destination){
-    copyTo(destination, this->mem_size);
+    size_t s = sizeof(destination);
+    copyTo(destination, (s < this->mem_size ? s : this->mem_size));
 }
 
 void MainMemory::copyTo(void *destination, size_t num){
     memcpy(destination, this->buffer, num);
 }
 
-void MainMemory::copyFrom(void *source){
-    copyFrom(source, this->mem_size);
+void MainMemory::copyFrom(const void *source){
+    size_t s = sizeof(source);
+    copyFrom(source, (s < this->mem_size ? s : this->mem_size));
 }
 
-void MainMemory::copyFrom(void *source, size_t num){
+void MainMemory::copyFrom(const void *source, size_t num){
     memcpy(this->buffer, source, num);
 }
