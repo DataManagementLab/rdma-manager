@@ -25,10 +25,17 @@ class RDMAClient : public RDMA_API_T, public ProtoClient {
   RDMAClient(size_t mem_size, std::string name, std::string ownIpPort, NodeType::Enum nodeType) : RDMA_API_T(mem_size), m_name(name), m_ownIpPort(ownIpPort), m_nodeType(nodeType)
   {
   }
+  RDMAClient(BaseMemory *memory, std::string name, std::string ownIpPort, NodeType::Enum nodeType) : RDMA_API_T(memory), m_name(name), m_ownIpPort(ownIpPort), m_nodeType(nodeType)
+  {
+  }
  public:
   RDMAClient() : RDMAClient(Config::RDMA_MEMSIZE) {}
   RDMAClient(size_t mem_size) : RDMAClient(mem_size, "RDMAClient") {}
   RDMAClient(size_t mem_size, std::string name) : RDMAClient(mem_size, name, Config::getIP(Config::RDMA_INTERFACE), NodeType::Enum::CLIENT)
+  {
+  }
+  RDMAClient(BaseMemory *memory) : RDMAClient(memory, "RDMAClient") {}
+  RDMAClient(BaseMemory *memory, std::string name) : RDMAClient(memory, name, Config::getIP(Config::RDMA_INTERFACE), NodeType::Enum::CLIENT)
   {
   }
   

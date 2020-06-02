@@ -22,7 +22,7 @@ BaseRDMA::BaseRDMA(BaseMemory *buffer) : m_buffer(buffer) {
   m_rdmaMem.push_back(rdma_mem_t(m_buffer->getSize(), true, 0));
 }
 
-BaseRDMA::BaseRDMA(size_t mem_size) : BaseRDMA(new MainMemory(mem_size, false)) {}
+BaseRDMA::BaseRDMA(size_t mem_size) : BaseRDMA(new MainMemory(mem_size)) {}
 
 BaseRDMA::BaseRDMA(size_t mem_size, bool huge) : BaseRDMA(new MainMemory(mem_size, huge)) {}
 

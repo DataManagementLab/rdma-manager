@@ -37,6 +37,15 @@ class RDMAServer : public ProtoServer, public RDMAClient<RDMA_API_T> {
     //   ProtoServer::startServer();
     // }
   }
+  RDMAServer(BaseMemory *memory) : RDMAServer("RDMAserver", memory){}
+  RDMAServer(string name, BaseMemory *memory) : RDMAServer(name, Config::RDMA_PORT, memory){}
+  RDMAServer(string name, int port, BaseMemory *memory) : ProtoServer(name, port, Config::getIP(Config::RDMA_INTERFACE)), RDMAClient<RDMA_API_T>(memory, name, Config::getIP(Config::RDMA_INTERFACE) + ":" + to_string(port), NodeType::Enum::SERVER)
+  {
+    // if (!ProtoServer::isRunning())
+    // {
+    //   ProtoServer::startServer();
+    // }
+  }
 
   ~RDMAServer() = default;
 

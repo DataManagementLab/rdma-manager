@@ -5,19 +5,30 @@
 
 using namespace rdma;
 
+#ifndef HUGEPAGE
+#define HUGEPAGE false
+#endif
+
 // constructors
-MainMemory::MainMemory(size_t mem_size) : MainMemory(mem_size, false){}
-MainMemory::MainMemory(size_t mem_size, bool huge) : BaseMemory(mem_size){
+MainMemory::MainMemory(size_t mem_size) : MainMemory(mem_size, HUGEPAGE){}
+MainMemory::MainMemory(size_t mem_size, bool huge) : MainMemory(mem_size, huge, Config::RDMA_NUMAREGION){}
+MainMemory::MainMemory(size_t mem_size, int numa_node) : MainMemory(mem_size, HUGEPAGE, numa_node){}
+MainMemory::MainMemory(size_t mem_size, bool huge, int numa_node) : BaseMemory(mem_size){
     this->huge = huge;
-    if(huge){
-        this->buffer = mmap(NULL, mem_size, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
-        madvise(this->buffer, mem_size, MADV_HUGEPAGE);
-    } else {
-        this->buffer = malloc(mem_size);
-    }
+    this->numa_node = numa_node;
+    // allocate memory
     #ifdef LINUX
-    numa_tonode_memory(this->buffer, this->mem_size, Config::RDMA_NUMAREGION);
+        if(huge){
+            this->buffer = mmap(NULL, this->mem_size, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
+            madvise(this->buffer, this->mem_size, MADV_HUGEPAGE);
+            numa_tonode_memory(this->buffer, this->mem_size, this->numa_node);
+        } else {
+            this->buffer = numa_alloc_onnode(this->mem_size, this->numa_node);
+        }
+    #else
+        this->buffer = malloc(this->mem_size);
     #endif
+
     memset(this->buffer, 0, this->mem_size);
     if (this->buffer == 0) {
         throw runtime_error("Cannot allocate memory! Requested size: " + to_string(this->mem_size));
@@ -28,11 +39,24 @@ MainMemory::MainMemory(size_t mem_size, bool huge) : BaseMemory(mem_size){
 
 // destructor
 MainMemory::~MainMemory(){
-    if(this->huge){
-        munmap(this->buffer, this->mem_size);
-    } else {
+    // release memory
+    #ifdef LINUX
+        if(this->huge){
+            munmap(this->buffer, this->mem_size);
+        }
+        numa_free(this->buffer, this->mem_size);
+    #else
         free(this->buffer);
-    }
+    #endif
+    this->buffer = nullptr;
+}
+
+bool MainMemory::isHuge(){
+    return this->huge;
+}
+
+int MainMemory::getNumaNode(){
+    return this->numa_node;
 }
 
 void MainMemory::setMemory(int value){

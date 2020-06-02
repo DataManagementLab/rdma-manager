@@ -56,6 +56,15 @@ public:
     
     /* Constructor
      * --------------
+     * Allocates CUDA (GPU) memory on the currently selected GPU
+     *
+     * mem_size:      size how much memory should be allocated
+     *
+     */
+    CudaMemory(size_t mem_size);
+
+    /* Constructor
+     * --------------
      * Allocates CUDA (GPU) memory
      *
      * mem_size:      size how much memory should be allocated
