@@ -56,7 +56,7 @@ public:
 	~RemoteMemoryPerf();
 
 	void printHeader() {
-		cout << "Size\tIter\tBW\tmopsPerS" << endl;
+		std::cout << "Size\tIter\tBW\tmopsPerS" << std::endl;
 	}
 
 	void printResults() {
@@ -64,14 +64,18 @@ public:
 		size_t bw = (((double) m_size * m_iter * m_numThreads ) / (1024 * 1024)) / time;
 		double mops = (((double) m_iter * m_numThreads) / time) / (1e6);
 
-		cout << m_size << "\t" << m_iter << "\t" << bw << "\t" << mops << endl;
+		std::cout << m_size << "\t" << m_iter << "\t" << bw << "\t" << mops << std::endl;
 
-		cout <<  time  << "time" << endl;
+		std::cout <<  time  << "time" << std::endl;
 	}
 
 	void printUsage() {
-		cout << "perf_test ... -s #servers ";
-		cout << "(-d #dataSize -p #serverPort -t #threadNum)?" << endl;
+		std::cout << "perf_test ... -s #servers ";
+		if (this->isClient())
+			std::cout << "(-d #dataSize -p #serverPort -t #threadNum)";
+		else
+			std::cout << "(-p #serverPort)";
+		std::cout << std::endl;
 	}
 
 	void runClient();

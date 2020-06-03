@@ -77,16 +77,20 @@ rdma::RemoteMemoryPerf::RemoteMemoryPerf(config_t config, bool isClient) :
 	this->isClient(isClient);
 
 	//check parameters
-	if (isClient && config.server.length() > 0) {
+	if (config.server.length() > 0) {
 		this->isRunnable(true);
-	} else if (!isClient) {
-		this->isRunnable(true);
+		Config::SEQUENCER_IP = rdma::Network::getAddressOfConnection(m_conns[0]);
 	}
 }
 
 rdma::RemoteMemoryPerf::RemoteMemoryPerf(string& conns, size_t serverPort,
 		size_t size, size_t iter, size_t threads) {
 	m_conns = StringHelper::split(conns);
+	for (auto &conn : m_conns)
+	{
+		conn += ":" + to_string(serverPort);
+	}
+	
 	m_serverPort = serverPort;
 	m_size = size;
 	m_iter = iter;
@@ -104,10 +108,15 @@ rdma::RemoteMemoryPerf::~RemoteMemoryPerf() {
 }
 
 void rdma::RemoteMemoryPerf::runServer() {
-	m_nodeIDSequencer = new NodeIDSequencer();
+	if (rdma::Config::getIP(rdma::Config::RDMA_INTERFACE) == rdma::Network::getAddressOfConnection(m_conns[0]))
+	{
+		std::cout << "Starting NodeIDSequencer on: " << rdma::Config::getIP(rdma::Config::RDMA_INTERFACE) << ":" << rdma::Config::SEQUENCER_PORT << std::endl;
+		m_nodeIDSequencer = new NodeIDSequencer();
+	}
 	
+	std::cout << "Starting RDMAServer on: " << rdma::Config::getIP(rdma::Config::RDMA_INTERFACE) << ":" << m_serverPort << std::endl;
 	m_dServer = new RDMAServer<ReliableRDMA>("test", m_serverPort);
-
+	m_dServer->startServer();
 	while (m_dServer->isRunning()) {
 		usleep(Config::RDMA_SLEEP_INTERVAL);
 	}
