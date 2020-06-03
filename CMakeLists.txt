@@ -27,17 +27,20 @@ if (CMAKE_BUILD_TYPE STREQUAL "Release")
 endif()
 
 
+# setup CUDA support (if enabled)
+if (CUDA_ENABLED)
+    enable_language(CUDA)
+    find_package(CUDA 10.1 REQUIRED)
+    # set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -lcudart")
+    # set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -lcudart")
+    add_definitions(-DCUDA_ENABLED)
+    MESSAGE(STATUS " CUDA SUPPORT:    ENABLED")
+else()
+    MESSAGE(STATUS " CUDA SUPPORT:    DISABLED")
+endif()
 
 # the compiler flags for compiling C++ sources
 MESSAGE( STATUS "CMAKE_CXX_FLAGS: " ${CMAKE_CXX_FLAGS} )
-
-if (CUDA_ENABLED)
-    add_definitions(-DCUDA_ENABLED)
-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -lcuda")
-    MESSAGE(STATUS "CUDA SUPPORT:  ENABLED")
-else()
-    MESSAGE(STATUS "CUDA SUPPORT:  DISABLED")
-endif()
 
 add_subdirectory(src)
 add_subdirectory(gtest)

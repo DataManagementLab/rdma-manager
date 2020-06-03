@@ -31,9 +31,10 @@ void test(int device_index, CudaMemory *mem){
     ASSERT_TRUE(strcmp(msg, check) == 0);
 }
 
-TEST_F(TestCudaMemory, test) {
-    CudaMemory *mem = new CudaMemory(MEMORY_SIZE, 0);
-    test(0, mem);
+TEST_F(TestCudaMemory, testMemory) {
+    int device_index = 0;
+    CudaMemory *mem = new CudaMemory(MEMORY_SIZE, device_index);
+    test(device_index, mem);
     delete mem;
 }
 

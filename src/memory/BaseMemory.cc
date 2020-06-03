@@ -78,7 +78,7 @@ void BaseMemory::init(){
     // create protected domain
     this->pd = ibv_alloc_pd(this->ib_ctx);
     if (this->pd == 0) {
-        throw runtime_error("Cannot create protected domain!");
+        throw runtime_error("Cannot create protected domain with InfiniBand");
     }
 
     // register memory
@@ -87,14 +87,16 @@ void BaseMemory::init(){
 
     this->mr = ibv_reg_mr(this->pd, this->buffer, this->mem_size, mr_flags);
     if (this->mr == 0) {
-        throw runtime_error("Cannot register memory!");
+        fprintf(stderr, "Cannot register memory(%p) for InfiniBand because error(%i): %s\n", this->buffer, errno, strerror(errno));
+        throw runtime_error("Cannot register memory for InfiniBand");
     }
 }
 
 BaseMemory::~BaseMemory(){
     // de-register memory region
     if (this->mr != nullptr){
-        ibv_dereg_mr(this->mr);
+        if(ibv_dereg_mr(this->mr))
+            fprintf(stderr, "Could not deregister memory from InfiniBand\n");
         this->mr = nullptr;
     }
 
