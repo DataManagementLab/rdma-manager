@@ -23,7 +23,7 @@ using google::protobuf::Any;
 
 namespace rdma {
 
-class ProtoServer : public Thread {
+class ProtoServer : private Thread {
  public:
   ProtoServer(string name, int port, std::string ip = "*");
   virtual ~ProtoServer();
@@ -45,6 +45,7 @@ class ProtoServer : public Thread {
   std::atomic<bool> m_running {false};
   ProtoSocket* m_pSocket;
   mutex m_handleLock;
+
 };
 
 }  // end namespace rdma
