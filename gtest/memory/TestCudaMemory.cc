@@ -22,9 +22,9 @@ void test(int device_index, CudaMemory *mem){
     cudaMemcpy((void*)check, mem->pointer(), sizeof(msg), cudaMemcpyDeviceToHost);
     ASSERT_TRUE(strcmp(msg, check) == 0);
 
-    memset((void*)check, 0, sizeof(check));
     mem->setMemory(0);
-    ASSERT_TRUE(strcmp((char*)mem->pointer(), check) == 0);
+    cudaMemcpy((void*)check, mem->pointer(), sizeof(check), cudaMemcpyDeviceToHost);
+    ASSERT_TRUE(strlen(check)==0);
 
     mem->copyFrom(msg);
     mem->copyTo(check);
