@@ -4,7 +4,6 @@
 #include "../utils/Config.h"
 
 #include <infiniband/verbs.h>
-// #include <infiniband/verbs_exp.h>
 #include <stdio.h>
 
 namespace rdma {
