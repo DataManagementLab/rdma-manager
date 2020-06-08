@@ -44,8 +44,9 @@ MainMemory::~MainMemory(){
     #ifdef LINUX
         if(this->huge){
             munmap(this->buffer, this->mem_size);
-        }
+        } // TODO else {
         numa_free(this->buffer, this->mem_size);
+        // TODO }
     #else
         free(this->buffer);
     #endif
