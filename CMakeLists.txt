@@ -102,8 +102,8 @@ MESSAGE( STATUS "CMAKE_CXX_FLAGS: " ${CMAKE_CXX_FLAGS} )
 
 add_subdirectory(src)
 add_subdirectory(gtest)
+add_subdirectory(perftest_old)
 add_subdirectory(perftest)
-# add_subdirectory(benchmark)
 
 
 unset(CUDA_ENABLED CACHE)
