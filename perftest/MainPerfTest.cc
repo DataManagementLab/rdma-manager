@@ -10,8 +10,8 @@
 
 DEFINE_string(test, "bandwidth", "Test: bandwidth, latency, atomics, multicast");
 DEFINE_bool(server, false, "Act as server for a client to test performance");
-DEFINE_bool(gpu, false, "Use GPU memory instead of main memory");
-DEFINE_uint64(size, 4096, "Memory size in bytes");
+DEFINE_int32(gpu, -1, "Index of GPU for memory allocation (negative for main memory)");
+DEFINE_uint64(memsize, 4096, "Memory size in bytes (per thread)");
 DEFINE_int32(threads, 1, "Amout of threads used by client for testing");
 DEFINE_uint64(iterations, 10000, "Amount of test repeats");
 DEFINE_string(nids, "172.18.94.20", "Address of NodeIDSequencer");
@@ -29,20 +29,20 @@ int main(int argc, char *argv[]){
 
         if(testName.compare("bandwidth") == 0){
             // Bandwidth Test
-            test = new rdma::BandwidthPerfTest(FLAGS_threads, FLAGS_size, FLAGS_iterations);
+            test = new rdma::BandwidthPerfTest(FLAGS_server, FLAGS_nids, FLAGS_port, FLAGS_gpu, FLAGS_threads, FLAGS_memsize, FLAGS_iterations);
         }
         if(test == nullptr){
             std::cerr << "No test with name '" << testName << "' found" << std::endl;
             continue;
         }
 
-        std::cout << std::endl << std::endl << "SETTING UP ENVIRONMENT FOR TEST '" << testName << "' ..." << std::endl;
+        std::cout << std::endl << "SETTING UP ENVIRONMENT FOR TEST '" << testName << "' ..." << std::endl;
         test->setupTest();
 
         std::cout << "RUN TEST WITH PARAMETERS:  " << test->getTestParameters() << std::endl;
         test->runTest();
 
-        std::cout << "DONE TESTING '" << testName << "'" << std::endl << "RESULTS: " << test->getTestResults() << std::endl;
+        std::cout << "RESULTS: " << test->getTestResults() << std::endl << "DONE TESTING '" << testName << "'" << std::endl << std::endl;
 
         delete test;
     }

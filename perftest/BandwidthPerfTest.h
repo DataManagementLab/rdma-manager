@@ -37,7 +37,7 @@ private:
 
 class BandwidthPerfTest : public rdma::PerfTest {
 public:
-	BandwidthPerfTest(int thread_count, uint64_t mem_per_thread, uint64_t iterations);
+	BandwidthPerfTest(bool is_server, std::string nodeIdSequencerAddr, int rdma_port, int gpu_index, int thread_count, uint64_t mem_per_thread, uint64_t iterations);
 	virtual ~BandwidthPerfTest();
 	std::string getTestParameters();
 	void setupTest();
@@ -49,14 +49,20 @@ public:
 	static bool signaled;
 
 private:
+	bool is_server;
+	std::string nodeIdSequencerAddr;
+	int rdma_port;
+	int gpu_index;
 	int thread_count;
 	uint64_t mem_per_thread;
+	uint64_t memory_size;
 	uint64_t iterations;
 	std::vector<std::string> m_conns;
 	std::vector<BandwidthPerfThread*> m_threads;
 
 	BaseMemory *m_memory;
-	RDMAServer<ReliableRDMA>* m_dServer;
+	RDMAServer<ReliableRDMA>* m_server;
+	RDMAClient<ReliableRDMA>* m_client;
 };
 
 

@@ -3,6 +3,7 @@
 #include "../src/memory/BaseMemory.h"
 #include "../src/memory/MainMemory.h"
 #include "../src/memory/CudaMemory.h"
+#include "../src/utils/Config.h"
 
 
 mutex rdma::BandwidthPerfTest::waitLock;
@@ -67,9 +68,14 @@ void rdma::BandwidthPerfThread::run() {
 }
 
 
-rdma::BandwidthPerfTest::BandwidthPerfTest(int thread_count, uint64_t mem_per_thread, uint64_t iterations) : PerfTest(){
+rdma::BandwidthPerfTest::BandwidthPerfTest(bool is_server, std::string nodeIdSequencerAddr, int rdma_port, int gpu_index, int thread_count, uint64_t mem_per_thread, uint64_t iterations) : PerfTest(){
+	this->is_server = is_server;
+	this->nodeIdSequencerAddr = nodeIdSequencerAddr;
+	this->rdma_port = rdma_port;
+	this->gpu_index = gpu_index;
 	this->thread_count = thread_count;
 	this->mem_per_thread = mem_per_thread;
+	this->memory_size = thread_count * mem_per_thread;
 	this->iterations = iterations;
 }
 rdma::BandwidthPerfTest::~BandwidthPerfTest(){
@@ -78,34 +84,63 @@ rdma::BandwidthPerfTest::~BandwidthPerfTest(){
 	}
 	m_threads.clear();
 	delete m_memory;
-
-	// TODO close server/client
+	if(is_server)
+		delete m_server;
+	else
+		delete m_client;
 }
 
 std::string rdma::BandwidthPerfTest::getTestParameters(){
 	std::ostringstream oss;
-	oss << "threads=" << thread_count << " | memory=" << (thread_count*mem_per_thread) << " (" << thread_count << "x " << mem_per_thread << ") | iterations=" << iterations;
+	if(is_server){
+		oss << "Server | memory=";
+	} else {
+		oss << "Client | threads=" << thread_count << " | memory=";
+	}
+	oss << memory_size << " (" << thread_count << "x " << mem_per_thread << ") [";
+	if(gpu_index < 0){
+		oss << "MAIN";
+	} else {
+		oss << "GPU." << gpu_index; 
+	}
+	oss << "]";
+	if(!is_server){
+		oss << " | iterations=" << iterations;
+	}
 	return oss.str();
 }
 
 void rdma::BandwidthPerfTest::setupTest(){
-	printf("TEST SETUP\n"); // TODO REMOVE
-
-	// TODO
-
+	m_memory = (gpu_index<0 ? (rdma::BaseMemory*)new rdma::MainMemory(memory_size) : (rdma::BaseMemory*)new rdma::CudaMemory(memory_size, gpu_index));
 }
 
 void rdma::BandwidthPerfTest::runTest(){
-	printf("TEST RUNNING\n"); // TODO REMOVE
+	if(is_server){
+		// Server
+		m_server = new RDMAServer<ReliableRDMA>("BandwidthTestRDMAServer", rdma_port, m_memory);
+		std::cout << "Server listening on " << rdma::Config::getIP(rdma::Config::RDMA_INTERFACE) << ":" << rdma_port << " . . ." << std::endl;
+		m_server->startServer();
+		while (m_server->isRunning()) {
+            usleep(Config::RDMA_SLEEP_INTERVAL);
+        }
+		std::cout << "Server stopped" << std::endl;
 
-	// TODO
+	} else {
+		// Client
+		m_client = new RDMAClient<ReliableRDMA>(m_memory, "BandwidthTestRDMAClient");
 
+		
+	}
 }
 
 
 std::string rdma::BandwidthPerfTest::getTestResults(){
+	if(is_server){
+		return "only client";
+	} else {
 
-	// TODO
+		// TODO
+		return "TODO";
 
-	return "RESULTS"; // TODO REMOVE
+	}
 }
