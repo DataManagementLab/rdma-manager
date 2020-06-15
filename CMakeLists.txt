@@ -85,6 +85,8 @@ set(CMAKE_CXX_FLAGS_UBSAN
     FORCE)
 
 
+    
+
 # setup CUDA support (if enabled)
 if (CUDA_ENABLED)
     enable_language(CUDA)
