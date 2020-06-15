@@ -3,7 +3,6 @@
 #include "../src/memory/BaseMemory.h"
 #include "../src/memory/MainMemory.h"
 #include "../src/memory/CudaMemory.h"
-#include "PerfEvent.hpp"
 
 
 mutex rdma::BandwidthPerfTest::waitLock;
@@ -53,8 +52,8 @@ void rdma::BandwidthPerfThread::run() {
 
 	{
 		std::cout << "Perf Measurement enabled" << std::endl;
-		PerfEventBlock pb(m_iter);
-		startTimer();
+		//PerfEventBlock pb(m_iter);
+		//startTimer();
 		for (size_t i = 0; i < m_iter; ++i) {
 			size_t connIdx = i % m_conns.size();
 			bool signaled = (i == (m_iter - 1));
@@ -62,18 +61,31 @@ void rdma::BandwidthPerfThread::run() {
 
 
 		}
-		endTimer();
+		//endTimer();
 	}	
 
 }
 
 
-rdma::BandwidthPerfTest::~BandwidthPerfTest() : PerfTest(){}
+rdma::BandwidthPerfTest::BandwidthPerfTest(int thread_count, uint64_t mem_per_thread, uint64_t iterations) : PerfTest(){
+	this->thread_count = thread_count;
+	this->mem_per_thread = mem_per_thread;
+	this->iterations = iterations;
+}
 rdma::BandwidthPerfTest::~BandwidthPerfTest(){
 	for (size_t i = 0; i < m_threads.size(); i++) {
 		delete m_threads[i];
 	}
 	m_threads.clear();
+	delete m_memory;
+
+	// TODO close server/client
+}
+
+std::string rdma::BandwidthPerfTest::getTestParameters(){
+	std::ostringstream oss;
+	oss << "threads=" << thread_count << " | memory=" << (thread_count*mem_per_thread) << "(" << thread_count << "x " << mem_per_thread << ") | iterations=" << iterations;
+	return oss.str();
 }
 
 void rdma::BandwidthPerfTest::setupTest(){
@@ -83,16 +95,17 @@ void rdma::BandwidthPerfTest::setupTest(){
 
 }
 
-std::string rdma::BandwidthPerfTest::getTestParameters(){
-
-	// TODO
-
-	return "PARAMETERS"; // TODO REMOVE
-}
-
 void rdma::BandwidthPerfTest::runTest(){
 	printf("TEST RUNNING\n"); // TODO REMOVE
 
 	// TODO
 
+}
+
+
+std::string rdma::BandwidthPerfTest::getTestResults(){
+
+	// TODO
+
+	return "RESULTS"; // TODO REMOVE
 }

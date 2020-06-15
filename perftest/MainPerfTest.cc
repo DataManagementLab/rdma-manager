@@ -13,6 +13,7 @@ DEFINE_bool(server, false, "Act as server for a client to test performance");
 DEFINE_bool(gpu, false, "Use GPU memory instead of main memory");
 DEFINE_uint64(size, 4096, "Memory size in bytes");
 DEFINE_int32(threads, 1, "Amout of threads used by client for testing");
+DEFINE_uint64(iterations, 10000, "Amount of test repeats");
 DEFINE_string(nids, "172.18.94.20", "Address of NodeIDSequencer");
 DEFINE_int32(port, rdma::Config::RDMA_PORT, "RDMA port");
 
@@ -26,25 +27,22 @@ int main(int argc, char *argv[]){
     while(std::getline(testNamesRaw, testName, '_')){
         rdma::PerfTest *test = nullptr;
 
-        if(testName.compare("bandwidth")){
+        if(testName.compare("bandwidth") == 0){
             // Bandwidth Test
-            test = new rdma::BandwidthPerfTest();
-            test->setupTest();
-            test->runTest();
-            
+            test = new rdma::BandwidthPerfTest(FLAGS_threads, FLAGS_size, FLAGS_iterations);
         }
         if(test == nullptr){
             std::cerr << "No test with name '" << testName << "' found" << std::endl;
             continue;
         }
 
-        std::cout << std::endl << std::endl << "Setting up test environment for '" << testName << "' test ..." << std::endl;
+        std::cout << std::endl << std::endl << "SETTING UP ENVIRONMENT FOR TEST '" << testName << "' ..." << std::endl;
         test->setupTest();
 
-        std::cout << "Run test with parameters:  " << test->getTestParameters() << std::endl;
+        std::cout << "RUN TEST WITH PARAMETERS:  " << test->getTestParameters() << std::endl;
         test->runTest();
 
-        std::cout << "Test '" << testName << "' DONE" << std::endl;
+        std::cout << "DONE TESTING '" << testName << "'" << std::endl << "RESULTS: " << test->getTestResults() << std::endl;
 
         delete test;
     }
