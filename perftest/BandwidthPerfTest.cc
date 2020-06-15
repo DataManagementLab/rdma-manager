@@ -84,7 +84,7 @@ rdma::BandwidthPerfTest::~BandwidthPerfTest(){
 
 std::string rdma::BandwidthPerfTest::getTestParameters(){
 	std::ostringstream oss;
-	oss << "threads=" << thread_count << " | memory=" << (thread_count*mem_per_thread) << "(" << thread_count << "x " << mem_per_thread << ") | iterations=" << iterations;
+	oss << "threads=" << thread_count << " | memory=" << (thread_count*mem_per_thread) << " (" << thread_count << "x " << mem_per_thread << ") | iterations=" << iterations;
 	return oss.str();
 }
 
