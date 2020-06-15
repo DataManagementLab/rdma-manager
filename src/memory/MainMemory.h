@@ -2,10 +2,11 @@
 #define MainMemory_H_
 
 #include "BaseMemory.h"
+#include "AbstractMainMemory.h"
 
 namespace rdma {
     
-class MainMemory : public BaseMemory {
+class MainMemory : virtual public AbstractMainMemory, virtual public BaseMemory {
 
 protected:
     bool huge;
@@ -67,18 +68,6 @@ public:
     virtual bool isHuge();
 
     virtual int getNumaNode();
-
-    virtual void setMemory(int value) override;
-
-    virtual void setMemory(int value, size_t num) override;
-
-    virtual void copyTo(void *destination) override;
-
-    virtual void copyTo(void *destination, size_t num) override;
-
-    virtual void copyFrom(const void *source) override;
-
-    virtual void copyFrom(const void *source, size_t num) override;
 
 };
 

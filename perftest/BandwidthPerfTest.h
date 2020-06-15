@@ -15,7 +15,7 @@ namespace rdma {
 
 class BandwidthPerfThread : public Thread {
 public:
-	BandwidthPerfThread(std::vector<std::string>& conns, size_t size, size_t iter);
+	BandwidthPerfThread(std::vector<std::string>& conns, size_t memory_size_per_thread, size_t iterations);
 	~BandwidthPerfThread();
 	void run();
 	bool ready() {
@@ -26,8 +26,9 @@ private:
 	bool m_ready = false;
 	RDMAClient<ReliableRDMA> m_client;
 	void* m_data;
-	size_t m_size;
-	size_t m_iter;
+	size_t m_memory_size_per_thread;
+	size_t m_iterations;
+	bool m_is_main_memory;
 	std::vector<std::string> m_conns;
 	std::vector<NodeID> m_addr;
 	size_t* m_remOffsets;
@@ -49,14 +50,14 @@ public:
 	static bool signaled;
 
 private:
-	bool is_server;
-	std::string nodeIdSequencerAddr;
-	int rdma_port;
-	int gpu_index;
-	int thread_count;
-	uint64_t mem_per_thread;
-	uint64_t memory_size;
-	uint64_t iterations;
+	bool m_is_server;
+	std::string m_nodeIdSequencerAddr;
+	int m_rdma_port;
+	int m_gpu_index;
+	int m_thread_count;
+	uint64_t m_memory_per_thread;
+	uint64_t m_memory_size;
+	uint64_t m_iterations;
 	std::vector<std::string> m_conns;
 	std::vector<BandwidthPerfThread*> m_threads;
 

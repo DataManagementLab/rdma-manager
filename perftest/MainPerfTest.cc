@@ -8,7 +8,7 @@
 #include "PerfTest.h"
 #include "BandwidthPerfTest.h"
 
-DEFINE_string(test, "bandwidth", "Test: bandwidth, latency, atomics, multicast");
+DEFINE_string(test, "bandwidth", "Test: bandwidth, latency, atomics, multicast (multiples separated with space)");
 DEFINE_bool(server, false, "Act as server for a client to test performance");
 DEFINE_int32(gpu, -1, "Index of GPU for memory allocation (negative for main memory)");
 DEFINE_uint64(memsize, 4096, "Memory size in bytes (per thread)");
@@ -24,7 +24,9 @@ int main(int argc, char *argv[]){
     std::vector<std::string> testNames;
     std::stringstream testNamesRaw(FLAGS_test);
     std::string testName;
-    while(std::getline(testNamesRaw, testName, '_')){
+    while(std::getline(testNamesRaw, testName, ' ')){
+        if(testName.length() == 0)
+            continue;
         rdma::PerfTest *test = nullptr;
 
         if(testName.compare("bandwidth") == 0){

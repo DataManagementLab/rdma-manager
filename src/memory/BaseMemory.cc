@@ -19,8 +19,7 @@
 using namespace rdma;
 
 // constructor
-BaseMemory::BaseMemory(size_t mem_size, int ib_port){
-    this->mem_size = mem_size;
+BaseMemory::BaseMemory(size_t mem_size, int ib_port) : AbstractBaseMemory(mem_size){
     this->ib_port = ib_port;
 
     // Logging::debug(__FILE__, __LINE__, "Create memory region");
@@ -111,14 +110,6 @@ BaseMemory::~BaseMemory(){
         ibv_close_device(this->ib_ctx);
         this->ib_ctx = nullptr;
     }
-}
-
-size_t BaseMemory::getSize(){
-    return this->mem_size;
-}
-
-void* BaseMemory::pointer(){
-    return this->buffer;
 }
 
 int BaseMemory::getIBPort(){

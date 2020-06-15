@@ -7,6 +7,7 @@
 #ifndef BaseRDMA_H_
 #define BaseRDMA_H_
 
+#include "../memory/LocalBaseMemoryStub.h"
 #include "../memory/BaseMemory.h"
 #include "../proto/ProtoClient.h"
 #include "../utils/Config.h"
@@ -120,6 +121,14 @@ class BaseRDMA {
   virtual void *localAlloc(const size_t &size) = 0;
   virtual void localFree(const void *ptr) = 0;
   virtual void localFree(const size_t &offset) = 0;
+
+  LocalBaseMemoryStub *localMalloc(const size_t &size){
+
+    // TODO
+    printf("BLA %lu", size);
+
+    return nullptr; // TODO REMOVE
+  }
 
   void *getBuffer() { return m_buffer->pointer(); }
 

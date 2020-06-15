@@ -13,7 +13,7 @@ using namespace rdma;
 MainMemory::MainMemory(size_t mem_size) : MainMemory(mem_size, HUGEPAGE){}
 MainMemory::MainMemory(size_t mem_size, bool huge) : MainMemory(mem_size, huge, Config::RDMA_NUMAREGION){}
 MainMemory::MainMemory(size_t mem_size, int numa_node) : MainMemory(mem_size, HUGEPAGE, numa_node){}
-MainMemory::MainMemory(size_t mem_size, bool huge, int numa_node) : BaseMemory(mem_size){
+MainMemory::MainMemory(size_t mem_size, bool huge, int numa_node) : AbstractBaseMemory(mem_size), AbstractMainMemory(mem_size), BaseMemory(mem_size){
     this->huge = huge;
     this->numa_node = numa_node;
     // allocate memory
@@ -59,30 +59,4 @@ bool MainMemory::isHuge(){
 
 int MainMemory::getNumaNode(){
     return this->numa_node;
-}
-
-void MainMemory::setMemory(int value){
-    setMemory(value, this->mem_size);
-}
-
-void MainMemory::setMemory(int value, size_t num){
-    memset(this->buffer, value, num);
-}
-
-void MainMemory::copyTo(void *destination){
-    size_t s = sizeof(destination);
-    copyTo(destination, (s < this->mem_size ? s : this->mem_size));
-}
-
-void MainMemory::copyTo(void *destination, size_t num){
-    memcpy(destination, this->buffer, num);
-}
-
-void MainMemory::copyFrom(const void *source){
-    size_t s = sizeof(source);
-    copyFrom(source, (s < this->mem_size ? s : this->mem_size));
-}
-
-void MainMemory::copyFrom(const void *source, size_t num){
-    memcpy(this->buffer, source, num);
 }
