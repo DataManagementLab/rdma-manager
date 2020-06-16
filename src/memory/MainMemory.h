@@ -2,6 +2,7 @@
 #define MainMemory_H_
 
 #include "AbstractMainMemory.h"
+#include "LocalMainMemoryStub.h"
 #include "BaseMemory.h"
 
 namespace rdma {
@@ -69,6 +70,7 @@ public:
 
     virtual int getNumaNode();
 
+    LocalBaseMemoryStub *createLocalMemoryStub(void* pointer, size_t mem_size, std::function<void(const void* buffer)> freeFunc) override;
 };
 
 } // namespace rdma

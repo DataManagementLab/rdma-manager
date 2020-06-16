@@ -2,6 +2,7 @@
 #define BaseMemory_H_
 
 #include "AbstractBaseMemory.h"
+#include "LocalBaseMemoryStub.h"
 #include "../utils/Config.h"
 
 #include <infiniband/verbs.h>
@@ -79,6 +80,18 @@ public:
      */
     ibv_context* ib_context();
 
+    /* Function createLocalMemoryStub
+     * ---------------
+     * Creates a memory stub object for handling 
+     * a given memory sub-section of this memory
+     *
+     * pointer:  pointer to memory sub-section
+     * mem_size:  size of memory sub-section
+     * freeFunc:  function to release the memory sub-section
+     * 
+     * return: object for handling memory sub-section 
+     */
+    virtual LocalBaseMemoryStub *createLocalMemoryStub(void* pointer, size_t mem_size, std::function<void(const void* buffer)> freeFunc) = 0;
 };
 
 } // namespace rdma

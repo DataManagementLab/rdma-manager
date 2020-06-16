@@ -123,11 +123,10 @@ class BaseRDMA {
   virtual void localFree(const size_t &offset) = 0;
 
   LocalBaseMemoryStub *localMalloc(const size_t &size){
-
-    // TODO
-    printf("BLA %lu", size);
-
-    return nullptr; // TODO REMOVE
+    const void* pointer = (const void*) localAlloc(size);
+    return m_buffer->createLocalMemoryStub((void*)pointer, (size_t)size, [this](const void* ptr){
+      this->localFree(ptr);
+    });
   }
 
   void *getBuffer() { return m_buffer->pointer(); }

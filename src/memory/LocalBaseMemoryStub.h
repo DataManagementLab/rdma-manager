@@ -2,13 +2,14 @@
 #define LocalBaseMemoryStub_H_
 
 #include "AbstractBaseMemory.h"
+#include <functional>
 
 namespace rdma {
 
 class LocalBaseMemoryStub : virtual public AbstractBaseMemory {
 
 protected:
-    void (*freeFunc)(void* buffer);
+    std::function<void(const void* buffer)> freeFunc;
 
 public:
 
@@ -21,7 +22,7 @@ public:
      * freeFunc:  function handle to release buffer
      *
      */
-    LocalBaseMemoryStub(void* buffer, size_t mem_size, void freeFunc(void* buffer));
+    LocalBaseMemoryStub(void* buffer, size_t mem_size, std::function<void(const void* buffer)> freeFunc);
 
     /* Destructor
      * -------------

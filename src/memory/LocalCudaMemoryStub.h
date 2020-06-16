@@ -21,7 +21,7 @@ public:
      * freeFunc:  function handle to release buffer
      *
      */
-    LocalCudaMemoryStub(void* buffer, size_t mem_size, void freeFunc(void* buffer));
+    LocalCudaMemoryStub(void* buffer, size_t mem_size, std::function<void(const void* buffer)> freeFunc);
 
 };
 

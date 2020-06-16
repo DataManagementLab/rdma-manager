@@ -2,8 +2,9 @@
 #define PerfThread_H
 
 #include "PerfTest.h"
-#include "../rdma/RDMAClient.h"
-#include "../rdma/RDMAServer.h"
+#include "../src/memory/LocalBaseMemoryStub.h"
+#include "../src/rdma/RDMAClient.h"
+#include "../src/rdma/RDMAServer.h"
 
 #include <thread>
 #include <vector>

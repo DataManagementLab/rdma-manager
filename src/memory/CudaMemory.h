@@ -3,8 +3,9 @@
 #ifndef CudaMemory_H_
 #define CudaMemory_H_
 
-#include "BaseMemory.h"
 #include "AbstractCudaMemory.h"
+#include "LocalCudaMemoryStub.h"
+#include "BaseMemory.h"
 
 namespace rdma {
     
@@ -36,6 +37,7 @@ public:
     // destructor
     virtual ~CudaMemory();
 
+    LocalBaseMemoryStub *createLocalMemoryStub(void* pointer, size_t mem_size, std::function<void(const void* buffer)> freeFunc) override;
 };
 
 } // namespace rdma

@@ -19,7 +19,7 @@ public:
      * freeFunc:  function handle to release buffer
      *
      */
-    LocalMainMemoryStub(void* buffer, size_t mem_size, void freeFunc(void* buffer));
+    LocalMainMemoryStub(void* buffer, size_t mem_size, std::function<void(const void* buffer)> freeFunc);
 
 };
 

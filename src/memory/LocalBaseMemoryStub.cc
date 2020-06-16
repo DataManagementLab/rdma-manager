@@ -7,7 +7,7 @@
 using namespace rdma;
 
 // constructor
-LocalBaseMemoryStub::LocalBaseMemoryStub(void* buffer, size_t mem_size, void freeFunc(void* buffer)) : AbstractBaseMemory(buffer, mem_size){
+LocalBaseMemoryStub::LocalBaseMemoryStub(void* buffer, size_t mem_size, std::function<void(const void* buffer)> freeFunc) : AbstractBaseMemory(buffer, mem_size){
     this->freeFunc = freeFunc;
 }
 

@@ -8,6 +8,7 @@ using namespace rdma;
 AbstractCudaMemory::AbstractCudaMemory(size_t mem_size, int device_index) : AbstractBaseMemory(mem_size){
     this->device_index = device_index;
 }
+AbstractCudaMemory::AbstractCudaMemory(void* buffer, size_t mem_size) : AbstractBaseMemory(buffer, mem_size){}
 AbstractCudaMemory::AbstractCudaMemory(void* buffer, size_t mem_size, int device_index) : AbstractBaseMemory(buffer, mem_size){
     this->device_index = device_index;
 }
