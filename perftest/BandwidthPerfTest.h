@@ -26,7 +26,7 @@ public:
 private:
 	bool m_ready = false;
 	RDMAClient<ReliableRDMA> m_client;
-	void* m_data;
+	LocalBaseMemoryStub* m_memory;
 	size_t m_memory_size_per_thread;
 	size_t m_iterations;
 	bool m_is_main_memory;

@@ -28,24 +28,21 @@ rdma::BandwidthPerfThread::BandwidthPerfThread(std::vector<std::string>& conns, 
 		m_client.remoteAlloc(conn, m_memory_size_per_thread, m_remOffsets[i]);
 	}
 
-	m_data = m_client.localAlloc(m_memory_size_per_thread);
-	memset(m_data, 1, m_memory_size_per_thread);
+	m_memory = m_client.localMalloc(m_memory_size_per_thread);
+	m_memory->setMemory(1);
 }
 
 rdma::BandwidthPerfThread::~BandwidthPerfThread() {
-
-	m_client.localFree(m_data);
-
 	for (size_t i = 0; i < m_conns.size(); ++i) {
 		string conn = m_conns[i];
 		m_client.remoteFree(conn, m_remOffsets[i], m_memory_size_per_thread);
 	}
     delete m_remOffsets;
-
+	delete m_memory;
 }
 
 void rdma::BandwidthPerfThread::run() {
-	unique_lock < mutex > lck(BandwidthPerfTest::waitLock);
+	unique_lock<mutex> lck(BandwidthPerfTest::waitLock);
 	if (!BandwidthPerfTest::signaled) {
 		m_ready = true;
 		BandwidthPerfTest::waitCv.wait(lck);
@@ -59,7 +56,7 @@ void rdma::BandwidthPerfThread::run() {
 		for (size_t i = 0; i < m_iterations; ++i) {
 			size_t connIdx = i % m_conns.size();
 			bool signaled = (i == (m_iterations - 1));
-			m_client.write(m_addr[connIdx],m_remOffsets[connIdx], m_data, m_memory_size_per_thread, signaled);
+			m_client.write(m_addr[connIdx],m_remOffsets[connIdx], m_memory->pointer(), m_memory_size_per_thread, signaled);
 
 
 		}
