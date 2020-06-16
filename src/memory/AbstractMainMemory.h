@@ -29,9 +29,6 @@ public:
      */
     AbstractMainMemory(void* buffer, size_t mem_size);
 
-    // destructor
-    virtual ~AbstractMainMemory();
-
     virtual void setMemory(int value) override;
 
     virtual void setMemory(int value, size_t num) override;

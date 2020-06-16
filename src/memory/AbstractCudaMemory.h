@@ -86,9 +86,6 @@ public:
      */
     AbstractCudaMemory(void* buffer, size_t mem_size, int device_index);
 
-    // destructor
-    virtual ~AbstractCudaMemory();
-
     /* Function:  getDeviceIndex
      * ---------------------
      * Returns the index of the GPU device where the memory is allocated

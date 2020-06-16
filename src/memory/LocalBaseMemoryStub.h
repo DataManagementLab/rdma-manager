@@ -27,7 +27,7 @@ public:
      * -------------
      * Releases the allocated memory
      */
-    virtual ~LocalBaseMemoryStub();
+    ~LocalBaseMemoryStub();
 };
 
 } // namespace rdma

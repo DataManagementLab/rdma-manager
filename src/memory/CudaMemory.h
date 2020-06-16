@@ -34,7 +34,7 @@ public:
     CudaMemory(size_t mem_size, int device_index);
 
     // destructor
-    ~CudaMemory();
+    virtual ~CudaMemory();
 
 };
 

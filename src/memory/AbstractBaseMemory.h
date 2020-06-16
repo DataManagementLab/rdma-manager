@@ -31,12 +31,6 @@ public:
      */
     AbstractBaseMemory(void* buffer, size_t mem_size);
 
-    /* Destructor
-     * -------------
-     * Releases the handled memory
-     */
-    virtual ~AbstractBaseMemory() = 0;
-
     /* Function:  getSize
      * ---------------------
      * Returns the size of the handled memory

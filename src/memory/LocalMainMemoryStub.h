@@ -21,10 +21,6 @@ public:
      */
     LocalMainMemoryStub(void* buffer, size_t mem_size, void freeFunc(void* buffer));
 
-
-    // destructor
-    ~LocalMainMemoryStub();
-
 };
 
 } // namespace rdma

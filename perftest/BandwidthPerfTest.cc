@@ -25,11 +25,11 @@ rdma::BandwidthPerfThread::BandwidthPerfThread(std::vector<std::string>& conns, 
 			throw invalid_argument("BandwidthPerfThread connection failed");
 		}
 		m_addr.push_back(nodeId);
-		m_client.remoteAlloc(conn, m_size, m_remOffsets[i]);
+		m_client.remoteAlloc(conn, m_memory_size_per_thread, m_remOffsets[i]);
 	}
 
-	m_data = m_client.localAlloc(m_size);
-	memset(m_data, 1, m_size);
+	m_data = m_client.localAlloc(m_memory_size_per_thread);
+	memset(m_data, 1, m_memory_size_per_thread);
 }
 
 rdma::BandwidthPerfThread::~BandwidthPerfThread() {
@@ -38,7 +38,7 @@ rdma::BandwidthPerfThread::~BandwidthPerfThread() {
 
 	for (size_t i = 0; i < m_conns.size(); ++i) {
 		string conn = m_conns[i];
-		m_client.remoteFree(conn, m_remOffsets[i], m_size);
+		m_client.remoteFree(conn, m_remOffsets[i], m_memory_size_per_thread);
 	}
     delete m_remOffsets;
 
@@ -54,12 +54,12 @@ void rdma::BandwidthPerfThread::run() {
 
 	{
 		std::cout << "Perf Measurement enabled" << std::endl;
-		//PerfEventBlock pb(m_iter);
+		//PerfEventBlock pb(m_iterations);
 		//startTimer();
-		for (size_t i = 0; i < m_iter; ++i) {
+		for (size_t i = 0; i < m_iterations; ++i) {
 			size_t connIdx = i % m_conns.size();
-			bool signaled = (i == (m_iter - 1));
-			m_client.write(m_addr[connIdx],m_remOffsets[connIdx],m_data,m_size,signaled);
+			bool signaled = (i == (m_iterations - 1));
+			m_client.write(m_addr[connIdx],m_remOffsets[connIdx], m_data, m_memory_size_per_thread, signaled);
 
 
 		}
@@ -98,7 +98,7 @@ std::string rdma::BandwidthPerfTest::getTestParameters(){
 	} else {
 		oss << "Client | threads=" << m_thread_count << " | memory=";
 	}
-	oss << memory_size << " (" << m_thread_count << "x " << m_memory_per_thread << ") [";
+	oss << m_memory_size << " (" << m_thread_count << "x " << m_memory_per_thread << ") [";
 	if(m_gpu_index < 0){
 		oss << "MAIN";
 	} else {
@@ -130,7 +130,7 @@ void rdma::BandwidthPerfTest::runTest(){
 		// Client
 		m_client = new RDMAClient<ReliableRDMA>(m_memory, "BandwidthTestRDMAClient");
 
-		for (size_t i = 0; i < thread_count; i++) {
+		for (int i = 0; i < m_thread_count; i++) {
             BandwidthPerfThread* perfThread = new BandwidthPerfThread(m_conns, m_memory_per_thread, m_iterations);
             perfThread->start();
             if (!perfThread->ready()) {
@@ -140,10 +140,10 @@ void rdma::BandwidthPerfTest::runTest(){
         }
 
         //send signal to run benchmark
-        BandwidthPerfThread::signaled = false;
-        unique_lock<mutex> lck(BandwidthPerfThread::waitLock);
-        BandwidthPerfThread::waitCv.notify_all();
-        BandwidthPerfThread::signaled = true;
+        BandwidthPerfTest::signaled = false;
+        unique_lock<mutex> lck(BandwidthPerfTest::waitLock);
+        BandwidthPerfTest::waitCv.notify_all();
+        BandwidthPerfTest::signaled = true;
         lck.unlock();
         for (size_t i = 0; i < m_threads.size(); i++) {
             m_threads[i]->join();
@@ -153,7 +153,7 @@ void rdma::BandwidthPerfTest::runTest(){
 
 
 std::string rdma::BandwidthPerfTest::getTestResults(){
-	if(is_server){
+	if(m_is_server){
 		return "only client";
 	} else {
 
@@ -161,4 +161,5 @@ std::string rdma::BandwidthPerfTest::getTestResults(){
 		return "TODO";
 
 	}
+	return NULL;
 }

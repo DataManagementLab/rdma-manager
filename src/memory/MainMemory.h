@@ -1,8 +1,8 @@
 #ifndef MainMemory_H_
 #define MainMemory_H_
 
-#include "BaseMemory.h"
 #include "AbstractMainMemory.h"
+#include "BaseMemory.h"
 
 namespace rdma {
     
@@ -63,7 +63,7 @@ public:
     MainMemory(size_t mem_size, bool huge, int numa_node);
 
     // destructor
-    ~MainMemory();
+    virtual ~MainMemory();
 
     virtual bool isHuge();
 
