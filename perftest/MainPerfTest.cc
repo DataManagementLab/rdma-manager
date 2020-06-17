@@ -14,7 +14,7 @@ DEFINE_int32(gpu, -1, "Index of GPU for memory allocation (negative for main mem
 DEFINE_uint64(memsize, 4096, "Memory size in bytes (per thread)");
 DEFINE_int32(threads, 1, "Amout of threads used by client for testing");
 DEFINE_uint64(iterations, 10000, "Amount of test repeats");
-DEFINE_string(nids, "172.18.94.20", "Address of NodeIDSequencer");
+DEFINE_string(addr, "172.18.94.20", "Addresses of NodeIDSequencer to connect/bind to");
 DEFINE_int32(port, rdma::Config::RDMA_PORT, "RDMA port");
 
 int main(int argc, char *argv[]){
@@ -31,7 +31,7 @@ int main(int argc, char *argv[]){
 
         if(testName.compare("bandwidth") == 0){
             // Bandwidth Test
-            test = new rdma::BandwidthPerfTest(FLAGS_server, FLAGS_nids, FLAGS_port, FLAGS_gpu, FLAGS_threads, FLAGS_memsize, FLAGS_iterations);
+            test = new rdma::BandwidthPerfTest(FLAGS_server, FLAGS_addr, FLAGS_port, FLAGS_gpu, FLAGS_threads, FLAGS_memsize, FLAGS_iterations);
         }
         if(test == nullptr){
             std::cerr << "No test with name '" << testName << "' found" << std::endl;

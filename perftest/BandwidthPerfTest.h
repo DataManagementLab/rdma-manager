@@ -16,7 +16,7 @@ namespace rdma {
 
 class BandwidthPerfThread : public Thread {
 public:
-	BandwidthPerfThread(std::vector<std::string>& conns, size_t memory_size_per_thread, size_t iterations);
+	BandwidthPerfThread(std::vector<std::string>& rdma_addresses, size_t memory_size_per_thread, size_t iterations);
 	~BandwidthPerfThread();
 	void run();
 	bool ready() {
@@ -30,9 +30,14 @@ private:
 	size_t m_memory_size_per_thread;
 	size_t m_iterations;
 	bool m_is_main_memory;
-	std::vector<std::string> m_conns;
+	std::vector<std::string> m_rdma_addresses;
 	std::vector<NodeID> m_addr;
 	size_t* m_remOffsets;
+	int m_elapsedWriteMs = -1;
+	int m_elapsedReadMs = -1;
+	int m_elapsedSendMs = -1;
+	int m_elapsedFetchAddMs = -1;
+	int m_elapsedCompareSwapMs = -1;
 };
 
 
@@ -49,22 +54,31 @@ public:
 	static mutex waitLock;
 	static condition_variable waitCv;
 	static bool signaled;
+	static char testMode; // 0x00=write  0x01=read  0x02=send/recv  0x03=fetch&add  0x04=compare&swap
 
 private:
 	bool m_is_server;
-	std::string m_nodeIdSequencerAddr;
+	NodeIDSequencer *m_nodeIDSequencer;
+	std::vector<std::string> m_rdma_addresses;
 	int m_rdma_port;
 	int m_gpu_index;
 	int m_thread_count;
 	uint64_t m_memory_per_thread;
 	uint64_t m_memory_size;
 	uint64_t m_iterations;
-	std::vector<std::string> m_conns;
 	std::vector<BandwidthPerfThread*> m_threads;
+	int m_elapsedWriteMs;
+	int m_elapsedReadMs;
+	int m_elapsedSendMs;
+	int m_elapsedFetchAddMs;
+	int m_elapsedCompareSwapMs;
 
 	BaseMemory *m_memory;
 	RDMAServer<ReliableRDMA>* m_server;
 	RDMAClient<ReliableRDMA>* m_client;
+
+	void makeThreadsReady(char testMode); // 0x00=write  0x01=read  0x02=send/recv  0x03=fetch&add  0x04=compare&swap
+	void runThreads();
 };
 
 

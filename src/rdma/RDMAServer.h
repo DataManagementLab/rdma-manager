@@ -55,12 +55,10 @@ class RDMAServer : public ProtoServer, public RDMAClient<RDMA_API_T> {
       // std::cout << "RDMAServer requesting nodeid!" << std::endl;
       RDMAClient<RDMA_API_T>::m_ownNodeID = RDMAClient<RDMA_API_T>::requestNodeID(RDMAClient<RDMA_API_T>::m_sequencerIpPort, RDMAClient<RDMA_API_T>::m_ownIpPort, RDMAClient<RDMA_API_T>::m_nodeType);
     }
-
     if (ProtoServer::isRunning()) { 
     // std::cout << "RDMAServer is running!!!" << std::endl;
       return true;
     }
-      
     // start data node server
     if (!ProtoServer::startServer()) {
       Logging::error(__FILE__, __LINE__, "RDMAServer: could not be started");
