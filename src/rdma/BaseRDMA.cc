@@ -17,19 +17,24 @@ using namespace rdma;
 rdma_mem_t BaseRDMA::s_nillmem;
 
 //------------------------------------------------------------------------------------//
-BaseRDMA::BaseRDMA(BaseMemory *buffer) : m_buffer(buffer) {
+BaseRDMA::BaseRDMA(BaseMemory *buffer) : BaseRDMA(buffer, false){}
+BaseRDMA::BaseRDMA(BaseMemory *buffer, bool pass_buffer_ownership) {
+  m_buffer = buffer;
+  m_buffer_owner = pass_buffer_ownership;
   m_gidIdx = -1;
   m_rdmaMem.push_back(rdma_mem_t(m_buffer->getSize(), true, 0));
 }
 
-BaseRDMA::BaseRDMA(size_t mem_size) : BaseRDMA(new MainMemory(mem_size)) {}
+BaseRDMA::BaseRDMA(size_t mem_size) : BaseRDMA(new MainMemory(mem_size), true) {}
 
-BaseRDMA::BaseRDMA(size_t mem_size, bool huge) : BaseRDMA(new MainMemory(mem_size, huge)) {}
+BaseRDMA::BaseRDMA(size_t mem_size, bool huge) : BaseRDMA(new MainMemory(mem_size, huge), true) {}
 
 //------------------------------------------------------------------------------------//
 
 BaseRDMA::~BaseRDMA(){
-
+  if(m_buffer_owner){
+    delete m_buffer;
+  }
 }
 
 //------------------------------------------------------------------------------------//

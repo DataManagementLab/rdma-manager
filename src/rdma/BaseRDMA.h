@@ -80,6 +80,7 @@ class BaseRDMA {
  public:
   // constructors and destructor
   BaseRDMA(BaseMemory *buffer);
+  BaseRDMA(BaseMemory *buffer, bool pass_buffer_ownership);
   BaseRDMA(size_t mem_size);
   BaseRDMA(size_t mem_size, bool huge);
 
@@ -196,7 +197,8 @@ class BaseRDMA {
   vector<size_t> m_countWR;
 
   ibv_qp_type m_qpType;
-  std::unique_ptr<BaseMemory> m_buffer;
+  BaseMemory *m_buffer;
+  bool m_buffer_owner = false;
   int m_gidIdx = -1;
 
   vector<ib_qp_t> m_qps;  // rdmaConnID is the index of the vector

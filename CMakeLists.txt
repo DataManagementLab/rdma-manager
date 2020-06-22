@@ -19,6 +19,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DLINUX -std=c++17 -Wall -Wextra -DHUGEP
 option(CUDA_ENABLED "CUDA support" ON)
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+    MESSAGE(STATUS "  BUILD TYPE:     DEBUG  (not suitable for release)")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DLINUX -DDEBUG")
 
     # ThreadSanitizer
@@ -40,6 +41,8 @@ if (CMAKE_BUILD_TYPE STREQUAL "Debug")
     # UndefinedBehaviour
     set(CMAKE_C_FLAGS_UBSAN "-fsanitize=undefined" CACHE STRING "Flags used by the C compiler during UndefinedBehaviourSanitizer builds." FORCE)
     set(CMAKE_CXX_FLAGS_UBSAN "-fsanitize=undefined" CACHE STRING "Flags used by the C++ compiler during UndefinedBehaviourSanitizer builds." FORCE)
+else()
+    MESSAGE(STATUS "  BUILD TYPE:     ${CMAKE_BUILD_TYPE}")
 endif()
 
 if (CMAKE_BUILD_TYPE STREQUAL "Release")

@@ -3,6 +3,7 @@
 
 #include <string>
 #include <sstream>
+#include <cmath>
 #include <chrono>
 
 namespace rdma {
@@ -23,33 +24,52 @@ public:
         return std::chrono::high_resolution_clock::now();
     }
 
-    static int stopTimer(std::chrono::high_resolution_clock::time_point start, std::chrono::high_resolution_clock::time_point finish){
+    static int64_t stopTimer(std::chrono::high_resolution_clock::time_point start, std::chrono::high_resolution_clock::time_point finish){
         std::chrono::duration<double> diff = finish - start;
-        return (int)(diff.count() * 1000);
+        return (int64_t)(diff.count() * 1000000000);
     }
 
-    static int stopTimer(std::chrono::high_resolution_clock::time_point start){
+    static int64_t stopTimer(std::chrono::high_resolution_clock::time_point start){
         return stopTimer(start, startTimer());
+    }
+
+    static std::string convertTime(int64_t nanoseconds){
+        std::ostringstream oss;
+        long double ns = (long double) nanoseconds;
+        long double u = 1000.0;
+        if(ns<0){ ns = -ns; oss << "-"; }
+        if(ns >= u*u*86400){
+            oss << (round(ns/u/u/u/3600 * 1000)/1000.0) << "h"; return oss.str();
+        } else if(ns >= u*u*3600){
+            oss << (round(ns/u/u/u/60 * 1000)/1000.0) << "m"; return oss.str();
+        } else if(ns >= u*u*60){
+            oss << (round(ns/u/u/u * 1000)/1000.0) << "s"; return oss.str();
+        } else if(ns >= u*u){
+            oss << (round(ns/u/u * 1000)/1000.0) << "ms"; return oss.str();
+        } else if(ns >= u){
+            oss << (round(ns/u * 1000)/1000.0) << "us"; return oss.str();
+        } oss << (round(ns * 1000)/1000.0) << "ns"; return oss.str();
     }
 
     static std::string convertByteSize(uint64_t bytes){
         std::ostringstream oss;
-        uint64_t u = 1024;
-        if(bytes >= u*u*u*u*u){
-			oss << (bytes/u/u/u/u/u) << " PB"; return oss.str();
-        } else if(bytes >= u*u*u*u){
-			oss << (bytes/u/u/u/u) << " TB"; return oss.str();
-        } else if(bytes >= u*u*u){
-			oss << (bytes/u/u/u) << " GB"; return oss.str();
-        } else if(bytes >= u*u){
-			oss << (bytes/u/u) << " MB"; return oss.str();
-		} else if(bytes >= u){
-            oss << (bytes/u) << " KB"; return oss.str();
-		} oss << bytes << " B"; return oss.str();
+        long double b = (long double) bytes;
+        long double u = 1024.0;
+        if(b >= u*u*u*u*u){
+			oss << (round(bytes/u/u/u/u/u * 100)/100.0) << " PB"; return oss.str();
+        } else if(b >= u*u*u*u){
+			oss << (round(b/u/u/u/u * 100)/100.0) << " TB"; return oss.str();
+        } else if(b >= u*u*u){
+			oss << (round(b/u/u/u * 100)/100.0) << " GB"; return oss.str();
+        } else if(b >= u*u){
+			oss << (round(b/u/u * 100)/100.0) << " MB"; return oss.str();
+		} else if(b >= u){
+            oss << (round(b/u * 100)/100.0) << " KB"; return oss.str();
+		} oss << (round(b * 100)/100.0) << " B"; return oss.str();
     }
 
     static std::string convertBandwidth(uint64_t bytes){
-        return convertByteSize(bytes * 8) + "its/s";
+        return convertByteSize(bytes) + "/s";
     }
 };
 

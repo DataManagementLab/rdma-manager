@@ -1,5 +1,5 @@
-#ifndef PerfThread_H
-#define PerfThread_H
+#ifndef BandwidthPerfTest_H
+#define BandwidthPerfTest_H
 
 #include "PerfTest.h"
 #include "../src/memory/LocalBaseMemoryStub.h"
@@ -23,6 +23,12 @@ public:
 		return m_ready;
 	}
 
+	int64_t m_elapsedWriteMs = -1;
+	int64_t m_elapsedReadMs = -1;
+	int64_t m_elapsedSendMs = -1;
+	int64_t m_elapsedFetchAddMs = -1;
+	int64_t m_elapsedCompareSwapMs = -1;
+
 private:
 	bool m_ready = false;
 	RDMAClient<ReliableRDMA> m_client;
@@ -33,11 +39,6 @@ private:
 	std::vector<std::string> m_rdma_addresses;
 	std::vector<NodeID> m_addr;
 	size_t* m_remOffsets;
-	int m_elapsedWriteMs = -1;
-	int m_elapsedReadMs = -1;
-	int m_elapsedSendMs = -1;
-	int m_elapsedFetchAddMs = -1;
-	int m_elapsedCompareSwapMs = -1;
 };
 
 
@@ -64,14 +65,15 @@ private:
 	int m_gpu_index;
 	int m_thread_count;
 	uint64_t m_memory_per_thread;
+	uint64_t m_memory_extra;
 	uint64_t m_memory_size;
 	uint64_t m_iterations;
 	std::vector<BandwidthPerfThread*> m_threads;
-	int m_elapsedWriteMs;
-	int m_elapsedReadMs;
-	int m_elapsedSendMs;
-	int m_elapsedFetchAddMs;
-	int m_elapsedCompareSwapMs;
+	int64_t m_elapsedWriteMs;
+	int64_t m_elapsedReadMs;
+	int64_t m_elapsedSendMs;
+	int64_t m_elapsedFetchAddMs;
+	int64_t m_elapsedCompareSwapMs;
 
 	BaseMemory *m_memory;
 	RDMAServer<ReliableRDMA>* m_server;
