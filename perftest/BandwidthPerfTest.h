@@ -16,10 +16,10 @@ namespace rdma {
 
 enum TestMode { TEST_WRITE=0x00, TEST_READ=0x01, TEST_SEND_AND_RECEIVE=0x02, TEST_FETCH_AND_ADD=0x03, TEST_COMPARE_AND_SWAP=0x04 };
 
-class BandwidthPerfThread : public Thread {
+class BandwidthPerfClientThread : public Thread {
 public:
-	BandwidthPerfThread(std::vector<std::string>& rdma_addresses, size_t memory_size_per_thread, size_t iterations);
-	~BandwidthPerfThread();
+	BandwidthPerfClientThread(RDMAClient<ReliableRDMA> *client, std::vector<std::string>& rdma_addresses, size_t memory_size_per_thread, size_t iterations);
+	~BandwidthPerfClientThread();
 	void run();
 	bool ready() {
 		return m_ready;
@@ -33,16 +33,32 @@ public:
 
 private:
 	bool m_ready = false;
-	RDMAClient<ReliableRDMA> m_client;
-	LocalBaseMemoryStub* m_memory;
+	RDMAClient<ReliableRDMA> *m_client;
+	LocalBaseMemoryStub *m_local_memory;
 	size_t m_memory_size_per_thread;
 	size_t m_iterations;
-	bool m_is_main_memory;
 	std::vector<std::string> m_rdma_addresses;
 	std::vector<NodeID> m_addr;
 	size_t* m_remOffsets;
 };
 
+
+class BandwidthPerfServerThread : public Thread {
+public:
+	BandwidthPerfServerThread(RDMAServer<ReliableRDMA> *server, size_t memory_size_per_thread, size_t iterations);
+	~BandwidthPerfServerThread();
+	void run();
+	bool ready(){
+		return m_ready;
+	}
+
+private:
+	bool m_ready = false;
+	size_t m_memory_size_per_thread;
+	size_t m_iterations;
+	RDMAServer<ReliableRDMA> *m_server;
+	LocalBaseMemoryStub *m_local_memory;
+};
 
 
 class BandwidthPerfTest : public rdma::PerfTest {
@@ -67,10 +83,10 @@ private:
 	int m_gpu_index;
 	int m_thread_count;
 	uint64_t m_memory_size_per_thread;
-	uint64_t m_memory_extra;
 	uint64_t m_memory_size;
 	uint64_t m_iterations;
-	std::vector<BandwidthPerfThread*> m_threads;
+	std::vector<BandwidthPerfClientThread*> m_client_threads;
+	std::vector<BandwidthPerfServerThread*> m_server_threads;
 	int64_t m_elapsedWriteMs;
 	int64_t m_elapsedReadMs;
 	int64_t m_elapsedSendMs;
@@ -79,7 +95,7 @@ private:
 
 	BaseMemory *m_memory;
 	RDMAServer<ReliableRDMA>* m_server;
-	RDMAClient<ReliableRDMA>* m_client;
+	RDMAClient<ReliableRDMA> *m_client;
 
 	void makeThreadsReady(TestMode testMode);
 	void runThreads();

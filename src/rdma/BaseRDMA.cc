@@ -147,6 +147,7 @@ rdma_mem_t BaseRDMA::internalAlloc(const size_t &size) {
     }
   }
   // printMem();
+  Logging::warn("BaseRDMA out of local memory");
   return rdma_mem_t();  // nullptr
 }
 

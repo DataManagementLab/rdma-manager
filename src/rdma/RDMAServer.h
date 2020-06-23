@@ -131,7 +131,6 @@ class RDMAServer : public ProtoServer, public RDMAClient<RDMA_API_T> {
   // memory management
   MessageErrors requestMemoryResource(size_t size, size_t &offset) {
     unique_lock<mutex> lck(m_memLock);
-
     rdma_mem_t memRes = RDMA_API_T::internalAlloc(size);
     offset = memRes.offset;
 
