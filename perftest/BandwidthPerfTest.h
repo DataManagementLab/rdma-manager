@@ -14,6 +14,8 @@
 
 namespace rdma {
 
+enum TestMode { TEST_WRITE=0x00, TEST_READ=0x01, TEST_SEND_AND_RECEIVE=0x02, TEST_FETCH_AND_ADD=0x03, TEST_COMPARE_AND_SWAP=0x04 };
+
 class BandwidthPerfThread : public Thread {
 public:
 	BandwidthPerfThread(std::vector<std::string>& rdma_addresses, size_t memory_size_per_thread, size_t iterations);
@@ -55,7 +57,7 @@ public:
 	static mutex waitLock;
 	static condition_variable waitCv;
 	static bool signaled;
-	static char testMode; // 0x00=write  0x01=read  0x02=send/recv  0x03=fetch&add  0x04=compare&swap
+	static TestMode testMode;
 
 private:
 	bool m_is_server;
@@ -64,7 +66,7 @@ private:
 	int m_rdma_port;
 	int m_gpu_index;
 	int m_thread_count;
-	uint64_t m_memory_per_thread;
+	uint64_t m_memory_size_per_thread;
 	uint64_t m_memory_extra;
 	uint64_t m_memory_size;
 	uint64_t m_iterations;
@@ -79,7 +81,7 @@ private:
 	RDMAServer<ReliableRDMA>* m_server;
 	RDMAClient<ReliableRDMA>* m_client;
 
-	void makeThreadsReady(char testMode); // 0x00=write  0x01=read  0x02=send/recv  0x03=fetch&add  0x04=compare&swap
+	void makeThreadsReady(TestMode testMode);
 	void runThreads();
 };
 
