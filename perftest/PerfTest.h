@@ -8,6 +8,8 @@
 
 namespace rdma {
 
+enum TestMode { TEST_WRITE=0x00, TEST_READ=0x01, TEST_SEND_AND_RECEIVE=0x02, TEST_FETCH_AND_ADD=0x03, TEST_COMPARE_AND_SWAP=0x04 };
+
 class PerfTest {
 public:
     virtual ~PerfTest() = default;
@@ -33,6 +35,9 @@ public:
         return stopTimer(start, startTimer());
     }
 
+    static std::string convertTime(long double nanoseconds){
+        return convertTime((int64_t)nanoseconds);
+    }
     static std::string convertTime(int64_t nanoseconds){
         std::ostringstream oss;
         long double ns = (long double) nanoseconds;

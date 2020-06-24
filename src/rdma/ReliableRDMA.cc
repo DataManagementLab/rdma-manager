@@ -195,6 +195,7 @@ void ReliableRDMA::requestRead(const rdmaConnID rdmaConnID, size_t offset,
 void ReliableRDMA::fetchAndAdd(const rdmaConnID rdmaConnID, size_t offset,
                                const void *memAddr, size_t size,
                                bool signaled) {
+  checkSignaled(signaled, rdmaConnID);
   struct ib_qp_t localQP = m_qps[rdmaConnID];
   struct ib_conn_t remoteConn = m_rconns[rdmaConnID];
 
@@ -250,6 +251,7 @@ void ReliableRDMA::compareAndSwap(const rdmaConnID rdmaConnID, size_t offset,
                                   const void *memAddr, int toCompare,
                                   int toSwap, size_t size, bool signaled) {
   // connect local and remote QP
+  checkSignaled(signaled, rdmaConnID);
 
   struct ib_qp_t localQP = m_qps[rdmaConnID];
   struct ib_conn_t remoteConn = m_rconns[rdmaConnID];

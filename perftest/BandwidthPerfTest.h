@@ -14,8 +14,6 @@
 
 namespace rdma {
 
-enum TestMode { TEST_WRITE=0x00, TEST_READ=0x01, TEST_SEND_AND_RECEIVE=0x02, TEST_FETCH_AND_ADD=0x03, TEST_COMPARE_AND_SWAP=0x04 };
-
 class BandwidthPerfClientThread : public Thread {
 public:
 	BandwidthPerfClientThread(RDMAClient<ReliableRDMA> *client, std::vector<std::string>& rdma_addresses, size_t memory_size_per_thread, size_t iterations);
@@ -63,7 +61,7 @@ private:
 
 class BandwidthPerfTest : public rdma::PerfTest {
 public:
-	BandwidthPerfTest(bool is_server, std::string nodeIdSequencerAddr, int rdma_port, int gpu_index, int thread_count, uint64_t mem_per_thread, uint64_t iterations);
+	BandwidthPerfTest(bool is_server, std::string nodeIdSequencerAddr, int rdma_port, int gpu_index, int thread_count, uint64_t memory_size_per_thread, uint64_t iterations);
 	virtual ~BandwidthPerfTest();
 	std::string getTestParameters();
 	void setupTest();
