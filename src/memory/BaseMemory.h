@@ -7,8 +7,23 @@
 
 #include <infiniband/verbs.h>
 #include <stdio.h>
+#include <list>
 
 namespace rdma {
+
+
+struct rdma_mem_t {
+  size_t size; // size of memory region
+  bool free;
+  size_t offset;
+  bool isnull;
+
+  rdma_mem_t(size_t initSize, bool initFree, size_t initOffset)
+      : size(initSize), free(initFree), offset(initOffset), isnull(false) {}
+
+  rdma_mem_t() : size(0), free(false), offset(0), isnull(true) {}
+};
+
 
 class BaseMemory : virtual public AbstractBaseMemory {
 
@@ -20,6 +35,11 @@ protected:
     int ib_port;
     struct ibv_port_attr port_attr; // IB port attributes
     struct ibv_context *ib_ctx;     // device handle
+
+    // Memory management
+    list<rdma_mem_t> m_rdmaMem;
+    unordered_map<size_t, rdma_mem_t> m_usedRdmaMem;
+    static rdma_mem_t s_nillmem;
 
     void init();
 
@@ -80,18 +100,50 @@ public:
      */
     ibv_context* ib_context();
 
-    /* Function createLocalMemoryStub
+    const list<rdma_mem_t> getFreeMemList() const { return m_rdmaMem; } // TODO REMOVE
+    
+    void mergeFreeMem(list<rdma_mem_t>::iterator &iter);
+
+    rdma_mem_t internalAlloc(size_t size);
+
+    void printBuffer();
+
+    /* Function: alloc
      * ---------------
-     * Creates a memory stub object for handling 
-     * a given memory sub-section of this memory
+     * Allocates a part of this memory
      *
-     * pointer:  pointer to memory sub-section
-     * mem_size:  size of memory sub-section
-     * freeFunc:  function to release the memory sub-section
-     * 
-     * return: object for handling memory sub-section 
+     * size:   how many bytes should be allocated
+     * return: pointer to the allocated memory
      */
-    virtual LocalBaseMemoryStub *createLocalMemoryStub(void* pointer, size_t mem_size, std::function<void(const void* buffer)> freeFunc) = 0;
+    void* alloc(size_t size);
+
+    /* Function: free
+     * ---------------
+     * Releases an allocated memory part based on the pointer
+     * 
+     * ptr:  pointer to the allocated memory
+     * 
+     */
+    void free(const void* ptr);
+
+    /* Function: free
+     * ---------------
+     * Releases an allocated memory part based on the offset
+     * 
+     * offset:  offset to the allocated memory part
+     * 
+     */
+    void free(const size_t offset);
+
+    /* Function: malloc
+     * ---------------
+     * Allocates a part of this memory
+     * 
+     * size:   how many bytes should be allocated
+     * return: memory handler 
+     */
+    virtual LocalBaseMemoryStub *malloc(size_t size) = 0;
+
 };
 
 } // namespace rdma

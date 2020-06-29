@@ -16,7 +16,7 @@ DEFINE_int32(gpu, -1, "Index of GPU for memory allocation (negative for main mem
 DEFINE_uint64(memsize, 4 * 4096, "Memory size in bytes (per thread)");
 DEFINE_int32(threads, 1, "Amout of threads used by client for testing");
 DEFINE_uint64(iterations, 500000, "Amount of test repeats");
-DEFINE_string(addr, "172.18.94.20", "Addresses of NodeIDSequencer to connect/bind to");
+DEFINE_string(addr, "172.18.94.10", "Addresses of NodeIDSequencer to connect/bind to");
 DEFINE_int32(port, rdma::Config::RDMA_PORT, "RDMA port");
 
 int main(int argc, char *argv[]){

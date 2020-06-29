@@ -61,6 +61,8 @@ int MainMemory::getNumaNode(){
     return this->numa_node;
 }
 
-LocalBaseMemoryStub *MainMemory::createLocalMemoryStub(void* pointer, size_t mem_size, std::function<void(const void* buffer)> freeFunc){
-    return (LocalBaseMemoryStub*) new LocalMainMemoryStub(pointer, mem_size, freeFunc);
+LocalBaseMemoryStub *MainMemory::malloc(size_t size){
+    return (LocalBaseMemoryStub*) new LocalMainMemoryStub(alloc(size), size, [this](const void* ptr){
+      free(ptr);
+    });
 }

@@ -35,22 +35,20 @@ UnreliableRDMA::~UnreliableRDMA() {
 }
 
 void* UnreliableRDMA::localAlloc(const size_t& size) {
-  rdma_mem_t memRes = internalAlloc(size + Config::RDMA_UD_OFFSET);
+  rdma_mem_t memRes = m_buffer->internalAlloc(size + Config::RDMA_UD_OFFSET);
   if (!memRes.isnull) {
     return ((char*)m_buffer->pointer() + memRes.offset + Config::RDMA_UD_OFFSET);
   }
   throw runtime_error("UnreliableRDMA allocating local memory failed! Size: " + to_string(size));
 }
 
-void UnreliableRDMA::localFree(const size_t& offset) {
-  internalFree(offset);
-}
+void UnreliableRDMA::localFree(const size_t& offset) { m_buffer->free(offset); }
 
 void UnreliableRDMA::localFree(const void* ptr) {
   char* begin = (char*)m_buffer->pointer();
   char* end = (char*)ptr;
   size_t offset = (end - begin) - Config::RDMA_UD_OFFSET;
-  internalFree(offset);
+  m_buffer->free(offset);
 }
 
 void UnreliableRDMA::initQPWithSuppliedID(const rdmaConnID rdmaConnID) {

@@ -9,7 +9,7 @@ namespace rdma {
 class LocalBaseMemoryStub : virtual public AbstractBaseMemory {
 
 protected:
-    std::function<void(const void* buffer)> freeFunc;
+    std::function<void(void* buffer)> freeFunc;
 
 public:
 

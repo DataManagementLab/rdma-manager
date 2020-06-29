@@ -26,8 +26,10 @@ CudaMemory::~CudaMemory(){
     resetDevice(previous_device_index);
 }
 
-LocalBaseMemoryStub *CudaMemory::createLocalMemoryStub(void* pointer, size_t mem_size, std::function<void(const void* buffer)> freeFunc){
-    return (LocalBaseMemoryStub*) new LocalCudaMemoryStub(pointer, mem_size, freeFunc);
+LocalBaseMemoryStub *CudaMemory::malloc(size_t size){
+    return (LocalBaseMemoryStub*) new LocalCudaMemoryStub(alloc(size), size, [this](const void* ptr){
+        free(ptr);
+    });
 }
 
 #endif /* CUDA support */

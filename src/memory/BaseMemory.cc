@@ -18,9 +18,12 @@
 
 using namespace rdma;
 
+rdma_mem_t BaseMemory::s_nillmem;
+
 // constructor
 BaseMemory::BaseMemory(size_t mem_size, int ib_port) : AbstractBaseMemory(mem_size){
     this->ib_port = ib_port;
+    this->m_rdmaMem.push_back(rdma_mem_t(mem_size, true, 0));
 
     // Logging::debug(__FILE__, __LINE__, "Create memory region");
 
@@ -130,4 +133,128 @@ ibv_port_attr BaseMemory::ib_port_attributes(){
 
 ibv_context* BaseMemory::ib_context(){
     return this->ib_ctx;
+}
+
+void BaseMemory::mergeFreeMem(list<rdma_mem_t>::iterator &iter) {
+  size_t freeSpace = (*iter).size;
+  size_t offset = (*iter).offset;
+  size_t size = (*iter).size;
+
+  // start with the prev
+  if (iter != m_rdmaMem.begin()) {
+    --iter;
+    if (iter->offset + iter->size == offset) {
+      // increase mem of prev
+      freeSpace += iter->size;
+      (*iter).size = freeSpace;
+
+      // delete hand-in el
+      iter++;
+      iter = m_rdmaMem.erase(iter);
+      iter--;
+    } else {
+      // adjust iter to point to hand-in el
+      iter++;
+    }
+  }
+  // now check following
+  ++iter;
+  if (iter != m_rdmaMem.end()) {
+    if (offset + size == iter->offset) {
+      freeSpace += iter->size;
+
+      // delete following
+      iter = m_rdmaMem.erase(iter);
+
+      // go to previous and extend
+      --iter;
+      (*iter).size = freeSpace;
+    }
+  }
+  Logging::debug(
+      __FILE__, __LINE__,
+      "Merged consecutive free RDMA memory regions, total free space: " +
+          to_string(freeSpace));
+}
+
+rdma_mem_t BaseMemory::internalAlloc(size_t size){
+    auto listIter = m_rdmaMem.begin();
+    for (; listIter != m_rdmaMem.end(); ++listIter) {
+        rdma_mem_t memRes = *listIter;
+        if (memRes.free && memRes.size >= size) {
+            rdma_mem_t memResUsed(size, false, memRes.offset);
+            m_usedRdmaMem[memRes.offset] = memResUsed;
+
+            if (memRes.size > size) {
+            rdma_mem_t memResFree(memRes.size - size, true, memRes.offset + size);
+            m_rdmaMem.insert(listIter, memResFree);
+            }
+            m_rdmaMem.erase(listIter);
+            // printMem();
+            return memResUsed;
+        }
+    }
+    // printMem();
+    Logging::warn("BaseRDMA out of local memory");
+    return rdma_mem_t();  // nullptr
+}
+
+void BaseMemory::printBuffer() {
+  auto listIter = m_rdmaMem.begin();
+  for (; listIter != m_rdmaMem.end(); ++listIter) {
+    Logging::debug(__FILE__, __LINE__,
+                   "offset=" + to_string((*listIter).offset) + "," +
+                       "size=" + to_string((*listIter).size) + "," +
+                       "free=" + to_string((*listIter).free));
+  }
+  Logging::debug(__FILE__, __LINE__, "---------");
+}
+
+void* BaseMemory::alloc(size_t size){
+    rdma_mem_t memRes = internalAlloc(size);
+    if (!memRes.isnull) {
+        return (void *)((char *)buffer + memRes.offset);
+    }
+    throw runtime_error("Could not allocate local rdma memory");
+}
+
+void BaseMemory::free(const void* ptr){
+    char *begin = (char *)buffer;
+    char *end = (char *)ptr;
+    size_t offset = end - begin;
+     free(offset);
+}
+
+void BaseMemory::free(const size_t offset){
+    size_t lastOffset = 0;
+  rdma_mem_t memResFree = m_usedRdmaMem[offset];
+  m_usedRdmaMem.erase(offset);
+  // std::cout << "offset: " << offset << " m_rdmaMem.size() " << m_rdmaMem.size() << std::endl;
+  // lookup the memory region that was assigned to this pointer
+  auto listIter = m_rdmaMem.begin();
+  if (listIter != m_rdmaMem.end()) {
+    for (; listIter != m_rdmaMem.end(); listIter++) {
+      rdma_mem_t &memRes = *(listIter);
+      if (lastOffset <= offset && offset < memRes.offset) {
+        memResFree.free = true;
+        m_rdmaMem.insert(listIter, memResFree);
+        listIter--;
+        Logging::debug(__FILE__, __LINE__, "Freed reserved local memory");
+        // printMem();
+        mergeFreeMem(listIter);
+        // printMem();
+
+        return;
+      }
+      lastOffset += memRes.offset;
+    }
+  } else {
+    memResFree.free = true;
+    m_rdmaMem.insert(listIter, memResFree);
+    Logging::debug(__FILE__, __LINE__, "Freed reserved local memory");
+    // printMem();
+    return;
+  }
+  // printMem();
+  throw runtime_error("Did not free any internal memory!");
 }

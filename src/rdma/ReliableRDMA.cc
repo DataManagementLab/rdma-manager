@@ -29,26 +29,15 @@ ReliableRDMA::~ReliableRDMA() {
 
 //------------------------------------------------------------------------------------//
 
-void *ReliableRDMA::localAlloc(const size_t &size) {
-  rdma_mem_t memRes = internalAlloc(size);
-  if (!memRes.isnull) {
-    return (void *)((char *)m_buffer->pointer() + memRes.offset);
-  }
-  throw runtime_error("Could not allocate local rdma memory");
-}
+void *ReliableRDMA::localAlloc(const size_t &size) { return m_buffer->alloc(size); }
 
 //------------------------------------------------------------------------------------//
 
-void ReliableRDMA::localFree(const size_t &offset) { internalFree(offset); }
+void ReliableRDMA::localFree(const size_t &offset) { return m_buffer->free(offset); }
 
 //------------------------------------------------------------------------------------//
 
-void ReliableRDMA::localFree(const void *ptr) {
-  char *begin = (char *)m_buffer->pointer();
-  char *end = (char *)ptr;
-  size_t offset = end - begin;
-  internalFree(offset);
-}
+void ReliableRDMA::localFree(const void *ptr) { return m_buffer->free(ptr); }
 
 //------------------------------------------------------------------------------------//
 

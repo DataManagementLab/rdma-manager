@@ -61,8 +61,9 @@ struct ib_conn_t {
   } ud;
 };
 
+/* Moved into BaseMemory.h
 struct rdma_mem_t {
-  size_t size; /* size of memory region */
+  size_t size; // size of memory region
   bool free;
   size_t offset;
   bool isnull;
@@ -72,6 +73,7 @@ struct rdma_mem_t {
 
   rdma_mem_t() : size(0), free(false), offset(0), isnull(true) {}
 };
+*/
 
 class BaseRDMA {
  protected:
@@ -124,15 +126,12 @@ class BaseRDMA {
   virtual void localFree(const size_t &offset) = 0;
 
   LocalBaseMemoryStub *localMalloc(const size_t &size){
-    const void* pointer = (const void*) localAlloc(size);
-    return m_buffer->createLocalMemoryStub((void*)pointer, (size_t)size, [this](const void* ptr){
-      this->localFree(ptr);
-    });
+    return m_buffer->malloc(size);
   }
 
   void *getBuffer() { return m_buffer->pointer(); }
 
-  const list<rdma_mem_t> getFreeMemList() const { return m_rdmaMem; }
+  const list<rdma_mem_t> getFreeMemList() const { return m_buffer->getFreeMemList(); }
 
   void *convertOffsetToPointer(size_t offset) {
     // check if already allocated
@@ -160,11 +159,6 @@ class BaseRDMA {
 
  protected:
   virtual void destroyQPs() = 0;
-
-  // memory management
-  void createBuffer();
-
-  void mergeFreeMem(list<rdma_mem_t>::iterator &iter);
 
   rdma_mem_t internalAlloc(const size_t &size);
 
@@ -208,17 +202,6 @@ class BaseRDMA {
   unordered_map<uint64_t, bool> m_connected;
   unordered_map<uint64_t, rdmaConnID> m_qpNum2connID;
 
-  list<rdma_mem_t> m_rdmaMem;
-  unordered_map<size_t, rdma_mem_t> m_usedRdmaMem;
-
-  static rdma_mem_t s_nillmem;
-
-/* No longer needed
-static void* malloc_huge(size_t size) {
-   void* p = mmap(NULL, size, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
-   madvise(p, size, MADV_HUGEPAGE);
-   return p;
-} */
 };
 
 }  // namespace rdma

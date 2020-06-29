@@ -70,7 +70,7 @@ public:
 
     virtual int getNumaNode();
 
-    LocalBaseMemoryStub *createLocalMemoryStub(void* pointer, size_t mem_size, std::function<void(const void* buffer)> freeFunc) override;
+    LocalBaseMemoryStub *malloc(size_t size) override;
 };
 
 } // namespace rdma
