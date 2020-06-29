@@ -338,7 +338,7 @@ void rdma::LatencyPerfTest::runTest(){
 }
 
 
-std::string rdma::LatencyPerfTest::getTestResults(){
+std::string rdma::LatencyPerfTest::getTestResults(std::string csvFileName, bool csvAddHeader){
 	if(m_is_server){
 		return "only client";
 	} else {
@@ -408,6 +408,35 @@ std::string rdma::LatencyPerfTest::getTestResults(){
 			medianCompareSwapMs = tmpMs[(int)(m_iterations/2)];
 		}
 
+		// write results into CSV file
+		if(!csvFileName.empty()){
+			const uint64_t ustu = 1000; // nanosec to microsec
+			std::ofstream ofs;
+			ofs.open(csvFileName, std::ofstream::out | std::ofstream::app);
+			if(csvAddHeader){
+				ofs << "LATENCY, " << getTestParameters() << std::endl;
+				ofs << "PacketSize [Bytes], Avg Write [usec], Avg Read [usec], Avg Send/Recv [usec], Avg Fetch&Add [usec], Avg Comp&Swap [usec], ";
+				ofs << "Median Write [usec], Median Read [usec], Median Send/Recv [usec], Median Fetch&Add [usec], Median Comp&Swap [usec], ";
+				ofs << "Min Write [usec], Min Read [usec], Min Send/Recv [usec], Min Fetch&Add [usec], Min Comp&Swap [usec], ";
+				ofs << "Max Write [usec], Max Read [usec], Max Send/Recv [usec], Max Fetch&Add [usec], Max Comp&Swap [usec]" << std::endl;
+			}
+			ofs << m_memory_size_per_thread << ", "; // packet size Bytes
+			ofs << (round(avgWriteMs/ustu * 10)/10.0) << ", " << (round(avgReadMs/ustu * 10)/10.0) << ", "; // avg write, read us
+			ofs << (round(avgSendMs/ustu * 10)/10.0) << ", " << (round(avgFetchAddMs/ustu * 10)/10.0) << ", "; // avg send, fetch us
+			ofs << (round(avgCompareSwapMs/ustu * 10)/10.0) << ", "; // avg comp&swap us
+			ofs << (round(medianWriteMs/ustu * 10)/10.0) << ", " << (round(medianReadMs/ustu * 10)/10.0) << ", "; // median write, read us
+			ofs << (round(medianSendMs/ustu * 10)/10.0) << ", " << (round(medianFetchAddMs/ustu * 10)/10.0) << ", "; // median send, fetch us
+			ofs << (round(medianCompareSwapMs/ustu * 10)/10.0) << ", "; // median comp&swap us
+			ofs << (round(minWriteMs/ustu * 10)/10.0) << ", " << (round(minReadMs/ustu * 10)/10.0) << ", "; // min write, read us
+			ofs << (round(minSendMs/ustu * 10)/10.0) << ", " << (round(minFetchAddMs/ustu * 10)/10.0) << ", "; // min send, fetch us
+			ofs << (round(minCompareSwapMs/ustu * 10)/10.0) << ", "; // min comp&swap us
+			ofs << (round(maxWriteMs/ustu * 10)/10.0) << ", " << (round(maxReadMs/ustu * 10)/10.0) << ", "; // max write, read us
+			ofs << (round(maxSendMs/ustu * 10)/10.0) << ", " << (round(maxFetchAddMs/ustu * 10)/10.0) << ", "; // max send, fetch us
+			ofs << (round(maxCompareSwapMs/ustu * 10)/10.0) << std::endl; // max comp&swap us
+			ofs.close();
+		}
+
+		// generate result string
 		std::ostringstream oss;
 		std::cout << "Measured as 'one trip time' latencies:" << std::endl;
 		std::cout << " - Write:           average = " << rdma::PerfTest::convertTime(avgWriteMs) << "    median = " << rdma::PerfTest::convertTime(medianWriteMs);

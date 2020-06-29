@@ -69,7 +69,7 @@ public:
 	std::string getTestParameters();
 	void setupTest();
 	void runTest();
-	std::string getTestResults();
+	std::string getTestResults(std::string csvFileName=NULL, bool csvAddHeader=true);
 
 	static mutex waitLock;
 	static condition_variable waitCv;
