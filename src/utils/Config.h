@@ -10,6 +10,8 @@
 #define CONFIG_HPP_
 
 //Includes
+#include "CpuNumaUtils.h"
+
 #include <iostream>
 #include <stddef.h>
 #include <sstream>
@@ -32,8 +34,6 @@
 #include <netinet/in.h>
 #include <net/if.h>
 #include <arpa/inet.h>
-
-#include "CpuNumaUtils.h"
 
 using namespace std;
 

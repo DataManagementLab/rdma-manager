@@ -195,7 +195,7 @@ rdma_mem_t BaseMemory::internalAlloc(size_t size){
         }
     }
     // printMem();
-    Logging::warn("BaseRDMA out of local memory");
+    Logging::warn("BaseMemory out of local memory");
     return rdma_mem_t();  // nullptr
 }
 
@@ -222,7 +222,7 @@ void BaseMemory::free(const void* ptr){
     char *begin = (char *)buffer;
     char *end = (char *)ptr;
     size_t offset = end - begin;
-     free(offset);
+    free(offset);
 }
 
 void BaseMemory::free(const size_t offset){

@@ -1,3 +1,9 @@
+#include "PerfTest.h"
+#include "BandwidthPerfTest.h"
+#include "LatencyPerfTest.h"
+
+#include "../src/utils/Config.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <vector>
@@ -6,11 +12,6 @@
 #include <bits/stdc++.h>
 
 #include <gflags/gflags.h>
-
-#include "../src/utils/Config.h"
-#include "PerfTest.h"
-#include "BandwidthPerfTest.h"
-#include "LatencyPerfTest.h"
 
 DEFINE_string(test, "bandwidth", "Test: bandwidth,latency (multiples separated by comma without space)");
 DEFINE_bool(server, false, "Act as server for a client to test performance");
