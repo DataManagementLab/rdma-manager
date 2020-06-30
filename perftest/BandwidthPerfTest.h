@@ -26,8 +26,6 @@ public:
 	int64_t m_elapsedWriteMs = -1;
 	int64_t m_elapsedReadMs = -1;
 	int64_t m_elapsedSendMs = -1;
-	int64_t m_elapsedFetchAddMs = -1;
-	int64_t m_elapsedCompareSwapMs = -1;
 
 private:
 	bool m_ready = false;
@@ -88,8 +86,6 @@ private:
 	int64_t m_elapsedWriteMs;
 	int64_t m_elapsedReadMs;
 	int64_t m_elapsedSendMs;
-	int64_t m_elapsedFetchAddMs;
-	int64_t m_elapsedCompareSwapMs;
 
 	BaseMemory *m_memory;
 	RDMAServer<ReliableRDMA>* m_server;

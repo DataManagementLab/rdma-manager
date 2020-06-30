@@ -11,6 +11,7 @@
 namespace rdma {
 
 enum TestMode { TEST_WRITE=0x00, TEST_READ=0x01, TEST_SEND_AND_RECEIVE=0x02, TEST_FETCH_AND_ADD=0x03, TEST_COMPARE_AND_SWAP=0x04 };
+const int ATOMICS_SIZE = 8; // 8 bytes = 64bit
 
 class PerfTest {
 public:

@@ -1,6 +1,8 @@
 #include "PerfTest.h"
 #include "BandwidthPerfTest.h"
+#include "AtomicsBandwidthPerfTest.h"
 #include "LatencyPerfTest.h"
+#include "AtomicsLatencyPerfTest.h"
 
 #include "../src/utils/Config.h"
 #include "../src/utils/StringHelper.h"
@@ -15,8 +17,8 @@
 
 #include <gflags/gflags.h>
 
-DEFINE_bool(fulltest, false, "Overwrites flags 'test, gpu, memsize, threads, iterations, csv' to execute a broad variety of tests. If GPUs are supported then gpu=-1,-1,0,0 on client side and gpu=-1,0,-1,0 on server side to test all memory combinations: Main->Main, Main->GPU, GPU->Main, GPU->GPU");
-DEFINE_string(test, "bandwidth", "Test: bandwidth,latency (multiples separated by comma without space)");
+DEFINE_bool(fulltest, false, "Overwrites flags 'test, gpu, memsize, threads, iterations, csv' to execute a broad variety of predefined tests. If GPUs are supported then gpu=-1,-1,0,0 on client side and gpu=-1,0,-1,0 on server side to test all memory combinations: Main->Main, Main->GPU, GPU->Main, GPU->GPU");
+DEFINE_string(test, "bandwidth", "Test: bandwidth, latency, atomicsbandwidth, atomicslatency (multiples separated by comma without space)");
 DEFINE_bool(server, false, "Act as server for a client to test performance");
 DEFINE_string(gpu, "-1", "Index of GPU for memory allocation (negative for main memory | multiples separated by comma without space)");
 DEFINE_string(memsize, "4096", "Memory size in bytes (per thread | multiples separated by comma without space)");
@@ -54,6 +56,25 @@ static std::vector<uint64_t> parseUInt64List(std::string str){
     } return v;
 }
 
+
+static void runTest(size_t testNumber, size_t testIterations, std::string testName, rdma::PerfTest *test, std::string csvFileName, bool csvAddHeader){
+    std::cout << std::endl << "TEST " << testNumber << " / " << testIterations << " (" << (testNumber*100/testIterations) << "%)" << std::endl;
+    std::cout << "SETTING UP ENVIRONMENT FOR TEST '" << testName << "' ..." << std::endl;
+    test->setupTest();
+
+    std::cout << "RUN TEST WITH PARAMETERS:  " << test->getTestParameters() << std::endl;
+    test->runTest();
+
+    std::cout << "RESULTS: " << test->getTestResults(csvFileName, csvAddHeader) << std::endl << "DONE TESTING '" << testName << "'" << std::endl << std::endl;
+
+    delete test;
+
+    if(!FLAGS_server)
+        usleep(100000); // if client then sleep for 100ms to wait for server to restart
+}
+
+
+
 int main(int argc, char *argv[]){
     std::cout << "Parsing arguments ..." << std::endl;
     gflags::ParseCommandLineFlags(&argc, &argv, true);
@@ -71,6 +92,7 @@ int main(int argc, char *argv[]){
     if(FLAGS_fulltest){
         FLAGS_csv = true;
         testNames.clear(); testNames.push_back("bandwidth"); testNames.push_back("latency");
+        testNames.push_back("atomicsbandwidth"); testNames.push_back("atomicslatency");
         memsizes.clear(); memsizes.push_back(64); memsizes.push_back(512); memsizes.push_back(1024);
         memsizes.push_back(2048); memsizes.push_back(4096); memsizes.push_back(8192);
         memsizes.push_back(16384); memsizes.push_back(32768); memsizes.push_back(65536);
@@ -115,12 +137,31 @@ int main(int argc, char *argv[]){
         std::string test_name = testName; // always lower case
 
         for(int &gpu_index : gpus){
-            for(int &thread_count : thread_counts){
-                for(uint64_t &iterations : iteration_counts){
-                    bool csvAddHeader = true;
-                    for(uint64_t &memsize : memsizes){
-                        rdma::PerfTest *test = nullptr;
+            for(uint64_t &iterations : iteration_counts){
+                bool csvAddHeader = true;
+                for(int &thread_count : thread_counts){
+                    rdma::PerfTest *test = nullptr;
+                    
+                    if(std::string("atomicsbandwidth").rfind(test_name, 0) == 0){
+                        // Atomics Bandwidth Test
+                        testName = "Atomics Bandwidth";
+                        test = new rdma::AtomicsBandwidthPerfTest(FLAGS_server, addresses, FLAGS_port, gpu_index, thread_count, iterations);
 
+                    } else if(std::string("atomicslatency").rfind(test_name, 0) == 0){
+                        // Atomics Latency Test
+                        testName = "Atomics Latency";
+                        test = new rdma::AtomicsLatencyPerfTest(FLAGS_server, addresses, FLAGS_port, gpu_index, thread_count, iterations);
+                    }
+
+                    if(test != nullptr){
+                        testCounter++;
+                        runTest(testCounter, testIterations, testName, test, csvFileName, csvAddHeader);
+                        csvAddHeader = false;
+                        continue;
+                    }
+
+                    csvAddHeader;
+                    for(uint64_t &memsize : memsizes){
                         if(std::string("bandwidth").rfind(test_name, 0) == 0){
                             // Bandwidth Test
                             testName = "Bandwidth";
@@ -139,20 +180,8 @@ int main(int argc, char *argv[]){
                         }
 
                         testCounter++;
-                        std::cout << std::endl << "TEST " << testCounter << " / " << testIterations << " (" << (testCounter*100/testIterations) << "%)" << std::endl;
-                        std::cout << "SETTING UP ENVIRONMENT FOR TEST '" << testName << "' ..." << std::endl;
-                        test->setupTest();
-
-                        std::cout << "RUN TEST WITH PARAMETERS:  " << test->getTestParameters() << std::endl;
-                        test->runTest();
-
-                        std::cout << "RESULTS: " << test->getTestResults(csvFileName, csvAddHeader) << std::endl << "DONE TESTING '" << testName << "'" << std::endl << std::endl;
+                        runTest(testCounter, testIterations, testName, test, csvFileName, csvAddHeader);
                         csvAddHeader = false;
-
-                        delete test;
-
-                        if(!FLAGS_server)
-                            usleep(100000); // if client then sleep for 100ms to wait for server to restart
                     }
                 }
             }
