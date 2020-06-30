@@ -4,7 +4,6 @@
 #include "../src/memory/MainMemory.h"
 #include "../src/memory/CudaMemory.h"
 #include "../src/utils/Config.h"
-#include "../src/utils/StringHelper.h"
 
 mutex rdma::LatencyPerfTest::waitLock;
 condition_variable rdma::LatencyPerfTest::waitCv;
@@ -183,7 +182,7 @@ void rdma::LatencyPerfServerThread::run() {
 
 
 
-rdma::LatencyPerfTest::LatencyPerfTest(bool is_server, std::string rdma_addresses, int rdma_port, int gpu_index, int thread_count, uint64_t memory_size_per_thread, uint64_t iterations) : PerfTest(){
+rdma::LatencyPerfTest::LatencyPerfTest(bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, int gpu_index, int thread_count, uint64_t memory_size_per_thread, uint64_t iterations) : PerfTest(){
 	this->m_is_server = is_server;
 	this->m_rdma_port = rdma_port;
 	this->m_gpu_index = gpu_index;
@@ -191,10 +190,7 @@ rdma::LatencyPerfTest::LatencyPerfTest(bool is_server, std::string rdma_addresse
 	this->m_memory_size_per_thread = memory_size_per_thread;
 	this->m_memory_size = 2 * thread_count * memory_size_per_thread; // 2x because for send & receive separat
 	this->m_iterations = iterations;
-	this->m_rdma_addresses = StringHelper::split(rdma_addresses);
-	for (auto &addr : this->m_rdma_addresses){
-		addr += ":" + to_string(rdma_port);
-	}
+	this->m_rdma_addresses = rdma_addresses;
 }
 rdma::LatencyPerfTest::~LatencyPerfTest(){
 	for (size_t i = 0; i < m_client_threads.size(); i++) {
@@ -266,11 +262,6 @@ void rdma::LatencyPerfTest::setupTest(){
 	m_memory = (m_gpu_index<0 ? (rdma::BaseMemory*)new rdma::MainMemory(m_memory_size) : (rdma::BaseMemory*)new rdma::CudaMemory(m_memory_size, m_gpu_index));
 
 	if(m_is_server){
-		// NodeIDSequencer (Server)
-		if (rdma::Config::getIP(rdma::Config::RDMA_INTERFACE) == rdma::Network::getAddressOfConnection(m_rdma_addresses[0])){
-			std::cout << "Starting NodeIDSequencer on " << rdma::Config::getIP(rdma::Config::RDMA_INTERFACE) << ":" << rdma::Config::SEQUENCER_PORT << std::endl;
-			m_nodeIDSequencer = new NodeIDSequencer();
-		}
 		// Server
 		m_server = new RDMAServer<ReliableRDMA>("LatencyTestRDMAServer", m_rdma_port, m_memory);
 		for (int i = 0; i < m_thread_count; i++) {
@@ -307,8 +298,7 @@ void rdma::LatencyPerfTest::runTest(){
 
 		// wait until server is done
 		while (m_server->isRunning() && m_server->getConnectedConnIDs().size() > 0) {
-			std::cout << "Server waiting until clients disconnect: " << m_server->getConnectedConnIDs().size() << std::endl; // TODO REMOVE
-			 usleep(Config::RDMA_SLEEP_INTERVAL);
+			usleep(Config::RDMA_SLEEP_INTERVAL);
         }
 		std::cout << "Server stopped" << std::endl;
 

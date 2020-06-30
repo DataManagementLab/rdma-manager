@@ -43,6 +43,7 @@ class UnreliableRDMA : public BaseRDMA {
   void initQPWithSuppliedID( ib_qp_t **, ib_conn_t **);
   void initQP(rdmaConnID &retRdmaConnID) override;
   void connectQP(const rdmaConnID rdmaConnID) override;
+  void disconnectQP(const rdmaConnID rdmaConnID) override;
 
   void send(const rdmaConnID rdmaConnID, const void *memAddr, size_t size,
             bool signaled) override;

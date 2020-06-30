@@ -10,6 +10,7 @@
 #include "RDMAConnResponse.pb.h"
 #include "RDMAConnRequestMgmt.pb.h"
 #include "RDMAConnResponseMgmt.pb.h"
+#include "RDMAConnDisconnect.pb.h"
 #include "MemoryResourceRequest.pb.h"
 #include "MemoryResourceResponse.pb.h"
 #include "GetAllNodeIDsRequest.pb.h"

@@ -61,12 +61,12 @@ private:
 
 class BandwidthPerfTest : public rdma::PerfTest {
 public:
-	BandwidthPerfTest(bool is_server, std::string nodeIdSequencerAddr, int rdma_port, int gpu_index, int thread_count, uint64_t memory_size_per_thread, uint64_t iterations);
+	BandwidthPerfTest(bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, int gpu_index, int thread_count, uint64_t memory_size_per_thread, uint64_t iterations);
 	virtual ~BandwidthPerfTest();
 	std::string getTestParameters();
 	void setupTest();
 	void runTest();
-	std::string getTestResults(std::string csvFileName=NULL, bool csvAddHeader=true);
+	std::string getTestResults(std::string csvFileName="", bool csvAddHeader=true);
 
 	static mutex waitLock;
 	static condition_variable waitCv;

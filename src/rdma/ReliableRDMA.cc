@@ -127,16 +127,38 @@ void ReliableRDMA::connectQP(const rdmaConnID rdmaConnID) {
 
 //------------------------------------------------------------------------------------//
 
+void ReliableRDMA::disconnectQP(const rdmaConnID rdmaConnID){
+  // check if not already disconnected
+  if(m_connected.find(rdmaConnID) == m_connected.end() || !m_connected[rdmaConnID]){
+    return;
+  }
+
+  struct ib_qp_t &qp = m_qps[rdmaConnID];
+  if(qp.qp != nullptr){
+    if(ibv_destroy_qp(qp.qp) != 0){
+      throw runtime_error("Error, ibv_destroy_qp() failed while disconnecting QP");
+    }
+    qp.qp = nullptr;
+    destroyCQ(qp.send_cq, qp.recv_cq);
+  }
+
+  m_connected[rdmaConnID] = false;
+}
+
+//------------------------------------------------------------------------------------//
+
 void ReliableRDMA::destroyQPs() {
   for (auto &qp : m_qps) {
     if (qp.qp != nullptr) {
       if (ibv_destroy_qp(qp.qp) != 0) {
-        throw runtime_error("Error, ibv_destroy_qp() failed");
+        throw runtime_error("Error, ibv_destroy_qp() failed while destroying QPs");
       }
+      qp.qp = nullptr;
 
       destroyCQ(qp.send_cq, qp.recv_cq);
     }
   }
+  m_qps.clear();
 
   // destroy srq's
   for (auto &kv : m_srqs) {
@@ -145,6 +167,7 @@ void ReliableRDMA::destroyQPs() {
           "ReliableRDMASRQ::destroyQPs: ibv_destroy_srq() failed");
     }
   }
+  m_srqs.clear();
 }
 
 //------------------------------------------------------------------------------------//

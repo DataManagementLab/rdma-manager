@@ -39,7 +39,17 @@ class RDMAClient : public RDMA_API_T, public ProtoClient {
   {
   }
   
-  ~RDMAClient() {}
+  ~RDMAClient() {
+    RDMAConnDisconnect disconnMsg;
+    disconnMsg.set_nodeid(m_ownNodeID);
+    for(std::pair<std::string, NodeID> entry : m_connections){
+      if(entry.second == m_ownNodeID) continue;
+      Any sendAny;
+      sendAny.PackFrom(disconnMsg);
+      Any rcvAny;
+      ProtoClient::exchangeProtoMsg(entry.first, &sendAny, &rcvAny);
+    }
+  }
 
   // memory management
   bool remoteAlloc(const string& connection, const size_t size,
@@ -249,8 +259,9 @@ class RDMAClient : public RDMA_API_T, public ProtoClient {
           // connect request failed because other Server already connected
           //cleanup
           if (ibv_destroy_qp(qp.qp) != 0) {
-              throw runtime_error("Error, ibv_destroy_qp() failed");
+              throw runtime_error("Error, ibv_destroy_qp() failed after invalid connection build up");
           }
+          qp.qp = nullptr;
           RDMA_API_T::destroyCQ(qp.send_cq, qp.recv_cq);
 
          return true;

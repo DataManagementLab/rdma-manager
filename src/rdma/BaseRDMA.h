@@ -105,6 +105,7 @@ class BaseRDMA {
   virtual void initQP(rdmaConnID &retRdmaConnID) = 0;
 
   virtual void connectQP(const rdmaConnID rdmaConnID) = 0;
+  virtual void disconnectQP(const rdmaConnID rdmaConnID) = 0;
 
   uint64_t getQPNum(const rdmaConnID rdmaConnID) {
     return m_qps[rdmaConnID].qp->qp_num;

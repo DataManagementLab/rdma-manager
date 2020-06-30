@@ -119,6 +119,12 @@ class RDMAServer : public ProtoServer, public RDMAClient<RDMA_API_T> {
         respMsg.set_offset(offset);
       }
       anyResp->PackFrom(respMsg);
+
+    } else if (anyReq->Is<RDMAConnDisconnect>()) {
+      RDMAConnDisconnect disconnMsg;
+      anyReq->UnpackTo(&disconnMsg);
+      RDMA_API_T::disconnectQP(disconnMsg.nodeid());
+
     } else {
       // Send response with bad return code;
       ErrorMessage errorResp;

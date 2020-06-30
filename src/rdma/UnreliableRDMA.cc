@@ -171,10 +171,15 @@ void UnreliableRDMA::connectQP(const rdmaConnID rdmaConnID) {
   Logging::debug(__FILE__, __LINE__, "Connected UD queue pair!");
 }
 
+void UnreliableRDMA::disconnectQP(const rdmaConnID rdmaConnID){
+  if(rdmaConnID){} // TODO REMOVE
+  destroyQPs(); // TODO only destroy QP associated with rdmaConnID if possible
+}
+
 void UnreliableRDMA::destroyQPs() {
   if (m_udqp.qp != nullptr) {
     if (ibv_destroy_qp(m_udqp.qp) != 0) {
-      throw runtime_error("Error, ibv_destroy_qp() failed");
+      throw runtime_error("Error, ibv_destroy_qp() failed while destroying QPs");
     }
 
     destroyCQ(m_udqp.send_cq, m_udqp.recv_cq);
@@ -183,7 +188,7 @@ void UnreliableRDMA::destroyQPs() {
 
   if (m_udqpMgmt.qp != nullptr) {
     if (ibv_destroy_qp(m_udqpMgmt.qp) != 0) {
-      throw runtime_error("Error, ibv_destroy_qp() failed");
+      throw runtime_error("Error, ibv_destroy_qp() failed while destroying QPs");
     }
     m_udqpMgmt.qp = nullptr;
   }

@@ -22,7 +22,7 @@ public:
 
     virtual void runTest() = 0;
 
-    virtual std::string getTestResults(std::string csvFileName=NULL, bool csvAddHeader=true) = 0;
+    virtual std::string getTestResults(std::string csvFileName="", bool csvAddHeader=true) = 0;
 
     static std::chrono::high_resolution_clock::time_point startTimer(){
         return std::chrono::high_resolution_clock::now();

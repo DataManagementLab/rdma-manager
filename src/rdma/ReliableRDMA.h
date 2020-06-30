@@ -31,6 +31,7 @@ class ReliableRDMA : public BaseRDMA {
 
   void initQP(rdmaConnID& retRdmaConnID) override;
   void connectQP(const rdmaConnID rdmaConnID) override;
+  void disconnectQP(const rdmaConnID rdmaConnID) override;
 
   void write(const rdmaConnID rdmaConnID, size_t offset, const void* memAddr,
              size_t size, bool signaled);

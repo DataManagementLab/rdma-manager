@@ -4,7 +4,6 @@
 #include "../src/memory/MainMemory.h"
 #include "../src/memory/CudaMemory.h"
 #include "../src/utils/Config.h"
-#include "../src/utils/StringHelper.h"
 
 #include <limits>
 #include <algorithm>
@@ -173,7 +172,7 @@ void rdma::BandwidthPerfServerThread::run() {
 
 
 
-rdma::BandwidthPerfTest::BandwidthPerfTest(bool is_server, std::string rdma_addresses, int rdma_port, int gpu_index, int thread_count, uint64_t memory_size_per_thread, uint64_t iterations) : PerfTest(){
+rdma::BandwidthPerfTest::BandwidthPerfTest(bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, int gpu_index, int thread_count, uint64_t memory_size_per_thread, uint64_t iterations) : PerfTest(){
 	this->m_is_server = is_server;
 	this->m_rdma_port = rdma_port;
 	this->m_gpu_index = gpu_index;
@@ -181,10 +180,7 @@ rdma::BandwidthPerfTest::BandwidthPerfTest(bool is_server, std::string rdma_addr
 	this->m_memory_size_per_thread = memory_size_per_thread;
 	this->m_memory_size = 2 * thread_count * memory_size_per_thread; // 2x because for send & receive separat
 	this->m_iterations = iterations;
-	this->m_rdma_addresses = StringHelper::split(rdma_addresses);
-	for (auto &addr : this->m_rdma_addresses){
-		addr += ":" + to_string(rdma_port);
-	}
+	this->m_rdma_addresses = rdma_addresses;
 }
 rdma::BandwidthPerfTest::~BandwidthPerfTest(){
 	for (size_t i = 0; i < m_client_threads.size(); i++) {
@@ -224,6 +220,7 @@ std::string rdma::BandwidthPerfTest::getTestParameters(){
 
 void rdma::BandwidthPerfTest::makeThreadsReady(TestMode testMode){
 	BandwidthPerfTest::testMode = testMode;
+	BandwidthPerfTest::signaled = false;
 	for(BandwidthPerfServerThread* perfThread : m_server_threads){
 		perfThread->start();
 		while(!perfThread->ready()) {
@@ -261,11 +258,6 @@ void rdma::BandwidthPerfTest::setupTest(){
 	m_memory = (m_gpu_index<0 ? (rdma::BaseMemory*)new rdma::MainMemory(m_memory_size) : (rdma::BaseMemory*)new rdma::CudaMemory(m_memory_size, m_gpu_index));
 
 	if(m_is_server){
-		// NodeIDSequencer (Server)
-		if (rdma::Config::getIP(rdma::Config::RDMA_INTERFACE) == rdma::Network::getAddressOfConnection(m_rdma_addresses[0])){
-			std::cout << "Starting NodeIDSequencer on " << rdma::Config::getIP(rdma::Config::RDMA_INTERFACE) << ":" << rdma::Config::SEQUENCER_PORT << std::endl;
-			m_nodeIDSequencer = new NodeIDSequencer();
-		}
 		// Server
 		m_server = new RDMAServer<ReliableRDMA>("BandwidthTestRDMAServer", m_rdma_port, m_memory);
 		for (int i = 0; i < m_thread_count; i++) {
@@ -296,7 +288,6 @@ void rdma::BandwidthPerfTest::runTest(){
 
 		// waiting until clients have connected
 		while(m_server->getConnectedConnIDs().size() < (size_t)m_thread_count) usleep(Config::RDMA_SLEEP_INTERVAL);
-
 		makeThreadsReady(TEST_SEND_AND_RECEIVE); // receive
 		//auto startReceive = rdma::PerfTest::startTimer();
         runThreads();
@@ -304,13 +295,13 @@ void rdma::BandwidthPerfTest::runTest(){
 
 		// wait until server is done
 		while (m_server->isRunning() && m_server->getConnectedConnIDs().size() > 0) {
-			std::cout << "Server waiting until clients disconnect: " << m_server->getConnectedConnIDs().size() << std::endl; // TODO REMOVE
-			 usleep(Config::RDMA_SLEEP_INTERVAL);
+			usleep(Config::RDMA_SLEEP_INTERVAL);
         }
 		std::cout << "Server stopped" << std::endl;
 
 	} else {
 		// Client
+
 
         // Measure bandwidth for writing
 		makeThreadsReady(TEST_WRITE); // write
@@ -350,7 +341,7 @@ std::string rdma::BandwidthPerfTest::getTestResults(std::string csvFileName, boo
 		return "only client";
 	} else {
 
-		const int64_t tu = 1000000000; // 1sec (nano to seconds as time unit)
+		const long double tu = 1000000000.0; // 1sec (nano to seconds as time unit)
 		
 		uint64_t transBytePerThr = m_iterations * m_memory_size_per_thread;
 		uint64_t transferedBytes = m_thread_count * transBytePerThr;
@@ -412,8 +403,8 @@ std::string rdma::BandwidthPerfTest::getTestResults(std::string csvFileName, boo
 			std::ofstream ofs;
 			ofs.open(csvFileName, std::ofstream::out | std::ofstream::app);
 			if(csvAddHeader){
-				ofs << "BANDWIDTH, " << getTestParameters() << ", transfered=" << rdma::PerfTest::convertByteSize(transferedBytes) << std::endl;
-				ofs << "PacketSize [Bytes], Write [MB/s], Read [MB/s], Send/Recv [MB/s], Fetch&Add [MB/s], Comp&Swap [MB/s], ";
+				ofs << "BANDWIDTH, " << getTestParameters() << ", transfered=" << std::endl;
+				ofs << "PacketSize [Bytes], Transfered [MB], Write [MB/s], Read [MB/s], Send/Recv [MB/s], Fetch&Add [MB/s], Comp&Swap [MB/s], ";
 				ofs << "Min Write [MB/s], Min Read [MB/s], Min Send/Recv [MB/s], Min Fetch&Add [MB/s], Min Comp&Swap [MB/s], ";
 				ofs << "Max Write [MB/s], Max Read [MB/s], Max Send/Recv [MB/s], Max Fetch&Add [MB/s], Max Comp&Swap [MB/s], ";
 				ofs << "Avg Write [MB/s], Avg Read [MB/s], Avg Send/Recv [MB/s], Avg Fetch&Add [MB/s], Avg Comp&Swap [MB/s], ";
@@ -424,7 +415,7 @@ std::string rdma::BandwidthPerfTest::getTestResults(std::string csvFileName, boo
 				ofs << "Avg Write [Sec], Avg Read [Sec], Avg Send/Recv [Sec], Avg Fetch&Add [Sec], Avg Comp&Swap [Sec], ";
 				ofs << "Median Write [Sec], Median Read [Sec], Median Send/Recv [Sec], Median Fetch&Add [Sec], Median Comp&Swap [Sec]" << std::endl;
 			}
-			ofs << m_memory_size_per_thread << ", "; // packet size Bytes
+			ofs << m_memory_size_per_thread << ", " << (round(transferedBytes/su * 100000)/100000.0); // packet size Bytes
 			ofs << (round(transferedBytes*tu/su/m_elapsedWriteMs * 100000)/100000.0) << ", "; // write MB/s
 			ofs << (round(transferedBytes*tu/su/m_elapsedReadMs * 100000)/100000.0) << ", "; // read MB/s
 			ofs << (round(transferedBytes*tu/su/m_elapsedSendMs * 100000)/100000.0) << ", "; // send/recv MB/s

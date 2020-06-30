@@ -12,7 +12,6 @@ set(RDMA_UTILS_SRC
 add_library(rdma_utils ${RDMA_UTILS_SRC})
 
 find_package(Numa)
-# include_directories(${NUMA_INCLUDE_DIR})
 target_link_libraries(rdma_utils ${NUMA_LIBRARY})
 
 target_include_directories(rdma_utils PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
