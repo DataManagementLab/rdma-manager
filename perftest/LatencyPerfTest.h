@@ -18,7 +18,7 @@ namespace rdma {
 
 class LatencyPerfClientThread : public Thread {
 public:
-	LatencyPerfClientThread(RDMAClient<ReliableRDMA> *client, std::vector<std::string>& rdma_addresses, size_t memory_size_per_thread, size_t iterations);
+	LatencyPerfClientThread(BaseMemory *memory, std::vector<std::string>& rdma_addresses, size_t memory_size_per_thread, size_t iterations);
 	~LatencyPerfClientThread();
 	void run();
 	bool ready() {
@@ -91,7 +91,6 @@ private:
 
 	BaseMemory *m_memory;
 	RDMAServer<ReliableRDMA>* m_server;
-	RDMAClient<ReliableRDMA> *m_client;
 
 	void makeThreadsReady(TestMode testMode);
 	void runThreads();

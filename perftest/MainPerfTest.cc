@@ -82,6 +82,10 @@ int main(int argc, char *argv[]){
 		}
     }
 
+    #ifndef CUDA_ENABLED /* defined in CMakeLists.txt to globally enable/disable CUDA support */
+		gpus.clear(); gpus.push_back(-1);
+	#endif
+
     size_t testIterations = testNames.size() * gpus.size() * thread_counts.size() * iteration_counts.size() * memsizes.size();
     size_t testCounter = 0;
 

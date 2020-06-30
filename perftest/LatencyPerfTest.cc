@@ -12,8 +12,8 @@ rdma::TestMode rdma::LatencyPerfTest::testMode;
 
 
 
-rdma::LatencyPerfClientThread::LatencyPerfClientThread(RDMAClient<ReliableRDMA> *client, std::vector<std::string>& rdma_addresses, size_t memory_size_per_thread, size_t iterations) {
-	this->m_client = client;
+rdma::LatencyPerfClientThread::LatencyPerfClientThread(BaseMemory *memory, std::vector<std::string>& rdma_addresses, size_t memory_size_per_thread, size_t iterations) {
+	this->m_client = new RDMAClient<ReliableRDMA>(memory, "LatencyPerfTestClient");
 	this->m_rdma_addresses = rdma_addresses;
 	this->m_memory_size_per_thread = memory_size_per_thread;
 	this->m_iterations = iterations;
@@ -56,6 +56,7 @@ rdma::LatencyPerfClientThread::~LatencyPerfClientThread() {
 	delete m_arrSendMs;
 	delete m_arrFetchAddMs;
 	delete m_arrCompareSwapMs;
+	delete m_client;
 }
 
 void rdma::LatencyPerfClientThread::run() {
@@ -203,8 +204,6 @@ rdma::LatencyPerfTest::~LatencyPerfTest(){
 	m_server_threads.clear();
 	if(m_is_server)
 		delete m_server;
-	else
-		delete m_client;
 	delete m_memory;
 }
 
@@ -259,7 +258,11 @@ void rdma::LatencyPerfTest::runThreads(){
 }
 
 void rdma::LatencyPerfTest::setupTest(){
-	m_memory = (m_gpu_index<0 ? (rdma::BaseMemory*)new rdma::MainMemory(m_memory_size) : (rdma::BaseMemory*)new rdma::CudaMemory(m_memory_size, m_gpu_index));
+	#ifdef CUDA_ENABLED /* defined in CMakeLists.txt to globally enable/disable CUDA support */
+		m_memory = (m_gpu_index<0 ? (rdma::BaseMemory*)new rdma::MainMemory(m_memory_size) : (rdma::BaseMemory*)new rdma::CudaMemory(m_memory_size, m_gpu_index));
+	#else
+		m_memory = (rdma::BaseMemory*)new MainMemory(m_memory_size);
+	#endif
 
 	if(m_is_server){
 		// Server
@@ -271,9 +274,8 @@ void rdma::LatencyPerfTest::setupTest(){
 
 	} else {
 		// Client
-		m_client = new RDMAClient<ReliableRDMA>(m_memory, "LatencyTestRDMAClient");
 		for (int i = 0; i < m_thread_count; i++) {
-			LatencyPerfClientThread* perfThread = new LatencyPerfClientThread(m_client, m_rdma_addresses, m_memory_size_per_thread, m_iterations);
+			LatencyPerfClientThread* perfThread = new LatencyPerfClientThread(m_memory, m_rdma_addresses, m_memory_size_per_thread, m_iterations);
 			m_client_threads.push_back(perfThread);
 		}
 	}
