@@ -15,6 +15,7 @@
 
 #include <gflags/gflags.h>
 
+DEFINE_bool(fulltest, false, "Overwrites flags 'test, gpu, memsize, threads, iterations, csv' to execute a broad variety of tests. If GPUs are supported then gpu=-1,-1,0,0 on client side and gpu=-1,0,-1,0 on server side to test all memory combinations: Main->Main, Main->GPU, GPU->Main, GPU->GPU");
 DEFINE_string(test, "bandwidth", "Test: bandwidth,latency (multiples separated by comma without space)");
 DEFINE_bool(server, false, "Act as server for a client to test performance");
 DEFINE_string(gpu, "-1", "Index of GPU for memory allocation (negative for main memory | multiples separated by comma without space)");
@@ -66,6 +67,22 @@ int main(int argc, char *argv[]){
 	for (auto &addr : addresses){
 		addr += ":" + to_string(FLAGS_port);
 	}
+    
+    if(FLAGS_fulltest){
+        FLAGS_csv = true;
+        testNames.clear(); testNames.push_back("bandwidth"); testNames.push_back("latency");
+        memsizes.clear(); memsizes.push_back(64); memsizes.push_back(512); memsizes.push_back(1024);
+        memsizes.push_back(2048); memsizes.push_back(4096); memsizes.push_back(8192);
+        memsizes.push_back(16384); memsizes.push_back(32768); memsizes.push_back(65536);
+        // TODO REDO thread_counts.clear(); thread_counts.push_back(1); thread_counts.push_back(2); thread_counts.push_back(4); thread_counts.push_back(8);
+        iteration_counts.clear(); iteration_counts.push_back(1000); iteration_counts.push_back(500000);
+        gpus.clear();
+        if(FLAGS_server){
+            gpus.push_back(-1); gpus.push_back(0); gpus.push_back(-1); gpus.push_back(0); // Main, GPU, Main, GPU
+        } else {                                                                          //  ^     ^     ^    ^
+            gpus.push_back(-1); gpus.push_back(-1); gpus.push_back(0); gpus.push_back(0); // Main, Main, GPU, GPU
+        }
+    }
 
     std::string csvFileName = FLAGS_csvfile;
     if(FLAGS_csv && csvFileName.empty()){

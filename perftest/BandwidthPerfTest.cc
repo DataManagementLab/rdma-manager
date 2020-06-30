@@ -263,13 +263,13 @@ void rdma::BandwidthPerfTest::setupTest(){
 	if(m_is_server){
 		// Server
 		m_server = new RDMAServer<ReliableRDMA>("BandwidthTestRDMAServer", m_rdma_port, m_memory);
-		/* server can only have a single thread
 		for (int i = 0; i < m_thread_count; i++) {
 			BandwidthPerfServerThread* perfThread = new BandwidthPerfServerThread(m_server, m_memory_size_per_thread, m_iterations);
 			m_server_threads.push_back(perfThread);
-		} */
+		}
+		/* If server only allows to be single threaded
 		BandwidthPerfServerThread* perfThread = new BandwidthPerfServerThread(m_server, m_memory_size_per_thread*m_thread_count, m_iterations*m_thread_count);
-		m_server_threads.push_back(perfThread);
+		m_server_threads.push_back(perfThread); */
 
 	} else {
 		// Client
