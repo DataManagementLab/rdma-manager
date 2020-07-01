@@ -22,8 +22,6 @@ rdma::LatencyPerfClientThread::LatencyPerfClientThread(BaseMemory *memory, std::
 	this->m_arrWriteMs = new int64_t[iterations];
 	this->m_arrReadMs = new int64_t[iterations];
 	this->m_arrSendMs = new int64_t[iterations];
-	this->m_arrFetchAddMs = new int64_t[iterations];
-	this->m_arrCompareSwapMs = new int64_t[iterations];
 
 	for (size_t i = 0; i < m_rdma_addresses.size(); ++i) {
 	    NodeID  nodeId = 0;
@@ -54,8 +52,6 @@ rdma::LatencyPerfClientThread::~LatencyPerfClientThread() {
 	delete m_arrWriteMs;
 	delete m_arrReadMs;
 	delete m_arrSendMs;
-	delete m_arrFetchAddMs;
-	delete m_arrCompareSwapMs;
 	delete m_client;
 }
 
@@ -111,30 +107,6 @@ void rdma::LatencyPerfClientThread::run() {
 				if(m_minSendMs > time) m_minSendMs = time;
 				if(m_maxSendMs < time) m_maxSendMs = time;
 				m_arrSendMs[i] = time;
-			}
-			break;
-		case TEST_FETCH_AND_ADD: // Fetch & Add
-			for(size_t i = 0; i < m_iterations; i++){
-				size_t connIdx = i % m_rdma_addresses.size();
-				auto start = rdma::PerfTest::startTimer();
-				m_client->fetchAndAdd(m_addr[connIdx], m_remOffsets[connIdx], m_local_memory->pointer(), m_memory_size_per_thread, true); // true=signaled
-				int64_t time = rdma::PerfTest::stopTimer(start);
-				m_sumFetchAddMs += time;
-				if(m_minFetchAddMs > time) m_minFetchAddMs = time;
-				if(m_maxFetchAddMs < time) m_maxFetchAddMs = time;
-				m_arrFetchAddMs[i] = time;
-			}
-			break;
-		case TEST_COMPARE_AND_SWAP: // Compare & Swap
-			for(size_t i = 0; i < m_iterations; i++){
-				size_t connIdx = i % m_rdma_addresses.size();
-				auto start = rdma::PerfTest::startTimer();
-				m_client->compareAndSwap(m_addr[connIdx], m_remOffsets[connIdx], m_local_memory->pointer(), 2, 3, m_memory_size_per_thread, true); // true=signaled
-				int64_t time = rdma::PerfTest::stopTimer(start);
-				m_sumCompareSwapMs += time;
-				if(m_minCompareSwapMs > time) m_minCompareSwapMs = time;
-				if(m_maxCompareSwapMs < time) m_maxCompareSwapMs = time;
-				m_arrCompareSwapMs[i] = time;
 			}
 			break;
 		default: throw invalid_argument("LatencyPerfClientThread unknown test mode");
@@ -318,14 +290,6 @@ void rdma::LatencyPerfTest::runTest(){
 		// Measure Latency for sending
 		makeThreadsReady(TEST_SEND_AND_RECEIVE); // send
         runThreads();
-
-		// Measure Latency for fetching & adding
-		makeThreadsReady(TEST_FETCH_AND_ADD); // fetch & add
-        runThreads();
-
-		// Measure Latency for comparing & swaping
-		makeThreadsReady(TEST_COMPARE_AND_SWAP); // compare & swap
-        runThreads();
 	}
 }
 
@@ -338,9 +302,7 @@ std::string rdma::LatencyPerfTest::getTestResults(std::string csvFileName, bool 
 		int64_t minWriteMs=std::numeric_limits<int64_t>::max(), maxWriteMs=-1, medianWriteMs=-1;
 		int64_t minReadMs=std::numeric_limits<int64_t>::max(), maxReadMs=-1, medianReadMs=-1;
 		int64_t minSendMs=std::numeric_limits<int64_t>::max(), maxSendMs=-1, medianSendMs=-1;
-		int64_t minFetchAddMs=std::numeric_limits<int64_t>::max(), maxFetchAddMs=-1, medianFetchAddMs=-1;
-		int64_t minCompareSwapMs=std::numeric_limits<int64_t>::max(), maxCompareSwapMs=-1, medianCompareSwapMs=-1;
-		long double avgWriteMs=0, avgReadMs=0, avgSendMs=0, avgFetchAddMs=0, avgCompareSwapMs=0;
+		long double avgWriteMs=0, avgReadMs=0, avgSendMs=0;
 		int64_t tmpMs[m_iterations];
 
 		uint64_t index = 0;
@@ -356,12 +318,6 @@ std::string rdma::LatencyPerfTest::getTestResults(std::string csvFileName, bool 
 			if(minSendMs > thr->m_minSendMs) minSendMs = thr->m_minSendMs;
 			if(maxSendMs < thr->m_maxSendMs) maxSendMs = thr->m_maxSendMs;
 			avgSendMs += thr->m_sumSendMs / itr;
-			if(minFetchAddMs > thr->m_minFetchAddMs) minFetchAddMs = thr->m_minFetchAddMs;
-			if(maxFetchAddMs < thr->m_maxFetchAddMs) maxFetchAddMs = thr->m_maxFetchAddMs;
-			avgFetchAddMs += thr->m_sumFetchAddMs / itr;
-			if(minCompareSwapMs > thr->m_minCompareSwapMs) minCompareSwapMs = thr->m_minCompareSwapMs;
-			if(maxCompareSwapMs < thr->m_maxCompareSwapMs) maxCompareSwapMs = thr->m_maxCompareSwapMs;
-			avgCompareSwapMs += thr->m_sumCompareSwapMs / itr;
 
 			for(uint64_t j = 0; j < m_iterations; j++){ tmpMs[index++] = thr->m_arrWriteMs[j]; }
 			std::sort(tmpMs, tmpMs + m_iterations);
@@ -384,22 +340,6 @@ std::string rdma::LatencyPerfTest::getTestResults(std::string csvFileName, bool 
 			medianSendMs = tmpMs[(int)(m_iterations/2)];
 		}
 
-		index = 0;
-		for(size_t i=0; i<m_client_threads.size(); i++){
-			LatencyPerfClientThread *thr = m_client_threads[i];
-			for(uint64_t j = 0; j < m_iterations; j++){ tmpMs[index++] = thr->m_arrFetchAddMs[j]; }
-			std::sort(tmpMs, tmpMs + m_iterations);
-			medianFetchAddMs = tmpMs[(int)(m_iterations/2)];
-		}
-
-		index = 0;
-		for(size_t i=0; i<m_client_threads.size(); i++){
-			LatencyPerfClientThread *thr = m_client_threads[i];
-			for(uint64_t j = 0; j < m_iterations; j++){ tmpMs[index++] = thr->m_arrCompareSwapMs[j]; }
-			std::sort(tmpMs, tmpMs + m_iterations);
-			medianCompareSwapMs = tmpMs[(int)(m_iterations/2)];
-		}
-
 		// write results into CSV file
 		if(!csvFileName.empty()){
 			const uint64_t ustu = 1000; // nanosec to microsec
@@ -407,24 +347,20 @@ std::string rdma::LatencyPerfTest::getTestResults(std::string csvFileName, bool 
 			ofs.open(csvFileName, std::ofstream::out | std::ofstream::app);
 			if(csvAddHeader){
 				ofs << "LATENCY, " << getTestParameters() << std::endl;
-				ofs << "PacketSize [Bytes], Avg Write [usec], Avg Read [usec], Avg Send/Recv [usec], Avg Fetch&Add [usec], Avg Comp&Swap [usec], ";
-				ofs << "Median Write [usec], Median Read [usec], Median Send/Recv [usec], Median Fetch&Add [usec], Median Comp&Swap [usec], ";
-				ofs << "Min Write [usec], Min Read [usec], Min Send/Recv [usec], Min Fetch&Add [usec], Min Comp&Swap [usec], ";
-				ofs << "Max Write [usec], Max Read [usec], Max Send/Recv [usec], Max Fetch&Add [usec], Max Comp&Swap [usec]" << std::endl;
+				ofs << "PacketSize [Bytes], Avg Write [usec], Avg Read [usec], Avg Send/Recv [usec], ";
+				ofs << "Median Write [usec], Median Read [usec], Median Send/Recv [usec], ";
+				ofs << "Min Write [usec], Min Read [usec], Min Send/Recv [usec], ";
+				ofs << "Max Write [usec], Max Read [usec], Max Send/Recv [usec]" << std::endl;
 			}
 			ofs << m_memory_size_per_thread << ", "; // packet size Bytes
 			ofs << (round(avgWriteMs/ustu * 10)/10.0) << ", " << (round(avgReadMs/ustu * 10)/10.0) << ", "; // avg write, read us
-			ofs << (round(avgSendMs/ustu * 10)/10.0) << ", " << (round(avgFetchAddMs/ustu * 10)/10.0) << ", "; // avg send, fetch us
-			ofs << (round(avgCompareSwapMs/ustu * 10)/10.0) << ", "; // avg comp&swap us
+			ofs << (round(avgSendMs/ustu * 10)/10.0) << ", "; // avg send us
 			ofs << (round(medianWriteMs/ustu * 10)/10.0) << ", " << (round(medianReadMs/ustu * 10)/10.0) << ", "; // median write, read us
-			ofs << (round(medianSendMs/ustu * 10)/10.0) << ", " << (round(medianFetchAddMs/ustu * 10)/10.0) << ", "; // median send, fetch us
-			ofs << (round(medianCompareSwapMs/ustu * 10)/10.0) << ", "; // median comp&swap us
+			ofs << (round(medianSendMs/ustu * 10)/10.0) << ", "; // median send us
 			ofs << (round(minWriteMs/ustu * 10)/10.0) << ", " << (round(minReadMs/ustu * 10)/10.0) << ", "; // min write, read us
-			ofs << (round(minSendMs/ustu * 10)/10.0) << ", " << (round(minFetchAddMs/ustu * 10)/10.0) << ", "; // min send, fetch us
-			ofs << (round(minCompareSwapMs/ustu * 10)/10.0) << ", "; // min comp&swap us
+			ofs << (round(minSendMs/ustu * 10)/10.0) << ", "; // min send us
 			ofs << (round(maxWriteMs/ustu * 10)/10.0) << ", " << (round(maxReadMs/ustu * 10)/10.0) << ", "; // max write, read us
-			ofs << (round(maxSendMs/ustu * 10)/10.0) << ", " << (round(maxFetchAddMs/ustu * 10)/10.0) << ", "; // max send, fetch us
-			ofs << (round(maxCompareSwapMs/ustu * 10)/10.0) << std::endl; // max comp&swap us
+			ofs << (round(maxSendMs/ustu * 10)/10.0) << ", " << std::endl; // max send us
 			ofs.close();
 		}
 
@@ -437,10 +373,6 @@ std::string rdma::LatencyPerfTest::getTestResults(std::string csvFileName, bool 
 		std::cout << "    range = " <<  rdma::PerfTest::convertTime(minReadMs) << " - " << rdma::PerfTest::convertTime(maxReadMs) << std::endl;
 		std::cout << " - Send:            average = " << rdma::PerfTest::convertTime(avgSendMs) << "    median = " << rdma::PerfTest::convertTime(medianSendMs);
 		std::cout << "    range = " <<  rdma::PerfTest::convertTime(minSendMs) << " - " << rdma::PerfTest::convertTime(maxSendMs) << std::endl;
-		std::cout << " - Fetch&Add:       average = " << rdma::PerfTest::convertTime(avgFetchAddMs) << "    median = " << rdma::PerfTest::convertTime(medianFetchAddMs);
-		std::cout << "    range = " <<  rdma::PerfTest::convertTime(minFetchAddMs) << " - " << rdma::PerfTest::convertTime(maxFetchAddMs) << std::endl;
-		std::cout << " - Compare&Swap:    average = " << rdma::PerfTest::convertTime(avgCompareSwapMs) << "   median = " << rdma::PerfTest::convertTime(medianCompareSwapMs);
-		std::cout << "    range = " <<  rdma::PerfTest::convertTime(minCompareSwapMs) << " - " << rdma::PerfTest::convertTime(maxCompareSwapMs) << std::endl;
 		return oss.str();
 
 	}

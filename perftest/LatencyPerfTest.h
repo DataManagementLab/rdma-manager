@@ -28,9 +28,7 @@ public:
 	int64_t m_sumWriteMs = 0, m_minWriteMs=std::numeric_limits<int64_t>::max(), m_maxWriteMs=-1;
 	int64_t m_sumReadMs = 0, m_minReadMs=std::numeric_limits<int64_t>::max(), m_maxReadMs=-1;
 	int64_t m_sumSendMs = 0, m_minSendMs=std::numeric_limits<int64_t>::max(), m_maxSendMs=-1;
-	int64_t m_sumFetchAddMs = 0, m_minFetchAddMs=std::numeric_limits<int64_t>::max(), m_maxFetchAddMs=-1;
-	int64_t m_sumCompareSwapMs = 0, m_minCompareSwapMs=std::numeric_limits<int64_t>::max(), m_maxCompareSwapMs=-1;
-	int64_t *m_arrWriteMs, *m_arrReadMs, *m_arrSendMs, *m_arrFetchAddMs, *m_arrCompareSwapMs;
+	int64_t *m_arrWriteMs, *m_arrReadMs, *m_arrSendMs;
 
 private:
 	bool m_ready = false;
