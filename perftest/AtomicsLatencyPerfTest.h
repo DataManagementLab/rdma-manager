@@ -40,23 +40,6 @@ private:
 };
 
 
-class AtomicsLatencyPerfServerThread : public Thread {
-public:
-	AtomicsLatencyPerfServerThread(RDMAServer<ReliableRDMA> *server, int thread_index, size_t iterations);
-	~AtomicsLatencyPerfServerThread();
-	void run();
-	bool ready(){
-		return m_ready;
-	}
-
-private:
-	bool m_ready = false;
-	int m_thread_index;
-	size_t m_iterations;
-	RDMAServer<ReliableRDMA> *m_server;
-};
-
-
 class AtomicsLatencyPerfTest : public rdma::PerfTest {
 public:
     AtomicsLatencyPerfTest(bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, int gpu_index, int thread_count, uint64_t iterations);
@@ -81,7 +64,6 @@ private:
 	uint64_t m_memory_size;
 	uint64_t m_iterations;
 	std::vector<AtomicsLatencyPerfClientThread*> m_client_threads;
-	std::vector<AtomicsLatencyPerfServerThread*> m_server_threads;
 
 	BaseMemory *m_memory;
 	RDMAServer<ReliableRDMA>* m_server;
