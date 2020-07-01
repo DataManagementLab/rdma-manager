@@ -105,7 +105,7 @@ std::string rdma::AtomicsBandwidthPerfTest::getTestParameters(){
 	} else {
 		oss << "Client, threads=" << m_thread_count << ", memory=";
 	}
-	oss << m_memory_size << " (" << m_thread_count << "x " << (rdma::ATOMICS_SIZE*8) << "bits) [";
+	oss << m_memory_size << " (" << m_thread_count << "x " << (rdma::ATOMICS_SIZE*8) << "bit) [";
 	if(m_gpu_index < 0){
 		oss << "MAIN";
 	} else {
@@ -172,8 +172,11 @@ void rdma::AtomicsBandwidthPerfTest::runTest(){
 		} else {
 			std::cout << "Server running on '" << rdma::Config::getIP(rdma::Config::RDMA_INTERFACE) << ":" << m_rdma_port << "'" << std::endl; // TODO REMOVE
 		}
+		
+		// waiting until clients have connected
+		while(m_server->getConnectedConnIDs().size() < (size_t)m_thread_count) usleep(Config::RDMA_SLEEP_INTERVAL);
 
-		// wait until server is done
+		// wait until clients have finished
 		while (m_server->isRunning() && m_server->getConnectedConnIDs().size() > 0) {
 			usleep(Config::RDMA_SLEEP_INTERVAL);
         }
@@ -264,7 +267,7 @@ std::string rdma::AtomicsBandwidthPerfTest::getTestResults(std::string csvFileNa
 
 		// generate result string
 		std::ostringstream oss;
-		oss << " - Fetch&Add:     bandwidth = " << rdma::PerfTest::convertBandwidth(transferedBytes*tu/m_elapsedFetchAddMs);
+		oss << std::endl << " - Fetch&Add:     bandwidth = " << rdma::PerfTest::convertBandwidth(transferedBytes*tu/m_elapsedFetchAddMs);
 		oss << "  (range = " << rdma::PerfTest::convertBandwidth(transBytePerThr*tu/maxFetchAddMs) << " - " << rdma::PerfTest::convertBandwidth(transBytePerThr*tu/minFetchAddMs);
 		oss << " ; avg=" << rdma::PerfTest::convertBandwidth(transBytePerThr*tu/avgFetchAddMs) << " ; median=";
 		oss << rdma::PerfTest::convertBandwidth(transBytePerThr*tu/minFetchAddMs) << ")";

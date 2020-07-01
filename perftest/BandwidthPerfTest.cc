@@ -275,6 +275,7 @@ void rdma::BandwidthPerfTest::runTest(){
 
 		// waiting until clients have connected
 		while(m_server->getConnectedConnIDs().size() < (size_t)m_thread_count) usleep(Config::RDMA_SLEEP_INTERVAL);
+		
 		makeThreadsReady(TEST_SEND_AND_RECEIVE); // receive
 		//auto startReceive = rdma::PerfTest::startTimer();
         runThreads();

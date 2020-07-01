@@ -29,6 +29,8 @@ DEFINE_int32(port, rdma::Config::RDMA_PORT, "RDMA port");
 DEFINE_bool(csv, false, "Results will be written into an automatically generated CSV file");
 DEFINE_string(csvfile, "", "Results will be written into a given CSV file");
 
+enum TEST { BANDWIDTH_TEST=1, LATENCY_TEST=2, ATOMICS_BANDWIDTH_TEST=3, ATOMICS_LATENCY_TEST=4 };
+
 static std::vector<int> parseIntList(std::string str){
     std::vector<int> v;
     std::stringstream ss(str);
@@ -125,29 +127,51 @@ int main(int argc, char *argv[]){
 		gpus.clear(); gpus.push_back(-1);
 	#endif
 
-    size_t testIterations = testNames.size() * gpus.size() * thread_counts.size() * iteration_counts.size() * memsizes.size();
-    size_t testCounter = 0;
-
+    // parse test nams
+    size_t testIterations = 0, testCounter = 0;
+    std::vector<TEST> tests;
     auto testIt = testNames.begin();
     while(testIt != testNames.end()){
         std::string testName = *testIt;
         if(testName.length() == 0)
             continue;
         std::transform(testName.begin(), testName.end(), testName.begin(), ::tolower);
-        std::string test_name = testName; // always lower case
 
+        size_t count = gpus.size() * thread_counts.size() * iteration_counts.size();
+
+        if(std::string("bandwidth").rfind(testName, 0) == 0){
+            tests.push_back(BANDWIDTH_TEST);
+            count *= memsizes.size();
+        } else if(std::string("latency").rfind(testName, 0) == 0){
+            tests.push_back(LATENCY_TEST);
+            count *= memsizes.size();
+        } else if(std::string("atomicsbandwidth").rfind(testName, 0) == 0 || std::string("atomicbandwidth").rfind(testName, 0) == 0){
+            tests.push_back(ATOMICS_BANDWIDTH_TEST);
+        } else if(std::string("atomicslatency").rfind(testName, 0) == 0 || std::string("atomiclatency").rfind(testName, 0) == 0){
+            tests.push_back(ATOMICS_LATENCY_TEST);
+        } else {
+            std::cerr << "No test with name '" << *testIt << "' found" << std::endl;
+            testIt++;
+            continue;
+        }
+        testIterations += count;
+        testIt++;
+    }
+
+    for(TEST &t : tests){
         for(int &gpu_index : gpus){
             for(uint64_t &iterations : iteration_counts){
                 bool csvAddHeader = true;
                 for(int &thread_count : thread_counts){
                     rdma::PerfTest *test = nullptr;
+                    std::string testName;
                     
-                    if(std::string("atomicsbandwidth").rfind(test_name, 0) == 0){
+                    if(t == ATOMICS_BANDWIDTH_TEST){
                         // Atomics Bandwidth Test
                         testName = "Atomics Bandwidth";
                         test = new rdma::AtomicsBandwidthPerfTest(FLAGS_server, addresses, FLAGS_port, gpu_index, thread_count, iterations);
 
-                    } else if(std::string("atomicslatency").rfind(test_name, 0) == 0){
+                    } else if(t == ATOMICS_LATENCY_TEST){
                         // Atomics Latency Test
                         testName = "Atomics Latency";
                         test = new rdma::AtomicsLatencyPerfTest(FLAGS_server, addresses, FLAGS_port, gpu_index, thread_count, iterations);
@@ -160,23 +184,17 @@ int main(int argc, char *argv[]){
                         continue;
                     }
 
-                    csvAddHeader;
+                    csvAddHeader = true;
                     for(uint64_t &memsize : memsizes){
-                        if(std::string("bandwidth").rfind(test_name, 0) == 0){
+                        if(t == BANDWIDTH_TEST){
                             // Bandwidth Test
                             testName = "Bandwidth";
                             test = new rdma::BandwidthPerfTest(FLAGS_server, addresses, FLAGS_port, gpu_index, thread_count, memsize, iterations);
 
-                        } else if(std::string("latency").rfind(test_name, 0) == 0){
+                        } else if(t == LATENCY_TEST){
                             // Latency Test
                             testName = "Latency";
                             test = new rdma::LatencyPerfTest(FLAGS_server, addresses, FLAGS_port, gpu_index, thread_count, memsize, iterations);
-                        }
-
-                        if(test == nullptr){
-                            std::cerr << "No test with name '" << testName << "' found" << std::endl;
-                            testIt = testNames.erase(testIt);
-                            continue;
                         }
 
                         testCounter++;
