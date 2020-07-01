@@ -33,30 +33,173 @@ class ReliableRDMA : public BaseRDMA {
   void connectQP(const rdmaConnID rdmaConnID) override;
   void disconnectQP(const rdmaConnID rdmaConnID) override;
 
+  /* Function: write
+   * ----------------
+   * Writes data from a given array to the remote side
+   * 
+   * rdmaConnID:  id of the remote
+   * offset:      offset on the remote side where to start writing
+   * memAddr:     address of the local array that should be transfered
+   * size:        how many bytes should be transfered
+   * signaled:    if true the function blocks until the write request was
+   *              processed by the NIC. Multiple writes can be called and 
+   *              the last one should always be signaled=true.
+   *              At max Config::RDMA_MAX_WR writes can be performed at once 
+   *              without signaled=true.
+   * 
+   */
   void write(const rdmaConnID rdmaConnID, size_t offset, const void* memAddr,
              size_t size, bool signaled);
 
   void writeImm(const rdmaConnID rdmaConnID, size_t offset, const void* memAddr,
              size_t size, uint32_t , bool signaled);
+
+  /* Function: read
+   * ----------------
+   * Reads data from the remote side into a given array
+   * 
+   * rdmaConnID:  id of the remote
+   * offset:      offset on the remote side where to start reading
+   * memAddr:     address of local array where the data should be stored
+   * size:        how many bytes should be transfered
+   * signaled:    if true the function blocks until the read has fully been 
+   *              completed. Multiple reads can be called and 
+   *              the last one should always be signaled=true. 
+   *              At max Config::RDMA_MAX_WR reads can be performed at once 
+   *              without signaled=true.
+   * 
+   */
   void read(const rdmaConnID rdmaConnID, size_t offset, const void* memAddr,
             size_t size, bool signaled);
+
   void requestRead(const rdmaConnID rdmaConnID, size_t offset,
                    const void* memAddr, size_t size);
+ 
+  /* Function: fetchAndAdd
+   * ----------------
+   * Fetches and increments one as an atomic operation
+   * 
+   * rdmaConnID:  id of the remote
+   * offset:      offset on the remote side where to fetch and add
+   * memAddr:     local address where the fetched (old) value should be stored
+   * size:        size of the value that should be transfered (only 8bytes = 64bit makes sense)
+   * signaled:    if true the function blocks until the fetch has fully been 
+   *              completed. Multiple fetches can be called and 
+   *              the last one should always be signaled=true. 
+   *              At max Config::RDMA_MAX_WR fetches can be performed at once 
+   *              without signaled=true.
+   */                 
   void fetchAndAdd(const rdmaConnID rdmaConnID, size_t offset,
                    const void* memAddr, size_t size, bool signaled);
+  
+  /* Function: fetchAndAdd
+  * ----------------
+  * Fetches and increments one as an atomic operation
+  * 
+  * rdmaConnID:  id of the remote
+  * offset:      offset on the remote side where to fetch and add
+  * memAddr:     local address where the fetched (old) value should be stored
+  * signaled:    if true the function blocks until the fetch has fully been 
+  *              completed. Multiple fetches can be called and 
+  *              the last one should always be signaled=true. 
+  *              At max Config::RDMA_MAX_WR fetches can be performed at once 
+  *              without signaled=true.
+  */
+  void fetchAndAdd(const rdmaConnID rdmaConnID, size_t offset,
+                  const void* memAddr, bool signaled){
+    fetchAndAdd(rdmaConnID, offset, memAddr, sizeof(uint64_t), signaled);
+  }
+
+  /* Function: fetchAndAdd
+   * ----------------
+   * Fetches and adds a 64bit value as an atomic operation
+   * 
+   * rdmaConnID:   id of the remote
+   * offset:       offset on the remote side where to fetch and add
+   * memAddr:      local address where the fetched (old) value should be stored
+   * value_to_add: value that should be added
+   * size:         size of the value that should be transfered (only 8bytes = 64bit makes sense)
+   * signaled:     if true the function blocks until the fetch has fully been 
+   *               completed. Multiple fetches can be called and 
+   *               the last one should always be signaled=true. 
+   *               At max Config::RDMA_MAX_WR fetches can be performed at once 
+   *               without signaled=true.
+   */ 
   void fetchAndAdd(const rdmaConnID rdmaConnID, size_t offset,
                    const void* memAddr, size_t value_to_add, size_t size,
                    bool signaled);
 
+  /* Function: fetchAndAdd
+   * ----------------
+   * Fetches and adds a 64bit value as an atomic operation
+   * 
+   * rdmaConnID:    id of the remote
+   * offset:        offset on the remote side where to fetch and add
+   * memAddr:       local address where the fetched (old) value should be stored
+   * value_to_add:  value that should be added
+   * signaled:      if true the function blocks until the fetch has fully been 
+   *                completed. Multiple fetches can be called and 
+   *                the last one should always be signaled=true. 
+   *                At max Config::RDMA_MAX_WR fetches can be performed at once 
+   *                without signaled=true.
+   */
+  void fetchAndAdd(const rdmaConnID rdmaConnID, size_t offset,
+                   const void* memAddr, int64_t value_to_add, bool signaled){
+    fetchAndAdd(rdmaConnID, offset, memAddr, value_to_add, sizeof(uint64_t), signaled);
+  }
+
+  /* Function: compareAndSwap
+   * ----------------
+   * Compares and swaps a 64bit value as an atomic operation
+   * 
+   * rdmaConnID:  id of the remote
+   * offset:      offset on the remote side where to fetch and add
+   * memAddr:     local address where the original (old) value 
+   *              should be stored. Always original value, regardless 
+   *              of whether an swap has taken place or not
+   * toCompare:   64bit value that should be compared with remote value
+   * toSwap:      64bit that should be set on remote if comparison succeeded
+   * size:        size of the value that should be transfered (only 8bytes = 64bit makes sense)
+   * signaled:    if true the function blocks until the fetch has fully been 
+   *              completed. Multiple fetches can be called and 
+   *              the last one should always be signaled=true. 
+   *              At max Config::RDMA_MAX_WR fetches can be performed at once 
+   *              without signaled=true.
+   */
   void compareAndSwap(const rdmaConnID rdmaConnID, size_t offset,
                       const void* memAddr, int toCompare, int toSwap,
                       size_t size, bool signaled);
 
+  /* Function: compareAndSwap
+   * ----------------
+   * Compares and swaps a 64bit value as an atomic operation
+   * 
+   * rdmaConnID:  id of the remote
+   * offset:      offset on the remote side where to fetch and add
+   * memAddr:     local address where the original (old) value 
+   *              should be stored. Always original value, regardless 
+   *              of whether an swap has taken place or not
+   * toCompare:   64bit value that should be compared with remote value
+   * toSwap:      64bit that should be set on remote if comparison succeeded
+   * signaled:    if true the function blocks until the fetch has fully been 
+   *              completed. Multiple fetches can be called and 
+   *              the last one should always be signaled=true. 
+   *              At max Config::RDMA_MAX_WR fetches can be performed at once 
+   *              without signaled=true.
+   */
+  void compareAndSwap(const rdmaConnID rdmaConnID, size_t offset,
+                      const void* memAddr, int toCompare, int toSwap, bool signaled){
+    compareAndSwap(rdmaConnID, offset, memAddr, toCompare, toSwap, sizeof(int64_t), signaled);
+  }
+
   void send(const rdmaConnID rdmaConnID, const void* memAddr, size_t size,
             bool signaled) override;
+  
   void receive(const rdmaConnID rdmaConnID, const void* memAddr,
                size_t size) override;
+  
   int pollReceive(const rdmaConnID rdmaConnID, bool doPoll = true,uint32_t* = nullptr) override;
+
   void pollReceiveBatch(size_t srq_id, size_t& num_completed, bool& doPoll);
   void pollSend(const rdmaConnID rdmaConnID, bool doPoll) override;
 

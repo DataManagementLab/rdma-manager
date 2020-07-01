@@ -89,10 +89,51 @@ class BaseRDMA {
   virtual ~BaseRDMA();
 
   // unicast transfer methods
+
+  /* Function: send
+   * ----------------
+   * Sends data of a given array to the remote side. 
+   * The remote side has to first call receive and 
+   * then handle the incoming data.
+   * 
+   * rdmaConnID:  id of the remote
+   * memAddr:     address of the local array containing the data 
+   *              that should be sent
+   * size:        how many bytes should be transfered
+   * signaled:    if true the function blocks until the send has fully been 
+   *              completed. Multiple sends can be called. 
+   *              At max Config::RDMA_MAX_WR fetches can be performed at once 
+   *              without signaled=true.
+   */
   virtual void send(const rdmaConnID rdmaConnID, const void *memAddr,
                     size_t size, bool signaled) = 0;
+  
+  /* Function receive
+   * ----------------
+   * Receives data that has been sent. 
+   * Must be called before the actual send gets executed. 
+   * Multiple calls up to Config::RDMA_MAX_WR are allowed 
+   * without a send call inbetween.
+   * To actually wait for the data and receive it call 
+   * pollReceive() afterwards.
+   * 
+   * rdmaConnID:  id of the remote
+   * memAddr:     address of the local array where the received 
+   *              data should be written into
+   * size:        how many bytes are expected to receive
+   */
   virtual void receive(const rdmaConnID rdmaConnID, const void *memAddr,
                        size_t size) = 0;
+  
+  /* Function: pollReceive
+   * ----------------
+   * Checks if data from a receive has arrived.
+   * 
+   * rdmaConnID:  id of the remote
+   * doPoll:      if true then function blocks until 
+   *              data has arrived
+   * return:      how many receives arrived or zero
+   */
   virtual int pollReceive(const rdmaConnID rdmaConnID, bool doPoll = true,uint32_t* = nullptr) = 0;
   // virtual void pollReceive(const rdmaConnID rdmaConnID, uint32_t &ret_qp_num)
   // = 0;
@@ -122,16 +163,69 @@ class BaseRDMA {
   void setRemoteConnData(const rdmaConnID rdmaConnID, ib_conn_t &conn);
 
   // memory management
+
+  /* Function: localAlloc
+   * ----------------
+   * Allocates a memory part from the local buffer.
+   * Typ of memory same as buffer type.
+   * Use localMalloc() to abstract memory type
+   * 
+   * size:    how big the memory part should be in bytes
+   * return:  pointer of memory part.
+   *          Must be released with localFree().
+   *          Memory type depends on buffer type
+   */
   virtual void *localAlloc(const size_t &size) = 0;
+
+  /* Function: localFree
+   * ----------------
+   * Releases an allocated memory part again.
+   * 
+   * ptr: pointer of the memory part
+   * 
+   */
   virtual void localFree(const void *ptr) = 0;
+
+  /* Function: localFree
+   * ----------------
+   * Releases an allocated memory part again 
+   * based of its offset in the buffer.
+   * 
+   * offset:  offset in the buffer to 
+   *          the memory part
+   * 
+   */
   virtual void localFree(const size_t &offset) = 0;
 
+  /* Function: localMalloc
+   * ----------------
+   * Allocates a memory part from the local buffer
+   * 
+   * size:    how big the memory part should be in bytes
+   * return:  memory part handler object. 
+   *          Delete it to release memory part again
+   */
   LocalBaseMemoryStub *localMalloc(const size_t &size){
     return m_buffer->malloc(size);
   }
 
+  /* Function: getBuffer
+   * ----------------
+   * Returns pointer of the local buffer.
+   * Memory type of buffer must be known 
+   * from context. 
+   * Use getBufferObj() to abstract memory type
+   * 
+   * return:  pointer of local buffer
+   */
   void *getBuffer() { return m_buffer->pointer(); }
 
+  /* Function: getBufferObj
+   * ----------------
+   * Returns local buffer
+   * 
+   * return:  local buffer
+   */
   BaseMemory *getBufferObj(){ return m_buffer; }
 
   const list<rdma_mem_t> getFreeMemList() const { return m_buffer->getFreeMemList(); }

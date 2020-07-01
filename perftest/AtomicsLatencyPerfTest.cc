@@ -71,11 +71,11 @@ void rdma::AtomicsLatencyPerfClientThread::run() {
 				std::cout << " - SEND +2" << std::endl; // TODO REMOVE
 				m_client->fetchAndAdd(m_addr[connIdx], m_remOffsets[connIdx], m_local_memory->pointer(), 2, rdma::ATOMICS_SIZE, true); // true=signaled
 				do {
-					tmp = *(int64_t*)(m_local_memory->pointer(rdma::ATOMICS_SIZE));
+					tmp = *(int64_t*)(m_local_memory->pointer());
 
 					std::cout << " - R " << tmp << " == " << last_value << "   | W "; // TODO REMOVE
 					std::cout << *(int64_t*)(m_local_memory->pointer(rdma::ATOMICS_SIZE)) << std::endl;
-					//usleep(500000); // TODO REMOVE
+					usleep(500000); // TODO REMOVE
 
 				} while(tmp <= last_value);
 				int64_t time = rdma::PerfTest::stopTimer(start) / 2; // one trip time
@@ -148,13 +148,13 @@ void rdma::AtomicsLatencyPerfServerThread::run() {
 
 					std::cout << " - R " << tmp << " == " << last_value << "   | W "; // TODO REMOVE
 					std::cout << *(int64_t*)(m_server->getBuffer(memOffset+rdma::ATOMICS_SIZE)) << std::endl;
-					//usleep(500000); // TODO REMOVE
+					usleep(500000); // TODO REMOVE
 
 				} while(tmp == last_value); // TODO should be <=
 				std::cout << " - RECV " << tmp << std::endl;  // TODO REMOVE
 				last_value = tmp;
 				std::cout << " - SEND +2" << std::endl;  // TODO REMOVE
-				m_server->fetchAndAdd(clientId, memOffset+rdma::ATOMICS_SIZE, m_server->getBuffer(0), 2, rdma::ATOMICS_SIZE, true); // true=signaled
+				m_server->fetchAndAdd(clientId, memOffset, m_server->getBuffer(0), 2, rdma::ATOMICS_SIZE, true); // true=signaled
 			}
 			break;
 		case TEST_COMPARE_AND_SWAP: // Compare & Swap

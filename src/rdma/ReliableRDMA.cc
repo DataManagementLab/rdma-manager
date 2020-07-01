@@ -582,6 +582,7 @@ void ReliableRDMA::modifyQPToRTS(struct ibv_qp *qp) {
 void rdma::ReliableRDMA::fetchAndAdd(const rdmaConnID rdmaConnID, size_t offset,
                                      const void *memAddr, size_t value_to_add,
                                      size_t size, bool signaled) {
+  checkSignaled(signaled, rdmaConnID);
   struct ib_qp_t localQP = m_qps[rdmaConnID];
   struct ib_conn_t remoteConn = m_rconns[rdmaConnID];
 
