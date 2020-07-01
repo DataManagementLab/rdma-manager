@@ -132,6 +132,8 @@ class BaseRDMA {
 
   void *getBuffer() { return m_buffer->pointer(); }
 
+  BaseMemory *getBufferObj(){ return m_buffer; }
+
   const list<rdma_mem_t> getFreeMemList() const { return m_buffer->getFreeMemList(); }
 
   void *convertOffsetToPointer(size_t offset) {

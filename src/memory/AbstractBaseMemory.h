@@ -49,6 +49,19 @@ public:
      */
     void* pointer();
 
+    /* Function:  pointer
+     * ---------------------
+     * Returns the pointer of the handled memory with a given offset added.
+     * What type of memory and how to handle the pointer is
+     * implementation dependent 
+     *
+     * offset:  offset that should be added onto the pointer in bytes
+     * return:  pointer of the handled memory
+     */
+    void* pointer(const size_t offset){
+        return ((char*)buffer + offset);
+    }
+
     /* Function:  setMemory
      * ---------------------
      * Sets each byte of the handled memory to a given value.
