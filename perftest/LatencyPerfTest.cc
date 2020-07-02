@@ -63,32 +63,19 @@ void rdma::LatencyPerfClientThread::run() {
 		LatencyPerfTest::waitCv.wait(lck);
 	}
 	lck.unlock();
+	volatile char *arrRecv, *arrSend;
 	switch(LatencyPerfTest::testMode){
 		case TEST_WRITE: // Write
-			// TODO REMOVE usleep(100000); // server first must setup a variable
-			((char*)m_local_memory->pointer())[0] = 0;
+			arrRecv = (char*)m_local_memory->pointer();
+			arrSend = (char*)m_local_memory->pointer(m_memory_size_per_thread);
+			arrRecv[0] = 0;
 			for(size_t i = 0; i < m_iterations; i++){
-				if(i % 100 == 0)
-				std::cout << "Iteration " << i << " / " << m_iterations << std::endl; // TODO REMOVE
 				size_t connIdx = i % m_rdma_addresses.size();
-				char value = ((2*i) % 100) + 1; // send 1, 3, 5, ...
-				int last_value = 0; // TODO REMOVE
-				((char*)m_local_memory->pointer(m_memory_size_per_thread))[0] = value; // send 1-100 via second half
+				char value = (i % 100) + 1; // send 1-100
+				arrSend[0] = value; // send 1-100
 				auto start = rdma::PerfTest::startTimer();
-				//std::cout << "SEND " << (int)value << std::endl; // TODO REMOVE
-				m_client->write(m_addr[connIdx], m_remOffsets[connIdx], m_local_memory->pointer(m_memory_size_per_thread), m_memory_size_per_thread, true); // true=signaled
-				value++;
-				do {
-					//usleep(1); // 1us
-					//usleep(100000); // TODO REMOVE
-					// TODO REMOVE
-					/*if((last_value++) % 1000000 == 0){
-						std::cout << "  wait [" << (int)((char*)m_local_memory->pointer())[0] << ", " << (int)((char*)m_local_memory->pointer(m_memory_size_per_thread))[0] << "] != " << (int)value << "  ==>  "; // TODO REMOVE
-						std::cout << (((char*)m_local_memory->pointer())[0] != value) << std::endl; // TODO REMOVE
-					} */
-				}
-				while(((char*)m_local_memory->pointer())[0] != value); // receive 2, 4, 6, ...
-				//std::cout << "RECV " << (int)value << std::endl; // TODO REMOVE
+				m_client->write(m_addr[connIdx], m_remOffsets[connIdx], (void*)arrSend, m_memory_size_per_thread, true); // true=signaled
+				while(arrRecv[0] != value); // receive echo 1-100
 				int64_t time = rdma::PerfTest::stopTimer(start) / 2; // one trip time
 				m_sumWriteMs += time;
 				if(m_minWriteMs > time) m_minWriteMs = time;
@@ -101,7 +88,7 @@ void rdma::LatencyPerfClientThread::run() {
 				size_t connIdx = i % m_rdma_addresses.size();
 				auto start = rdma::PerfTest::startTimer();
 				m_client->read(m_addr[connIdx], m_remOffsets[connIdx], m_local_memory->pointer(), m_memory_size_per_thread, true); // true=signaled
-				int64_t time = rdma::PerfTest::stopTimer(start);
+				int64_t time = rdma::PerfTest::stopTimer(start) / 2; // one trip time
 				m_sumReadMs += time;
 				if(m_minReadMs > time) m_minReadMs = time;
 				if(m_maxReadMs < time) m_maxReadMs = time;
@@ -116,13 +103,10 @@ void rdma::LatencyPerfClientThread::run() {
 			for(size_t i = 0; i < m_iterations; i++){
 				size_t clientId = m_addr[i % m_rdma_addresses.size()];
 				auto start = rdma::PerfTest::startTimer();
-				// TODO REMOVE std::cout << "Send: " << (i+j) << std::endl; // TODO REMOVE
 				m_client->send(clientId, m_local_memory->pointer(), m_memory_size_per_thread, true); // true=signaled
-				// TODO REMOVE std::cout << "PollReceive: " << i << "." << j << std::endl; // TODO REMOVE
 				m_client->pollReceive(clientId, true); // true=poll
-				// TODO REMOVE std::cout << "Receive: " << 0 << "." << j << std::endl; // TODO REMOVE
 				m_client->receive(clientId, m_local_memory->pointer(), m_memory_size_per_thread);
-				int64_t time = rdma::PerfTest::stopTimer(start) / 2; // half round trip time
+				int64_t time = rdma::PerfTest::stopTimer(start) / 2; // one trip time
 				m_sumSendMs += time;
 				if(m_minSendMs > time) m_minSendMs = time;
 				if(m_maxSendMs < time) m_maxSendMs = time;
@@ -159,52 +143,22 @@ void rdma::LatencyPerfServerThread::run() {
 	const size_t clientId = clientIds[m_thread_index % clientIds.size()];
 	size_t offset = (m_thread_index + rdma::LatencyPerfTest::thread_count) * m_memory_size_per_thread; // client allocated at here with remoteAlloc()
 	size_t remOffset = m_thread_index * 2 * m_memory_size_per_thread;
+	volatile char *arrRecv;
 	switch(LatencyPerfTest::testMode){
 		case TEST_WRITE: // Write
+			arrRecv = (char*)m_local_memory->pointer(offset);
 			for(size_t i = 0; i < m_iterations; i++){
-				if(i % 100 == 0)
-				std::cout << "Iteration " << i << " / " << m_iterations << std::endl; // TODO REMOVE
-				char value = ((2*i) % 100) + 1; // receive 1, 3, 5, ...
-				int  last_value = 0;
-				do {
-					//usleep(1); // 1us
-					//usleep(100000); // TODO REMOVE
-					/*if((last_value++) % 1000000 == 0){
-						std::cout << "  wait " << (int)((char*)m_local_memory->pointer(offset))[0] << " != " << (int)value << "  ==>  "; // TODO REMOVE
-						std::cout << (((char*)m_local_memory->pointer(offset))[0] != value) << std::endl; // TODO REMOVE
-					}*/
-				}
-				while(((char*)m_local_memory->pointer(offset))[0] != value); // receive 1, 3, 5, ...
-				((char*)m_local_memory->pointer(offset))[0] = value+1; // send 2, 4, 6, ...
-				//std::cout << "RECV " << (int)value << std::endl; // TODO REMOVE
-				//std::cout << "SEND " << (int)value << std::endl; // TODO REMOVE
-				m_server->write(clientId, remOffset, m_local_memory->pointer(offset), m_memory_size_per_thread, true); // true=signaled
+				char value = (i % 100) + 1;
+				while(arrRecv[0] != value); // receive 1-100 and echo back
+				m_server->write(clientId, remOffset, (void*)arrRecv, m_memory_size_per_thread, true); // true=signaled
 			}
 			break;
 
 		case TEST_SEND_AND_RECEIVE: // Send & Receive
-			/*for(size_t i = 0; i < clientIds.size(); i++){
-				// TODO REMOVE std::cout << "Receive: " << (i+j) << std::endl; // TODO REMOVE
-				m_server->receive(clientIds[i], m_local_memory->pointer(), m_memory_size_per_thread);
-			}
-
-			// Measure Latency for receiving
-			for(size_t i = 0; i < m_iterations; i++){
-				size_t clientId = clientIds[i % clientIds.size()];
-				// TODO REMOVE std::cout << "PollReceive: " << (i+j) << std::endl; // TODO REMOVE
-				m_server->pollReceive(clientId, true); // true=poll
-				// TODO REMOVE std::cout << "Receive: " << (i+j) << std::endl; // TODO REMOVE
-				m_server->receive(clientId, m_local_memory->pointer(), m_memory_size_per_thread);
-				// TODO REMOVE std::cout << "Send: " << i << "." << j << std::endl; // TODO REMOVE
-				m_server->send(clientId, m_local_memory->pointer(), m_memory_size_per_thread, true); // true=signaled
-			}*/
 			m_server->receive(clientId, m_local_memory->pointer(), m_memory_size_per_thread);
 			for(size_t i = 0; i < m_iterations; i++){
-				// TODO REMOVE std::cout << "PollReceive: " << (i+j) << std::endl; // TODO REMOVE
 				m_server->pollReceive(clientId, true); // true=poll
-				// TODO REMOVE std::cout << "Receive: " << (i+j) << std::endl; // TODO REMOVE
 				m_server->receive(clientId, m_local_memory->pointer(), m_memory_size_per_thread);
-				// TODO REMOVE std::cout << "Send: " << i << "." << j << std::endl; // TODO REMOVE
 				m_server->send(clientId, m_local_memory->pointer(), m_memory_size_per_thread, true); // true=signaled
 			}
 			break;
