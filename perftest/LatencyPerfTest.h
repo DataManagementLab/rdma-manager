@@ -44,7 +44,7 @@ private:
 
 class LatencyPerfServerThread : public Thread {
 public:
-	LatencyPerfServerThread(RDMAServer<ReliableRDMA> *server, size_t memory_size_per_thread, size_t iterations);
+	LatencyPerfServerThread(RDMAServer<ReliableRDMA> *server, int thread_index, size_t memory_size_per_thread, size_t iterations);
 	~LatencyPerfServerThread();
 	void run();
 	bool ready(){
@@ -53,6 +53,7 @@ public:
 
 private:
 	bool m_ready = false;
+	int m_thread_index;
 	size_t m_memory_size_per_thread;
 	size_t m_iterations;
 	RDMAServer<ReliableRDMA> *m_server;
@@ -73,6 +74,7 @@ public:
 	static condition_variable waitCv;
 	static bool signaled;
 	static TestMode testMode;
+	static int thread_count;
 
 private:
 	bool m_is_server;
@@ -80,7 +82,6 @@ private:
 	std::vector<std::string> m_rdma_addresses;
 	int m_rdma_port;
 	int m_gpu_index;
-	int m_thread_count;
 	uint64_t m_memory_size_per_thread;
 	uint64_t m_memory_size;
 	uint64_t m_iterations;

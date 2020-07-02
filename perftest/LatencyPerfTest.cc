@@ -9,6 +9,7 @@ mutex rdma::LatencyPerfTest::waitLock;
 condition_variable rdma::LatencyPerfTest::waitCv;
 bool rdma::LatencyPerfTest::signaled;
 rdma::TestMode rdma::LatencyPerfTest::testMode;
+int rdma::LatencyPerfTest::thread_count;
 
 
 
@@ -37,7 +38,7 @@ rdma::LatencyPerfClientThread::LatencyPerfClientThread(BaseMemory *memory, std::
 		m_client->remoteAlloc(conn, m_memory_size_per_thread, m_remOffsets[i]);
 	}
 
-	m_local_memory = m_client->localMalloc(m_memory_size_per_thread);
+	m_local_memory = m_client->localMalloc(m_memory_size_per_thread * 2); // write: client-send via first and receive via second
 	m_local_memory->setMemory(1);
 }
 
@@ -64,12 +65,31 @@ void rdma::LatencyPerfClientThread::run() {
 	lck.unlock();
 	switch(LatencyPerfTest::testMode){
 		case TEST_WRITE: // Write
+			// TODO REMOVE usleep(100000); // server first must setup a variable
+			((char*)m_local_memory->pointer())[0] = 0;
 			for(size_t i = 0; i < m_iterations; i++){
+				if(i % 100 == 0)
+				std::cout << "Iteration " << i << " / " << m_iterations << std::endl; // TODO REMOVE
 				size_t connIdx = i % m_rdma_addresses.size();
+				char value = ((2*i) % 100) + 1; // send 1, 3, 5, ...
+				int last_value = 0; // TODO REMOVE
+				((char*)m_local_memory->pointer(m_memory_size_per_thread))[0] = value; // send 1-100 via second half
 				auto start = rdma::PerfTest::startTimer();
-				// because signaled=true the operation blocks until the write is fully executed
-				m_client->write(m_addr[connIdx], m_remOffsets[connIdx], m_local_memory->pointer(), m_memory_size_per_thread, true); // true=signaled
-				int64_t time = rdma::PerfTest::stopTimer(start);
+				//std::cout << "SEND " << (int)value << std::endl; // TODO REMOVE
+				m_client->write(m_addr[connIdx], m_remOffsets[connIdx], m_local_memory->pointer(m_memory_size_per_thread), m_memory_size_per_thread, true); // true=signaled
+				value++;
+				do {
+					//usleep(1); // 1us
+					//usleep(100000); // TODO REMOVE
+					// TODO REMOVE
+					/*if((last_value++) % 1000000 == 0){
+						std::cout << "  wait [" << (int)((char*)m_local_memory->pointer())[0] << ", " << (int)((char*)m_local_memory->pointer(m_memory_size_per_thread))[0] << "] != " << (int)value << "  ==>  "; // TODO REMOVE
+						std::cout << (((char*)m_local_memory->pointer())[0] != value) << std::endl; // TODO REMOVE
+					} */
+				}
+				while(((char*)m_local_memory->pointer())[0] != value); // receive 2, 4, 6, ...
+				//std::cout << "RECV " << (int)value << std::endl; // TODO REMOVE
+				int64_t time = rdma::PerfTest::stopTimer(start) / 2; // one trip time
 				m_sumWriteMs += time;
 				if(m_minWriteMs > time) m_minWriteMs = time;
 				if(m_maxWriteMs < time) m_maxWriteMs = time;
@@ -115,10 +135,11 @@ void rdma::LatencyPerfClientThread::run() {
 
 
 
-rdma::LatencyPerfServerThread::LatencyPerfServerThread(RDMAServer<ReliableRDMA> *server, size_t memory_size_per_thread, size_t iterations) {
+rdma::LatencyPerfServerThread::LatencyPerfServerThread(RDMAServer<ReliableRDMA> *server, int thread_index, size_t memory_size_per_thread, size_t iterations) {
+	this->m_server = server;
+	this->m_thread_index = thread_index;
 	this->m_memory_size_per_thread = memory_size_per_thread;
 	this->m_iterations = iterations;
-	this->m_server = server;
 	this->m_local_memory = server->localMalloc(memory_size_per_thread);
 }
 
@@ -127,6 +148,7 @@ rdma::LatencyPerfServerThread::~LatencyPerfServerThread() {
 }
 
 void rdma::LatencyPerfServerThread::run() {
+	m_server->getBufferObj()->setMemory(0);
 	unique_lock<mutex> lck(LatencyPerfTest::waitLock);
 	if (!LatencyPerfTest::signaled) {
 		m_ready = true;
@@ -134,21 +156,59 @@ void rdma::LatencyPerfServerThread::run() {
 	}
 	lck.unlock();
 	const std::vector<size_t> clientIds = m_server->getConnectedConnIDs();
-	
-	for(size_t i = 0; i < clientIds.size(); i++){
-		// TODO REMOVE std::cout << "Receive: " << (i+j) << std::endl; // TODO REMOVE
-		m_server->receive(clientIds[i], m_local_memory->pointer(), m_memory_size_per_thread);
-	}
+	const size_t clientId = clientIds[m_thread_index % clientIds.size()];
+	size_t offset = (m_thread_index + rdma::LatencyPerfTest::thread_count) * m_memory_size_per_thread; // client allocated at here with remoteAlloc()
+	size_t remOffset = m_thread_index * 2 * m_memory_size_per_thread;
+	switch(LatencyPerfTest::testMode){
+		case TEST_WRITE: // Write
+			for(size_t i = 0; i < m_iterations; i++){
+				if(i % 100 == 0)
+				std::cout << "Iteration " << i << " / " << m_iterations << std::endl; // TODO REMOVE
+				char value = ((2*i) % 100) + 1; // receive 1, 3, 5, ...
+				int  last_value = 0;
+				do {
+					//usleep(1); // 1us
+					//usleep(100000); // TODO REMOVE
+					/*if((last_value++) % 1000000 == 0){
+						std::cout << "  wait " << (int)((char*)m_local_memory->pointer(offset))[0] << " != " << (int)value << "  ==>  "; // TODO REMOVE
+						std::cout << (((char*)m_local_memory->pointer(offset))[0] != value) << std::endl; // TODO REMOVE
+					}*/
+				}
+				while(((char*)m_local_memory->pointer(offset))[0] != value); // receive 1, 3, 5, ...
+				((char*)m_local_memory->pointer(offset))[0] = value+1; // send 2, 4, 6, ...
+				//std::cout << "RECV " << (int)value << std::endl; // TODO REMOVE
+				//std::cout << "SEND " << (int)value << std::endl; // TODO REMOVE
+				m_server->write(clientId, remOffset, m_local_memory->pointer(offset), m_memory_size_per_thread, true); // true=signaled
+			}
+			break;
 
-	// Measure Latency for receiving
-	for(size_t i = 0; i < m_iterations; i++){
-		size_t clientId = clientIds[i % clientIds.size()];
-		// TODO REMOVE std::cout << "PollReceive: " << (i+j) << std::endl; // TODO REMOVE
-		m_server->pollReceive(clientId, true); // true=poll
-		// TODO REMOVE std::cout << "Receive: " << (i+j) << std::endl; // TODO REMOVE
-		m_server->receive(clientId, m_local_memory->pointer(), m_memory_size_per_thread);
-		// TODO REMOVE std::cout << "Send: " << i << "." << j << std::endl; // TODO REMOVE
-		m_server->send(clientId, m_local_memory->pointer(), m_memory_size_per_thread, true); // true=signaled
+		case TEST_SEND_AND_RECEIVE: // Send & Receive
+			/*for(size_t i = 0; i < clientIds.size(); i++){
+				// TODO REMOVE std::cout << "Receive: " << (i+j) << std::endl; // TODO REMOVE
+				m_server->receive(clientIds[i], m_local_memory->pointer(), m_memory_size_per_thread);
+			}
+
+			// Measure Latency for receiving
+			for(size_t i = 0; i < m_iterations; i++){
+				size_t clientId = clientIds[i % clientIds.size()];
+				// TODO REMOVE std::cout << "PollReceive: " << (i+j) << std::endl; // TODO REMOVE
+				m_server->pollReceive(clientId, true); // true=poll
+				// TODO REMOVE std::cout << "Receive: " << (i+j) << std::endl; // TODO REMOVE
+				m_server->receive(clientId, m_local_memory->pointer(), m_memory_size_per_thread);
+				// TODO REMOVE std::cout << "Send: " << i << "." << j << std::endl; // TODO REMOVE
+				m_server->send(clientId, m_local_memory->pointer(), m_memory_size_per_thread, true); // true=signaled
+			}*/
+			m_server->receive(clientId, m_local_memory->pointer(), m_memory_size_per_thread);
+			for(size_t i = 0; i < m_iterations; i++){
+				// TODO REMOVE std::cout << "PollReceive: " << (i+j) << std::endl; // TODO REMOVE
+				m_server->pollReceive(clientId, true); // true=poll
+				// TODO REMOVE std::cout << "Receive: " << (i+j) << std::endl; // TODO REMOVE
+				m_server->receive(clientId, m_local_memory->pointer(), m_memory_size_per_thread);
+				// TODO REMOVE std::cout << "Send: " << i << "." << j << std::endl; // TODO REMOVE
+				m_server->send(clientId, m_local_memory->pointer(), m_memory_size_per_thread, true); // true=signaled
+			}
+			break;
+		default: throw invalid_argument("LatencyPerfClientThread unknown test mode");
 	}
 }
 
@@ -159,9 +219,9 @@ rdma::LatencyPerfTest::LatencyPerfTest(bool is_server, std::vector<std::string> 
 	this->m_is_server = is_server;
 	this->m_rdma_port = rdma_port;
 	this->m_gpu_index = gpu_index;
-	this->m_thread_count = thread_count;
+	this->thread_count = thread_count;
 	this->m_memory_size_per_thread = memory_size_per_thread;
-	this->m_memory_size = 2 * thread_count * memory_size_per_thread; // 2x because for send & receive separat
+	this->m_memory_size = thread_count * memory_size_per_thread * 2; // two times because send & receive
 	this->m_iterations = iterations;
 	this->m_rdma_addresses = rdma_addresses;
 }
@@ -184,9 +244,9 @@ std::string rdma::LatencyPerfTest::getTestParameters(){
 	if(m_is_server){
 		oss << "Server | memory=";
 	} else {
-		oss << "Client | threads=" << m_thread_count << " | memory=";
+		oss << "Client | threads=" << thread_count << " | memory=";
 	}
-	oss << m_memory_size << " (2x " << m_thread_count << "x " << m_memory_size_per_thread << ") [";
+	oss << m_memory_size << " (2x " << thread_count << "x " << m_memory_size_per_thread << ") [";
 	if(m_gpu_index < 0){
 		oss << "MAIN";
 	} else {
@@ -239,14 +299,14 @@ void rdma::LatencyPerfTest::setupTest(){
 	if(m_is_server){
 		// Server
 		m_server = new RDMAServer<ReliableRDMA>("LatencyTestRDMAServer", m_rdma_port, m_memory);
-		for (int i = 0; i < m_thread_count; i++) {
-			LatencyPerfServerThread* perfThread = new LatencyPerfServerThread(m_server, m_memory_size_per_thread, m_iterations);
+		for (int i = 0; i < thread_count; i++) {
+			LatencyPerfServerThread* perfThread = new LatencyPerfServerThread(m_server, i, m_memory_size_per_thread, m_iterations);
 			m_server_threads.push_back(perfThread);
 		}
 
 	} else {
 		// Client
-		for (int i = 0; i < m_thread_count; i++) {
+		for (int i = 0; i < thread_count; i++) {
 			LatencyPerfClientThread* perfThread = new LatencyPerfClientThread(m_memory, m_rdma_addresses, m_memory_size_per_thread, m_iterations);
 			m_client_threads.push_back(perfThread);
 		}
@@ -265,8 +325,13 @@ void rdma::LatencyPerfTest::runTest(){
 		}
 
 		// waiting until clients have connected
-		while(m_server->getConnectedConnIDs().size() < (size_t)m_thread_count) usleep(Config::RDMA_SLEEP_INTERVAL);
+		while(m_server->getConnectedConnIDs().size() < (size_t)thread_count) usleep(Config::RDMA_SLEEP_INTERVAL);
+		
+		// Measure Latency for writing
+		makeThreadsReady(TEST_WRITE);
+        runThreads();
 
+		// Measure Latency for receiving
 		makeThreadsReady(TEST_SEND_AND_RECEIVE); // receive
         runThreads();
 
