@@ -3,6 +3,8 @@
 #include "AtomicsBandwidthPerfTest.h"
 #include "LatencyPerfTest.h"
 #include "AtomicsLatencyPerfTest.h"
+#include "OperationsCountPerfTest.h"
+#include "AtomicsOperationsCountPerfTest.h"
 
 #include "../src/utils/Config.h"
 #include "../src/utils/StringHelper.h"
@@ -18,7 +20,7 @@
 #include <gflags/gflags.h>
 
 DEFINE_bool(fulltest, false, "Overwrites flags 'test, gpu, memsize, threads, iterations, csv' to execute a broad variety of predefined tests. If GPUs are supported then gpu=-1,-1,0,0 on client side and gpu=-1,0,-1,0 on server side to test all memory combinations: Main->Main, Main->GPU, GPU->Main, GPU->GPU");
-DEFINE_string(test, "bandwidth", "Test: bandwidth, latency, atomicsbandwidth, atomicslatency (multiples separated by comma without space)");
+DEFINE_string(test, "bandwidth", "Test: bandwidth, latency, operationscount, atomicsbandwidth, atomicslatency, atomicsoperationscount (multiples separated by comma without space, not full word required)");
 DEFINE_bool(server, false, "Act as server for a client to test performance");
 DEFINE_string(gpu, "-1", "Index of GPU for memory allocation (negative for main memory | multiples separated by comma without space)");
 DEFINE_string(memsize, "4096", "Memory size in bytes (per thread | multiples separated by comma without space)");
@@ -29,7 +31,7 @@ DEFINE_int32(port, rdma::Config::RDMA_PORT, "RDMA port");
 DEFINE_bool(csv, false, "Results will be written into an automatically generated CSV file");
 DEFINE_string(csvfile, "", "Results will be written into a given CSV file");
 
-enum TEST { BANDWIDTH_TEST=1, LATENCY_TEST=2, ATOMICS_BANDWIDTH_TEST=3, ATOMICS_LATENCY_TEST=4 };
+enum TEST { BANDWIDTH_TEST, LATENCY_TEST, OPERATIONS_COUNT_TEST, ATOMICS_BANDWIDTH_TEST, ATOMICS_LATENCY_TEST, ATOMICS_OPERATIONS_COUNT_TEST };
 
 static std::vector<int> parseIntList(std::string str){
     std::vector<int> v;
@@ -93,8 +95,8 @@ int main(int argc, char *argv[]){
     
     if(FLAGS_fulltest){
         FLAGS_csv = true;
-        testNames.clear(); testNames.push_back("bandwidth"); testNames.push_back("latency");
-        testNames.push_back("atomicsbandwidth"); testNames.push_back("atomicslatency");
+        testNames.clear(); testNames.push_back("bandwidth"); testNames.push_back("latency"); testNames.push_back("operationscount");
+        testNames.push_back("atomicsbandwidth"); testNames.push_back("atomicslatency"); testNames.push_back("atomicsoperationscount");
         memsizes.clear(); memsizes.push_back(64); memsizes.push_back(512); memsizes.push_back(1024);
         memsizes.push_back(2048); memsizes.push_back(4096); memsizes.push_back(8192);
         memsizes.push_back(16384); memsizes.push_back(32768); memsizes.push_back(65536);
@@ -145,10 +147,16 @@ int main(int argc, char *argv[]){
         } else if(std::string("latency").rfind(testName, 0) == 0){
             tests.push_back(LATENCY_TEST);
             count *= memsizes.size();
+        } else if(std::string("operationscount").rfind(testName, 0) == 0 || std::string("operationcount").rfind(testName, 0) == 0){
+            tests.push_back(OPERATIONS_COUNT_TEST);
+            count *= memsizes.size();
         } else if(std::string("atomicsbandwidth").rfind(testName, 0) == 0 || std::string("atomicbandwidth").rfind(testName, 0) == 0){
             tests.push_back(ATOMICS_BANDWIDTH_TEST);
         } else if(std::string("atomicslatency").rfind(testName, 0) == 0 || std::string("atomiclatency").rfind(testName, 0) == 0){
             tests.push_back(ATOMICS_LATENCY_TEST);
+        } else if(std::string("atomicsoperationscount").rfind(testName, 0) == 0 || std::string("atomicoperationscount").rfind(testName, 0) == 0 || 
+                    std::string("atomicsoperationcount").rfind(testName, 0) == 0 || std::string("atomicoperationcount").rfind(testName, 0) == 0){
+            tests.push_back(ATOMICS_OPERATIONS_COUNT_TEST);
         } else {
             std::cerr << "No test with name '" << *testIt << "' found" << std::endl;
             testIt++;
@@ -175,6 +183,11 @@ int main(int argc, char *argv[]){
                         // Atomics Latency Test
                         testName = "Atomics Latency";
                         test = new rdma::AtomicsLatencyPerfTest(FLAGS_server, addresses, FLAGS_port, gpu_index, thread_count, iterations);
+
+                    } else if(t == ATOMICS_OPERATIONS_COUNT_TEST){
+                        // Atomics Operations Count Test
+                        testName = "Atomics Operations Count";
+                        test = new rdma::AtomicsOperationsCountPerfTest(FLAGS_server, addresses, FLAGS_port, gpu_index, thread_count, iterations);
                     }
 
                     if(test != nullptr){
@@ -195,6 +208,11 @@ int main(int argc, char *argv[]){
                             // Latency Test
                             testName = "Latency";
                             test = new rdma::LatencyPerfTest(FLAGS_server, addresses, FLAGS_port, gpu_index, thread_count, memsize, iterations);
+
+                        } else if(t == OPERATIONS_COUNT_TEST){
+                            // Operations Count Test
+                            testName = "Operations Count";
+                            test = new rdma::OperationsCountPerfTest(FLAGS_server, addresses, FLAGS_port, gpu_index, thread_count, memsize, iterations);
                         }
 
                         testCounter++;
