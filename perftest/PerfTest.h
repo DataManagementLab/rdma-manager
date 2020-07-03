@@ -62,7 +62,7 @@ public:
     static std::string convertByteSize(uint64_t bytes){
         std::ostringstream oss;
         long double b = (long double) bytes;
-        long double u = 1024.0;
+        long double u = 1000.0; // for KiloByte | use 1024.0 for KibiByte
         if(b >= u*u*u*u*u){
 			oss << (round(bytes/u/u/u/u/u * 100)/100.0) << " PB"; return oss.str();
         } else if(b >= u*u*u*u){

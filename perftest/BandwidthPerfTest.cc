@@ -356,7 +356,7 @@ std::string rdma::BandwidthPerfTest::getTestResults(std::string csvFileName, boo
 
 		// write results into CSV file
 		if(!csvFileName.empty()){
-			const uint64_t su = 1024*1024; // size unit (bytes to mega bytes)
+			const uint64_t su = 1000*1000; // size unit (bytes to MegaBytes) | use 1024*1024 for MebiBytes
 			std::ofstream ofs;
 			ofs.open(csvFileName, std::ofstream::out | std::ofstream::app);
 			if(csvAddHeader){

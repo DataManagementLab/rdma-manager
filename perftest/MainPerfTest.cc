@@ -98,8 +98,8 @@ int main(int argc, char *argv[]){
         testNames.clear(); testNames.push_back("bandwidth"); testNames.push_back("latency"); testNames.push_back("operationscount");
         testNames.push_back("atomicsbandwidth"); testNames.push_back("atomicslatency"); testNames.push_back("atomicsoperationscount");
         memsizes.clear(); memsizes.push_back(64); memsizes.push_back(512); memsizes.push_back(1024);
-        memsizes.push_back(2048); memsizes.push_back(4096); memsizes.push_back(8192);
-        memsizes.push_back(16384); memsizes.push_back(32768); memsizes.push_back(65536);
+        memsizes.push_back(2048); memsizes.push_back(4096); memsizes.push_back(8192); memsizes.push_back(16384);
+        memsizes.push_back(32768); memsizes.push_back(65536); memsizes.push_back(131072); memsizes.push_back(262144);
         // TODO REDO thread_counts.clear(); thread_counts.push_back(1); thread_counts.push_back(2); thread_counts.push_back(4); thread_counts.push_back(8);
         iteration_counts.clear(); iteration_counts.push_back(1000); iteration_counts.push_back(500000);
         gpus.clear();
