@@ -401,7 +401,7 @@ void ReliableRDMA::receive(const rdmaConnID rdmaConnID, const void *memAddr,
   wr.num_sge = 1;
 
   if ((errno = ibv_post_recv(localQP.qp, &wr, &bad_wr))) {
-    throw runtime_error("RECV has not been posted successfully! errno: " +
+    throw runtime_error("RECV has not been posted successfully in receive()! errno: " +
                         std::string(std::strerror(errno)));
   }
 }
@@ -650,7 +650,7 @@ void ReliableRDMA::receiveSRQ(size_t srq_id, const void *memAddr, size_t size) {
   wr.num_sge = 1;
 
   if ((errno = ibv_post_srq_recv(m_srqs.at(srq_id).shared_rq, &wr, &bad_wr))) {
-    throw runtime_error("RECV has not been posted successfully! errno: " +
+    throw runtime_error("RECV has not been posted successfully in receiveSRQ()! errno: " +
                         std::string(std::strerror(errno)));
   }
 }
@@ -785,7 +785,7 @@ void ReliableRDMA::receiveSRQ(size_t srq_id, size_t memoryIndex ,const void *mem
     wr.num_sge = 1;
 
     if ((errno = ibv_post_srq_recv(m_srqs.at(srq_id).shared_rq, &wr, &bad_wr))) {
-        throw runtime_error("RECV has not been posted successfully! errno: " +
+        throw runtime_error("RECV has not been posted successfully in receiveSRQ()! errno: " +
                             std::string(std::strerror(errno)));
     }
 

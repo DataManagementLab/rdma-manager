@@ -257,9 +257,7 @@ void rdma::OperationsCountPerfTest::runTest(){
 		//m_elapsedReceive = rdma::PerfTest::stopTimer(startReceive);
 
 		// wait until server is done
-		while (m_server->isRunning() && m_server->getConnectedConnIDs().size() > 0) {
-			usleep(Config::RDMA_SLEEP_INTERVAL);
-        }
+		while (m_server->isRunning() && m_server->getConnectedConnIDs().size() > 0) usleep(Config::RDMA_SLEEP_INTERVAL);
 		std::cout << "Server stopped" << std::endl;
 
 	} else {
@@ -280,6 +278,7 @@ void rdma::OperationsCountPerfTest::runTest(){
 
 		// Measure operations/s for sending
 		makeThreadsReady(TEST_SEND_AND_RECEIVE); // send
+		usleep(Config::RDMA_SLEEP_INTERVAL); // let server first post the receives
 		auto startSend = rdma::PerfTest::startTimer();
         runThreads();
 		m_elapsedSend = rdma::PerfTest::stopTimer(startSend);

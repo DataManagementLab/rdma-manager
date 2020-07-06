@@ -65,6 +65,7 @@ void rdma::BandwidthPerfClientThread::run() {
 			}
 			m_elapsedWriteMs = rdma::PerfTest::stopTimer(start);
 			break;
+
 		case TEST_READ: // Read
 			for(size_t i = 0; i < m_iterations; i++){
 				size_t connIdx = i % m_rdma_addresses.size();
@@ -73,9 +74,10 @@ void rdma::BandwidthPerfClientThread::run() {
 			}
 			m_elapsedReadMs = rdma::PerfTest::stopTimer(start);
 			break;
+
 		case TEST_SEND_AND_RECEIVE: // Send & Receive
 			for(size_t j = 0; j < m_rdma_addresses.size(); j++){
-				// TODO REMOVE std::cout << "Receive: " << 0 << "." << j << std::endl; // TODO REMOVE
+				//std::cout << "Receive: " << 0 << "." << j << std::endl; // TODO REMOVE
 				m_client->receive(m_addr[j], m_local_memory->pointer(), m_memory_size_per_thread);
 			}
 			for(size_t i = 0; i < m_iterations; i++){
@@ -83,15 +85,15 @@ void rdma::BandwidthPerfClientThread::run() {
 				size_t budget = m_iterations - i;
 				if(budget > Config::RDMA_MAX_WR){ budget = Config::RDMA_MAX_WR; }
 				for(size_t j = 0; j < budget; j++){
-					// TODO REMOVE std::cout << "Send: " << (i+j) << std::endl; // TODO REMOVE
+					//std::cout << "Send: " << (i+j) << "  signaled=" << ((j+1)==budget) << std::endl; // TODO REMOVE
 					m_client->send(m_addr[(i+j) % m_rdma_addresses.size()], m_local_memory->pointer(), m_memory_size_per_thread, (j+1)==budget); // signaled: (j+1)==budget
 				}
 				for(size_t j = 0; j < m_rdma_addresses.size(); j++){
-					// TODO REMOVE std::cout << "PollReceive: " << i << "." << j << std::endl; // TODO REMOVE
+					//std::cout << "PollReceive: " << i << "." << j << std::endl; // TODO REMOVE
 					m_client->pollReceive(m_addr[j], true); // true=poll
 				}
 				for(size_t j = 0; j < m_rdma_addresses.size(); j++){
-					// TODO REMOVE std::cout << "Receive: " << i << "." << j << std::endl; // TODO REMOVE
+					//std::cout << "Receive: " << i << "." << j << std::endl; // TODO REMOVE
 					m_client->receive(m_addr[j], m_local_memory->pointer(), m_memory_size_per_thread);
 				}
 				i += budget;
@@ -127,7 +129,7 @@ void rdma::BandwidthPerfServerThread::run() {
 	size_t budget = m_iterations;
 	if(budget > Config::RDMA_MAX_WR){ budget = Config::RDMA_MAX_WR; }
 	for(size_t j = 0; j < budget; j++){
-		// TODO REMOVE std::cout << "Receive: " << j << std::endl; // TODO REMOVE
+		//std::cout << "Receive: " << j << std::endl; // TODO REMOVE
 		m_server->receive(clientIds[j % clientIds.size()], m_local_memory->pointer(), m_memory_size_per_thread);
 	}
 
@@ -137,18 +139,18 @@ void rdma::BandwidthPerfServerThread::run() {
 		budget = m_iterations - i;
 		if(budget > Config::RDMA_MAX_WR){ budget = Config::RDMA_MAX_WR; }
 		for(size_t j = 0; j < budget; j++){
-			// TODO REMOVE std::cout << "PollReceive: " << (i+j) << std::endl; // TODO REMOVE
+			//std::cout << "PollReceive: " << (i+j) << "  signaled=" << ((j+1)==budget) << std::endl; // TODO REMOVE
 			m_server->pollReceive(clientIds[(i+j) % clientIds.size()], true); // true=poll
 		}
 
 		i += budget;
+
 		for(size_t j = 0; j < budget; j++){
-			// TODO REMOVE std::cout << "Receive: " << (i+j) << std::endl; // TODO REMOVE
+			//std::cout << "Receive: " << (i+j) << std::endl; // TODO REMOVE
 			m_server->receive(clientIds[(i+j) % clientIds.size()], m_local_memory->pointer(), m_memory_size_per_thread);
 		}
-
 		for(size_t j = 0; j < clientIds.size(); j++){
-			// TODO REMOVE std::cout << "Send: " << i << "." << j << std::endl; // TODO REMOVE
+			//std::cout << "Send: " << i << "." << j << std::endl; // TODO REMOVE
 			m_server->send(clientIds[j], m_local_memory->pointer(), m_memory_size_per_thread, (j+1)==clientIds.size()); // true=signaled
 		}
 	}
@@ -273,7 +275,7 @@ void rdma::BandwidthPerfTest::runTest(){
 			std::cout << "Server running on '" << rdma::Config::getIP(rdma::Config::RDMA_INTERFACE) << ":" << m_rdma_port << "'" << std::endl; // TODO REMOVE
 		}
 
-		// waiting until clients have connected
+		// waiting until clients have connected to sync
 		while(m_server->getConnectedConnIDs().size() < (size_t)m_thread_count) usleep(Config::RDMA_SLEEP_INTERVAL);
 		
 		makeThreadsReady(TEST_SEND_AND_RECEIVE); // receive
@@ -282,9 +284,7 @@ void rdma::BandwidthPerfTest::runTest(){
 		//m_elapsedReceiveMs = rdma::PerfTest::stopTimer(startReceive);
 
 		// wait until server is done
-		while (m_server->isRunning() && m_server->getConnectedConnIDs().size() > 0) {
-			usleep(Config::RDMA_SLEEP_INTERVAL);
-        }
+		while (m_server->isRunning() && m_server->getConnectedConnIDs().size() > 0) usleep(Config::RDMA_SLEEP_INTERVAL);
 		std::cout << "Server stopped" << std::endl;
 
 	} else {
@@ -305,6 +305,7 @@ void rdma::BandwidthPerfTest::runTest(){
 
 		// Measure bandwidth for sending
 		makeThreadsReady(TEST_SEND_AND_RECEIVE); // send
+		usleep(Config::RDMA_SLEEP_INTERVAL); // let server first post the receives
 		auto startSend = rdma::PerfTest::startTimer();
         runThreads();
 		m_elapsedSendMs = rdma::PerfTest::stopTimer(startSend);

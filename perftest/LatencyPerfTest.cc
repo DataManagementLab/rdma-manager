@@ -290,9 +290,7 @@ void rdma::LatencyPerfTest::runTest(){
         runThreads();
 
 		// wait until server is done
-		while (m_server->isRunning() && m_server->getConnectedConnIDs().size() > 0) {
-			usleep(Config::RDMA_SLEEP_INTERVAL);
-        }
+		while (m_server->isRunning() && m_server->getConnectedConnIDs().size() > 0) usleep(Config::RDMA_SLEEP_INTERVAL);
 		std::cout << "Server stopped" << std::endl;
 
 	} else {

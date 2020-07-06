@@ -265,7 +265,7 @@ void UnreliableRDMA::receive(const rdmaConnID, const void* memAddr,
   wr.next = nullptr;
 
   if ((errno = ibv_post_recv(localQP.qp, &wr, &bad_wr)) != 0) {
-    throw runtime_error("RECV has not been posted successfully! errno: " + std::string(std::strerror(errno)));
+    throw runtime_error("RECV has not been posted successfully in receive()! errno: " + std::string(std::strerror(errno)));
   }
 }
 

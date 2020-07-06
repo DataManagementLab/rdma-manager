@@ -177,9 +177,7 @@ void rdma::AtomicsBandwidthPerfTest::runTest(){
 		while(m_server->getConnectedConnIDs().size() < (size_t)m_thread_count) usleep(Config::RDMA_SLEEP_INTERVAL);
 
 		// wait until clients have finished
-		while (m_server->isRunning() && m_server->getConnectedConnIDs().size() > 0) {
-			usleep(Config::RDMA_SLEEP_INTERVAL);
-        }
+		while (m_server->isRunning() && m_server->getConnectedConnIDs().size() > 0) usleep(Config::RDMA_SLEEP_INTERVAL);
 		std::cout << "Server stopped" << std::endl;
 
 	} else {
