@@ -8,21 +8,21 @@ using namespace rdma;
 CudaMemory::CudaMemory(size_t mem_size) : CudaMemory(mem_size, -1){}
 CudaMemory::CudaMemory(size_t mem_size, int device_index) : AbstractBaseMemory(mem_size), AbstractCudaMemory(mem_size, device_index), BaseMemory(mem_size){
     // allocate CUDA memory
-    int previous_device_index = selectDevice();
+    openContext();
     checkCudaError(cudaMalloc(&(this->buffer), mem_size), "CudaMemory::CudaMemory could not allocate memory\n");
     checkCudaError(cudaMemset(this->buffer, 0, mem_size), "CudaMemory::CudaMemory could not set allocated memory to zero\n");
 
     this->init();
 
-    resetDevice(previous_device_index);
+    closeContext();
 }
 
 // destructor
 CudaMemory::~CudaMemory(){
     // release CUDA memory
-    int previous_device_index = selectDevice();
+    openContext();
     checkCudaError(cudaFree(this->buffer), "CudaMemory::~CudaMemory could not free memory\n");
-    resetDevice(previous_device_index);
+    closeContext();
 }
 
 LocalBaseMemoryStub *CudaMemory::malloc(size_t size){

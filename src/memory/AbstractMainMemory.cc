@@ -8,6 +8,14 @@ using namespace rdma;
 AbstractMainMemory::AbstractMainMemory(size_t mem_size) : AbstractBaseMemory(mem_size){}
 AbstractMainMemory::AbstractMainMemory(void* buffer, size_t mem_size) : AbstractBaseMemory(buffer, mem_size){}
 
+void AbstractMainMemory::openContext(){
+
+}
+
+void AbstractMainMemory::closeContext(){
+
+}
+
 inline void AbstractMainMemory::setMemory(int value){
     setMemory(value, 0, this->mem_size);
 }

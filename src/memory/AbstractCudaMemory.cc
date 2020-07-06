@@ -15,6 +15,32 @@ AbstractCudaMemory::AbstractCudaMemory(void* buffer, size_t mem_size, int device
     this->device_index = device_index;
 }
 
+AbstractCudaMemory::~AbstractCudaMemory(){
+    if(this->open_context_counter == 0) return;
+    this->open_context_counter = 1;
+    closeContext();
+}
+
+void AbstractCudaMemory::openContext(){
+    if(this->device_index < 0) return;
+    this->open_context_counter++;
+    if(this->open_context_counter > 1) return;
+    this->previous_device_index = -1;
+    checkCudaError(cudaGetDevice(&(this->previous_device_index)), "AbstractCudaMemory::openContext could not get selected device\n");
+    if(this->previous_device_index == this->device_index) return;
+    fprintf(stderr, "TRYING TO SELECT CUDA DEVICE %i  prev=%i\n", this->device_index, this->previous_device_index); // TODO REMOVE
+    checkCudaError(cudaSetDevice(this->device_index), "AbstractCudaMemory::openContext could not set selected device\n");
+}
+
+void AbstractCudaMemory::closeContext(){
+    if(this->device_index < 0 || this->open_context_counter==0) return;
+    this->open_context_counter--;
+    if(this->open_context_counter > 0) return;
+    if(this->device_index != this->previous_device_index)
+        checkCudaError(cudaSetDevice(this->previous_device_index), "AbstractCudaMemory::closeContext could not reset selected device\n");
+    this->previous_device_index = -1;
+}
+
 void AbstractCudaMemory::setMemory(int value){
     setMemory(value, 0, this->mem_size);
 }
@@ -24,9 +50,9 @@ void AbstractCudaMemory::setMemory(int value, size_t num){
 }
 
 void AbstractCudaMemory::setMemory(int value, size_t offset, size_t num){
-    int previous_device_index = selectDevice();
+    openContext();
     checkCudaError(cudaMemset((void*)((size_t)this->buffer + offset), value, num), "AbstractCudaMemory::setMemory could not set memory to value\n");
-    resetDevice(previous_device_index);
+    closeContext();
 }
 
 void AbstractCudaMemory::copyTo(void *destination){
@@ -39,10 +65,10 @@ void AbstractCudaMemory::copyTo(void *destination, size_t num){
 }
 
 void AbstractCudaMemory::copyTo(void *destination, size_t destOffset, size_t srcOffset, size_t num){
-    int previous_device_index = selectDevice();
+    openContext();
     checkCudaError(cudaMemcpy((void*)((size_t)destination + destOffset), (void*)((size_t)this->buffer + srcOffset), num, cudaMemcpyDeviceToHost), 
                                 "AbstractCudaMemory::copyTo could not copy data to given destination\n");
-    resetDevice(previous_device_index);
+    closeContext();
 }
 
 void AbstractCudaMemory::copyFrom(const void *source){
@@ -55,10 +81,10 @@ void AbstractCudaMemory::copyFrom(const void *source, size_t num){
 }
 
 void AbstractCudaMemory::copyFrom(const void *source, size_t srcOffset, size_t destOffset, size_t num){
-    int previous_device_index = selectDevice();
+    openContext();
     checkCudaError(cudaMemcpy((void*)((size_t)this->buffer + destOffset), (void*)((size_t)source + srcOffset), num, cudaMemcpyHostToDevice), 
                                 "AbstractCudaMemory::copyFrom could not copy data from given source\n");
-    resetDevice(previous_device_index);
+    closeContext();
 }
 
 char AbstractCudaMemory::getChar(size_t offset){
@@ -68,7 +94,7 @@ char AbstractCudaMemory::getChar(size_t offset){
 }
 
 void AbstractCudaMemory::set(char value, size_t offset){
-    copyFrom((void*)value, 0, offset, sizeof(value));
+    copyFrom((void*)&value, 0, offset, sizeof(value));
 }
 
 int16_t AbstractCudaMemory::getInt16(size_t offset){
@@ -78,7 +104,7 @@ int16_t AbstractCudaMemory::getInt16(size_t offset){
 }
 
 void AbstractCudaMemory::set(int16_t value, size_t offset){
-    copyFrom((void*)value, 0, offset, sizeof(value));
+    copyFrom((void*)&value, 0, offset, sizeof(value));
 }
 
 int32_t AbstractCudaMemory::getInt32(size_t offset){
@@ -88,7 +114,7 @@ int32_t AbstractCudaMemory::getInt32(size_t offset){
 }
 
 void AbstractCudaMemory::set(int32_t value, size_t offset){
-    copyFrom((void*)value, 0, offset, sizeof(value));
+    copyFrom((void*)&value, 0, offset, sizeof(value));
 }
 
 int64_t AbstractCudaMemory::getInt64(size_t offset){
@@ -98,7 +124,7 @@ int64_t AbstractCudaMemory::getInt64(size_t offset){
 }
 
 void AbstractCudaMemory::set(int64_t value, size_t offset){
-    copyFrom((void*)value, 0, offset, sizeof(value));
+    copyFrom((void*)&value, 0, offset, sizeof(value));
 }
 
 #endif /* CUDA support */

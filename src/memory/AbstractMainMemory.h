@@ -29,6 +29,10 @@ public:
      */
     AbstractMainMemory(void* buffer, size_t mem_size);
 
+    virtual void openContext() override;
+
+    virtual void closeContext() override;
+
     virtual void setMemory(int value) override;
 
     virtual void setMemory(int value, size_t num) override;

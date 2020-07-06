@@ -35,6 +35,7 @@ rdma::BandwidthPerfClientThread::BandwidthPerfClientThread(BaseMemory *memory, s
 	}
 
 	m_local_memory = m_client->localMalloc(m_memory_size_per_thread);
+	m_local_memory->openContext();
 	m_local_memory->setMemory(1);
 }
 
@@ -44,7 +45,7 @@ rdma::BandwidthPerfClientThread::~BandwidthPerfClientThread() {
 		m_client->remoteFree(addr, m_remOffsets[i], m_memory_size_per_thread);
 	}
     delete m_remOffsets;
-	delete m_local_memory; // implicitly deletes local allocs in RDMAClient
+	delete m_local_memory; // implicitly deletes local allocs in RDMAClient and also closes context
 	delete m_client;
 }
 
@@ -54,32 +55,39 @@ void rdma::BandwidthPerfClientThread::run() {
 		m_ready = true;
 		BandwidthPerfTest::waitCv.wait(lck);
 	}
+	std::cout << "CHECK A" << std::endl; // TODO REMOVE
 	lck.unlock();
 	auto start = rdma::PerfTest::startTimer();
 	switch(BandwidthPerfTest::testMode){
 		case TEST_WRITE: // Write
+			std::cout << "CHECK B" << std::endl; // TODO REMOVE
 			for(size_t i = 0; i < m_iterations; i++){
 				size_t connIdx = i % m_rdma_addresses.size();
 				bool signaled = (i == (m_iterations - 1));
 				m_client->write(m_addr[connIdx], m_remOffsets[connIdx], m_local_memory->pointer(), m_memory_size_per_thread, signaled);
 			}
 			m_elapsedWriteMs = rdma::PerfTest::stopTimer(start);
+			std::cout << "CHECK C" << std::endl; // TODO REMOVE
 			break;
 
 		case TEST_READ: // Read
+		std::cout << "CHECK D" << std::endl; // TODO REMOVE
 			for(size_t i = 0; i < m_iterations; i++){
 				size_t connIdx = i % m_rdma_addresses.size();
 				bool signaled = (i == (m_iterations - 1));
 				m_client->read(m_addr[connIdx], m_remOffsets[connIdx], m_local_memory->pointer(), m_memory_size_per_thread, signaled);
 			}
 			m_elapsedReadMs = rdma::PerfTest::stopTimer(start);
+			std::cout << "CHECK E" << std::endl; // TODO REMOVE
 			break;
 
 		case TEST_SEND_AND_RECEIVE: // Send & Receive
+			std::cout << "CHECK F" << std::endl; // TODO REMOVE
 			for(size_t j = 0; j < m_rdma_addresses.size(); j++){
 				//std::cout << "Receive: " << 0 << "." << j << std::endl; // TODO REMOVE
 				m_client->receive(m_addr[j], m_local_memory->pointer(), m_memory_size_per_thread);
 			}
+			std::cout << "CHECK G" << std::endl; // TODO REMOVE
 			for(size_t i = 0; i < m_iterations; i++){
 				//size_t clientId = m_addr[i % m_rdma_addresses.size()];
 				size_t budget = m_iterations - i;
@@ -99,6 +107,7 @@ void rdma::BandwidthPerfClientThread::run() {
 				i += budget;
 			}
 			m_elapsedSendMs = rdma::PerfTest::stopTimer(start);
+			std::cout << "CHECK H" << std::endl; // TODO REMOVE
 			break;
 		default: throw invalid_argument("BandwidthPerfClientThread unknown test mode");
 	}

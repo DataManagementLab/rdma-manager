@@ -12,7 +12,7 @@ namespace rdma {
 class AbstractCudaMemory : virtual public AbstractBaseMemory {
 
 protected:
-    int device_index;
+    int device_index, previous_device_index, open_context_counter = 0;
 
     /* Function:  checkCudaError
      * ---------------------
@@ -27,34 +27,6 @@ protected:
             fprintf(stderr, "CUDA-Error(%i): %s", code, msg);
             throw std::runtime_error("CUDA error has occurred!");
         }
-    }
-
-     /* Function:  selectDevice
-     * ---------------------
-     * Selects the device where the memory is/should be allocated
-     *
-     * return:  index of the previously selected GPU device index
-     */
-    int selectDevice(){
-        if(this->device_index < 0) return -1;
-        int previous_device_index = -1;
-        checkCudaError(cudaGetDevice(&previous_device_index), "AbstractCudaMemory::selectDevice could not get selected device\n");
-        if(previous_device_index == this->device_index) return previous_device_index;
-        fprintf(stderr, "TRYING TO SELECT CUDA DEVICE %i  prev=%i\n", this->device_index, previous_device_index); // TODO REMOVE
-        checkCudaError(cudaSetDevice(this->device_index), "AbstractCudaMemory::selectDevice could not set selected device\n");
-        return previous_device_index;
-    }
-
-    /* Function:  resetDevice
-     * ---------------------
-     * Sets the selected GPU device to the given device index
-     *
-     * previous_device_index:  index of the GPU device that should be selected
-     *
-     */
-    void resetDevice(int previous_device_index){
-        if(this->device_index < 0 || this->device_index == previous_device_index) return;
-        checkCudaError(cudaSetDevice(previous_device_index), "AbstractCudaMemory::resetDevice could not reset selected device\n");
     }
 
     /* Constructor
@@ -89,6 +61,8 @@ public:
      */
     AbstractCudaMemory(void* buffer, size_t mem_size, int device_index);
 
+    ~AbstractCudaMemory();
+
     /* Function:  getDeviceIndex
      * ---------------------
      * Returns the index of the GPU device where the memory is allocated
@@ -99,6 +73,10 @@ public:
     int getDeviceIndex(){
         return this->device_index;
     }
+
+    virtual void openContext() override;
+
+    virtual void closeContext() override;
 
     virtual void setMemory(int value) override;
 

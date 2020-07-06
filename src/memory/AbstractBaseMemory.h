@@ -63,6 +63,27 @@ public:
         return ((char*)buffer + offset);
     }
 
+    /* Function: openContext
+     * ---------------------
+     * Must be called before using the raw pointer if it 
+     * is not main memory!
+     * Can be called if many calls of the 
+     * set(), get() or copy() methods follow to boost 
+     * performance but not necessary.
+     * 
+     * Multiple openContext() can be called as long as 
+     * same amount of closeContext() are called again.
+     */
+    virtual void openContext() = 0;
+
+    /* Function: closeContext
+     * ---------------------
+     * Closes the opened context again such that 
+     * another memory operating on the same device 
+     * can use it again
+     */
+    virtual void closeContext() = 0;
+
     /* Function:  setMemory
      * ---------------------
      * Sets each byte of the handled memory to a given value.
