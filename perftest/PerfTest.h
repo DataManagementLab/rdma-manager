@@ -12,6 +12,7 @@ namespace rdma {
 
 enum TestMode { TEST_WRITE=0x00, TEST_READ=0x01, TEST_SEND_AND_RECEIVE=0x02, TEST_FETCH_AND_ADD=0x03, TEST_COMPARE_AND_SWAP=0x04 };
 const int ATOMICS_SIZE = 8; // 8 bytes = 64bit
+const uint64_t NANO_SEC = 1000000000;
 
 class PerfTest {
 public:
@@ -31,7 +32,7 @@ public:
 
     static int64_t stopTimer(std::chrono::high_resolution_clock::time_point start, std::chrono::high_resolution_clock::time_point finish){
         std::chrono::duration<double> diff = finish - start;
-        return (int64_t)(diff.count() * 1000000000);
+        return (int64_t)(diff.count() * NANO_SEC);
     }
 
     static int64_t stopTimer(std::chrono::high_resolution_clock::time_point start){
@@ -56,7 +57,7 @@ public:
             oss << (round(ns/u/u * 1000)/1000.0) << "ms"; return oss.str();
         } else if(ns >= u){
             oss << (round(ns/u * 1000)/1000.0) << "us"; return oss.str();
-        } oss << (round(ns * 1000)/1000.0) << "ns"; return oss.str();
+        } oss << nanoseconds << "ns"; return oss.str();
     }
 
     static std::string convertByteSize(uint64_t bytes){
@@ -73,11 +74,27 @@ public:
 			oss << (round(b/u/u * 100)/100.0) << " MB"; return oss.str();
 		} else if(b >= u){
             oss << (round(b/u * 100)/100.0) << " KB"; return oss.str();
-		} oss << (round(b * 100)/100.0) << " B"; return oss.str();
+		} oss << bytes << " B"; return oss.str();
     }
 
     static std::string convertBandwidth(uint64_t bytes){
         return convertByteSize(bytes) + "/s";
+    }
+
+    static std::string convertCountPerSec(long double count){
+        std::ostringstream oss;
+        long double u = 1000.0;
+        if(count >= u*u*u*u*u){
+            oss << (round(count/u/u/u/u/u * 100)/100.0) << " petaOp/s"; return oss.str();
+        } else if(count >= u*u*u*u){
+            oss << (round(count/u/u/u/u * 100)/100.0) << " teraOp/s"; return oss.str();
+        } else if(count >= u*u*u){
+            oss << (round(count/u/u/u * 100)/100.0) << " gigaOp/s"; return oss.str();
+        } else if(count >= u*u){
+            oss << (round(count/u/u * 100)/100.0) << " megaOp/s"; return oss.str();
+        } else if(count >= u){
+            oss << (round(count/u * 100)/100.0) << " kiloOp/s"; return oss.str();
+        } oss << count << " Op/s"; return oss.str();
     }
 };
 

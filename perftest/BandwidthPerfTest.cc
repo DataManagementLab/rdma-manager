@@ -317,7 +317,7 @@ std::string rdma::BandwidthPerfTest::getTestResults(std::string csvFileName, boo
 		return "only client";
 	} else {
 
-		const long double tu = 1000000000.0; // 1sec (nano to seconds as time unit)
+		const long double tu = (long double)NANO_SEC; // 1sec (nano to seconds as time unit)
 		
 		uint64_t transBytePerThr = m_iterations * m_memory_size_per_thread;
 		uint64_t transferedBytes = m_thread_count * transBytePerThr;

@@ -147,7 +147,8 @@ int main(int argc, char *argv[]){
         } else if(std::string("latency").rfind(testName, 0) == 0){
             tests.push_back(LATENCY_TEST);
             count *= memsizes.size();
-        } else if(std::string("operationscount").rfind(testName, 0) == 0 || std::string("operationcount").rfind(testName, 0) == 0){
+        } else if(std::string("operationscount").rfind(testName, 0) == 0 || std::string("operationcount").rfind(testName, 0) == 0 || 
+                    std::string("ops").rfind(testName, 0) == 0){
             tests.push_back(OPERATIONS_COUNT_TEST);
             count *= memsizes.size();
         } else if(std::string("atomicsbandwidth").rfind(testName, 0) == 0 || std::string("atomicbandwidth").rfind(testName, 0) == 0){
@@ -155,7 +156,8 @@ int main(int argc, char *argv[]){
         } else if(std::string("atomicslatency").rfind(testName, 0) == 0 || std::string("atomiclatency").rfind(testName, 0) == 0){
             tests.push_back(ATOMICS_LATENCY_TEST);
         } else if(std::string("atomicsoperationscount").rfind(testName, 0) == 0 || std::string("atomicoperationscount").rfind(testName, 0) == 0 || 
-                    std::string("atomicsoperationcount").rfind(testName, 0) == 0 || std::string("atomicoperationcount").rfind(testName, 0) == 0){
+                    std::string("atomicsoperationcount").rfind(testName, 0) == 0 || std::string("atomicoperationcount").rfind(testName, 0) == 0 ||
+                    std::string("atomicsops").rfind(testName, 0) == 0 || std::string("atomicops").rfind(testName, 0) == 0){
             tests.push_back(ATOMICS_OPERATIONS_COUNT_TEST);
         } else {
             std::cerr << "No test with name '" << *testIt << "' found" << std::endl;
@@ -168,9 +170,9 @@ int main(int argc, char *argv[]){
 
     for(TEST &t : tests){
         for(int &gpu_index : gpus){
-            for(uint64_t &iterations : iteration_counts){
+            for(int &thread_count : thread_counts){
                 bool csvAddHeader = true;
-                for(int &thread_count : thread_counts){
+                for(uint64_t &iterations : iteration_counts){
                     rdma::PerfTest *test = nullptr;
                     std::string testName;
                     

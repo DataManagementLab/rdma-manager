@@ -205,7 +205,7 @@ std::string rdma::AtomicsBandwidthPerfTest::getTestResults(std::string csvFileNa
 		return "only client";
 	} else {
 
-		const long double tu = 1000000000.0; // 1sec (nano to seconds as time unit)
+		const long double tu = (long double)NANO_SEC; // 1sec (nano to seconds as time unit)
 		
 		uint64_t transBytePerThrFetchAdd = m_iterations * rdma::ATOMICS_SIZE * 2; // 8 bytes send + 8 bytes receive
 		uint64_t transferedBytesFetchAdd = m_thread_count * transBytePerThrFetchAdd;
