@@ -63,19 +63,18 @@ void rdma::LatencyPerfClientThread::run() {
 		LatencyPerfTest::waitCv.wait(lck);
 	}
 	lck.unlock();
-	volatile char *arrRecv, *arrSend;
+	volatile void *arrSend;
 	switch(LatencyPerfTest::testMode){
 		case TEST_WRITE: // Write
-			arrRecv = (char*)m_local_memory->pointer();
-			arrSend = (char*)m_local_memory->pointer(m_memory_size_per_thread);
-			arrRecv[0] = 0;
+			arrSend = m_local_memory->pointer(m_memory_size_per_thread);
+			m_local_memory->set((char)0, 0);
 			for(size_t i = 0; i < m_iterations; i++){
 				size_t connIdx = i % m_rdma_addresses.size();
 				char value = (i % 100) + 1; // send 1-100
-				arrSend[0] = value; // send 1-100
+				m_local_memory->set(value, m_memory_size_per_thread); // send 1-100
 				auto start = rdma::PerfTest::startTimer();
 				m_client->write(m_addr[connIdx], m_remOffsets[connIdx], (void*)arrSend, m_memory_size_per_thread, true); // true=signaled
-				while(arrRecv[0] != value); // receive echo 1-100
+				while(m_local_memory->getChar(0) != value); // receive echo 1-100
 				int64_t time = rdma::PerfTest::stopTimer(start) / 2; // one trip time
 				m_sumWriteMs += time;
 				if(m_minWriteMs > time) m_minWriteMs = time;
@@ -143,13 +142,13 @@ void rdma::LatencyPerfServerThread::run() {
 	const size_t clientId = clientIds[m_thread_index % clientIds.size()];
 	size_t offset = (m_thread_index + rdma::LatencyPerfTest::thread_count) * m_memory_size_per_thread; // client allocated at here with remoteAlloc()
 	size_t remOffset = m_thread_index * 2 * m_memory_size_per_thread;
-	volatile char *arrRecv;
+	volatile void *arrRecv;
 	switch(LatencyPerfTest::testMode){
 		case TEST_WRITE: // Write
-			arrRecv = (char*)m_local_memory->pointer(offset);
+			arrRecv = m_local_memory->pointer(offset);
 			for(size_t i = 0; i < m_iterations; i++){
 				char value = (i % 100) + 1;
-				while(arrRecv[0] != value); // receive 1-100 and echo back
+				while(m_local_memory->getChar(offset) != value); // receive 1-100 and echo back
 				m_server->write(clientId, remOffset, (void*)arrRecv, m_memory_size_per_thread, true); // true=signaled
 			}
 			break;
@@ -363,7 +362,7 @@ std::string rdma::LatencyPerfTest::getTestResults(std::string csvFileName, bool 
 			std::ofstream ofs;
 			ofs.open(csvFileName, std::ofstream::out | std::ofstream::app);
 			if(csvAddHeader){
-				ofs << "LATENCY, " << getTestParameters() << std::endl;
+				ofs << std::endl << "LATENCY, " << getTestParameters() << std::endl;
 				ofs << "PacketSize [Bytes], Avg Write [usec], Avg Read [usec], Avg Send/Recv [usec], ";
 				ofs << "Median Write [usec], Median Read [usec], Median Send/Recv [usec], ";
 				ofs << "Min Write [usec], Min Read [usec], Min Send/Recv [usec], ";

@@ -361,7 +361,7 @@ std::string rdma::BandwidthPerfTest::getTestResults(std::string csvFileName, boo
 			std::ofstream ofs;
 			ofs.open(csvFileName, std::ofstream::out | std::ofstream::app);
 			if(csvAddHeader){
-				ofs << "BANDWIDTH, " << getTestParameters() << std::endl;
+				ofs << std::endl << "BANDWIDTH, " << getTestParameters() << std::endl;
 				ofs << "PacketSize [Bytes], Transfered [MB], Write [MB/s], Read [MB/s], Send/Recv [MB/s], ";
 				ofs << "Min Write [MB/s], Min Read [MB/s], Min Send/Recv [MB/s], ";
 				ofs << "Max Write [MB/s], Max Read [MB/s], Max Send/Recv [MB/s], ";

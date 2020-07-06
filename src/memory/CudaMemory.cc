@@ -7,7 +7,6 @@ using namespace rdma;
 // constructors
 CudaMemory::CudaMemory(size_t mem_size) : CudaMemory(mem_size, -1){}
 CudaMemory::CudaMemory(size_t mem_size, int device_index) : AbstractBaseMemory(mem_size), AbstractCudaMemory(mem_size, device_index), BaseMemory(mem_size){
-    
     // allocate CUDA memory
     int previous_device_index = selectDevice();
     checkCudaError(cudaMalloc(&(this->buffer), mem_size), "CudaMemory::CudaMemory could not allocate memory\n");

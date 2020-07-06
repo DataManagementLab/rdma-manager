@@ -242,7 +242,7 @@ std::string rdma::AtomicsLatencyPerfTest::getTestResults(std::string csvFileName
 			std::ofstream ofs;
 			ofs.open(csvFileName, std::ofstream::out | std::ofstream::app);
 			if(csvAddHeader){
-				ofs << "LATENCY, " << getTestParameters() << std::endl;
+				ofs << std::endl << "LATENCY, " << getTestParameters() << std::endl;
 				ofs << "Threads, Avg Fetch&Add [usec], Avg Comp&Swap [usec], Median Fetch&Add [usec], Median Comp&Swap [usec], ";
 				ofs << "Min Fetch&Add [usec], Min Comp&Swap [usec], Max Fetch&Add [usec], Max Comp&Swap [usec]" << std::endl;
 			}

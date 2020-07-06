@@ -5,6 +5,7 @@
 
 #include "AbstractBaseMemory.h"
 #include <cuda_runtime_api.h>
+#include <stdexcept>
 
 namespace rdma {
     
@@ -24,6 +25,7 @@ protected:
     void checkCudaError(cudaError_t code, const char* msg){
         if(code != cudaSuccess){
             fprintf(stderr, "CUDA-Error(%i): %s", code, msg);
+            throw std::runtime_error("CUDA error has occurred!");
         }
     }
 
@@ -38,6 +40,7 @@ protected:
         int previous_device_index = -1;
         checkCudaError(cudaGetDevice(&previous_device_index), "AbstractCudaMemory::selectDevice could not get selected device\n");
         if(previous_device_index == this->device_index) return previous_device_index;
+        fprintf(stderr, "TRYING TO SELECT CUDA DEVICE %i  prev=%i\n", this->device_index, previous_device_index); // TODO REMOVE
         checkCudaError(cudaSetDevice(this->device_index), "AbstractCudaMemory::selectDevice could not set selected device\n");
         return previous_device_index;
     }
@@ -101,13 +104,35 @@ public:
 
     virtual void setMemory(int value, size_t num) override;
 
+    virtual void setMemory(int value, size_t offset, size_t num) override;
+
     virtual void copyTo(void *destination) override;
 
     virtual void copyTo(void *destination, size_t num) override;
 
+    virtual void copyTo(void *destination, size_t destOffset, size_t srcOffset, size_t num) override;
+
     virtual void copyFrom(const void *source) override;
 
     virtual void copyFrom(const void *source, size_t num) override;
+
+    virtual void copyFrom(const void *source, size_t srcOffset, size_t destOffset, size_t num) override;
+
+    virtual char getChar(size_t offset) override;
+
+    virtual void set(char value, size_t offset) override;
+
+    virtual int16_t getInt16(size_t offset) override;
+
+    virtual void set(int16_t value, size_t offset) override;
+
+    virtual int32_t getInt32(size_t offset) override;
+
+    virtual void set(int32_t value, size_t offset) override;
+
+    virtual int64_t getInt64(size_t offset) override;
+
+    virtual void set(int64_t value, size_t offset) override;
 };
 
 } // namespace rdma

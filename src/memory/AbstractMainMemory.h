@@ -33,13 +33,35 @@ public:
 
     virtual void setMemory(int value, size_t num) override;
 
+    virtual void setMemory(int value, size_t offset, size_t num) override;
+
     virtual void copyTo(void *destination) override;
 
     virtual void copyTo(void *destination, size_t num) override;
 
+    virtual void copyTo(void *destination, size_t destOffset, size_t srcOffset, size_t num) override;
+
     virtual void copyFrom(const void *source) override;
 
     virtual void copyFrom(const void *source, size_t num) override;
+
+    virtual void copyFrom(const void *source, size_t srcOffset, size_t destOffset, size_t num) override;
+
+    virtual char getChar(size_t offset) override;
+
+    virtual void set(char value, size_t offset) override;
+
+    virtual int16_t getInt16(size_t offset) override;
+
+    virtual void set(int16_t value, size_t offset) override;
+
+    virtual int32_t getInt32(size_t offset) override;
+
+    virtual void set(int32_t value, size_t offset) override;
+
+    virtual int64_t getInt64(size_t offset) override;
+
+    virtual void set(int64_t value, size_t offset) override;
 };
 
 } // namespace rdma

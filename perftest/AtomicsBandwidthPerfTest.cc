@@ -239,7 +239,7 @@ std::string rdma::AtomicsBandwidthPerfTest::getTestResults(std::string csvFileNa
 			std::ofstream ofs;
 			ofs.open(csvFileName, std::ofstream::out | std::ofstream::app);
 			if(csvAddHeader){
-				ofs << "ATOMICS BANDWIDTH, " << getTestParameters() << std::endl;
+				ofs << std::endl << "ATOMICS BANDWIDTH, " << getTestParameters() << std::endl;
 				ofs << "Threads, Fetch&Add [MB/s], Comp&Swap [MB/s], Min Fetch&Add [MB/s], Min Comp&Swap [MB/s], ";
 				ofs << "Max Fetch&Add [MB/s], Max Comp&Swap [MB/s], Avg Fetch&Add [MB/s], Avg Comp&Swap [MB/s], ";
 				ofs << "Median Fetch&Add [MB/s], Median Comp&Swap [MB/s], Fetch&Add [Sec], Comp&Swap [Sec], ";
