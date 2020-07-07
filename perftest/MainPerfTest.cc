@@ -30,6 +30,7 @@ DEFINE_string(addr, "172.18.94.20", "Addresses of NodeIDSequencer to connect/bin
 DEFINE_int32(port, rdma::Config::RDMA_PORT, "RDMA port");
 DEFINE_bool(csv, false, "Results will be written into an automatically generated CSV file");
 DEFINE_string(csvfile, "", "Results will be written into a given CSV file");
+DEFINE_bool(ignoreerrors, false, "If an error occurs test will be skiped and execution continues");
 
 enum TEST { BANDWIDTH_TEST, LATENCY_TEST, OPERATIONS_COUNT_TEST, ATOMICS_BANDWIDTH_TEST, ATOMICS_LATENCY_TEST, ATOMICS_OPERATIONS_COUNT_TEST };
 
@@ -62,19 +63,42 @@ static std::vector<uint64_t> parseUInt64List(std::string str){
 
 
 static void runTest(size_t testNumber, size_t testIterations, std::string testName, rdma::PerfTest *test, std::string csvFileName, bool csvAddHeader){
-    std::cout << std::endl << "TEST " << testNumber << " / " << testIterations << " (" << (testNumber*100/testIterations) << "%)" << std::endl;
-    std::cout << "SETTING UP ENVIRONMENT FOR TEST '" << testName << "' ..." << std::endl;
-    test->setupTest();
+    bool error;
+    std::string errorstr = "";
+    try {
+        std::cout << std::endl << "TEST " << testNumber << " / " << testIterations << " (" << (testNumber*100/testIterations) << "%)" << std::endl;
+        std::cout << "SETTING UP ENVIRONMENT FOR TEST '" << testName << "' ..." << std::endl;
+        test->setupTest();
 
-    std::cout << "RUN TEST WITH PARAMETERS:  " << test->getTestParameters() << std::endl;
-    test->runTest();
-
-    std::cout << "RESULTS: " << test->getTestResults(csvFileName, csvAddHeader) << std::endl << "DONE TESTING '" << testName << "'" << std::endl << std::endl;
-
+        std::cout << "RUN TEST WITH PARAMETERS:  " << test->getTestParameters() << std::endl;
+        auto start = rdma::PerfTest::startTimer();
+        test->runTest();
+        int64_t duration = rdma::PerfTest::stopTimer(start);
+        std::cout << "RESULTS: " << test->getTestResults(csvFileName, csvAddHeader) << std::endl;
+        std::cout << "DONE TESTING '" << testName << "' (" << rdma::PerfTest::convertTime(duration) << ")" << std::endl << std::endl;
+    } catch (const std::exception &ex){
+        error = true;
+        errorstr = ex.what();
+        if(!FLAGS_ignoreerrors)
+            throw ex;
+    } catch (const std::string &ex){
+        error = true;
+        errorstr = ex;
+        if(!FLAGS_ignoreerrors)
+            throw ex;
+    } catch (...){
+        error = true;
+        errorstr = "? ? ?";
+        if(!FLAGS_ignoreerrors)
+            throw runtime_error("Error occurred while executing test");
+    }
+    if(error)
+        std::cerr << "ERROR '" << errorstr << "' OCCURRED WHILE EXECUTING TEST '" << testName << "' --> JUMP TO NEXT TEST" << std::endl;
+    
     delete test;
 
     if(!FLAGS_server)
-        usleep(100000); // if client then sleep for 100ms to wait for server to restart
+        usleep(250000); // if client then sleep for 250ms to wait for server to restart
 }
 
 
@@ -95,9 +119,17 @@ int main(int argc, char *argv[]){
     
     if(FLAGS_fulltest){
         FLAGS_csv = true;
-        testNames.clear(); testNames.push_back("bandwidth"); testNames.push_back("latency"); testNames.push_back("operationscount");
-        testNames.push_back("atomicsbandwidth"); testNames.push_back("atomicslatency"); testNames.push_back("atomicsoperationscount");
-        memsizes.clear(); memsizes.push_back(64); memsizes.push_back(512); memsizes.push_back(1024);
+        testNames.clear(); 
+        testNames.push_back("bandwidth");
+        testNames.push_back("latency");
+        testNames.push_back("operationscount");
+        testNames.push_back("atomicsbandwidth"); 
+        testNames.push_back("atomicslatency"); 
+        testNames.push_back("atomicsoperationscount");
+        memsizes.clear(); 
+        // memsizes.push_back(64); memsizes.push_back(128); TODO for some reason GPUDirect not working for GPU memory smaller than 128 bytes
+        memsizes.push_back(256);
+        memsizes.push_back(512); memsizes.push_back(1024);
         memsizes.push_back(2048); memsizes.push_back(4096); memsizes.push_back(8192); memsizes.push_back(16384);
         memsizes.push_back(32768); memsizes.push_back(65536); memsizes.push_back(131072); memsizes.push_back(262144);
         // TODO REDO thread_counts.clear(); thread_counts.push_back(1); thread_counts.push_back(2); thread_counts.push_back(4); thread_counts.push_back(8);
@@ -168,6 +200,7 @@ int main(int argc, char *argv[]){
         testIt++;
     }
 
+     auto totalStart = rdma::PerfTest::startTimer();
     for(TEST &t : tests){
         for(int &gpu_index : gpus){
             for(int &thread_count : thread_counts){
@@ -226,5 +259,8 @@ int main(int argc, char *argv[]){
         }
         ++testIt;
     }
+
+    int64_t totalDuration = rdma::PerfTest::stopTimer(totalStart);
+    std::cout << std::endl << "TOTAL EXECUTION TIME " << rdma::PerfTest::convertTime(totalDuration) << std::endl;
     return 0;
 }

@@ -26,6 +26,10 @@ void test(bool huge, MainMemory *mem){
     mem->copyFrom(msg);
     mem->copyTo(check);
     ASSERT_TRUE(strcmp(msg, check) == 0);
+
+    char value = 8, offset = 5;
+    mem->set(value, offset);
+    ASSERT_TRUE(mem->getChar(offset) == value);
 }
 
 TEST_F(TestMainMemory, testNormalSize) {

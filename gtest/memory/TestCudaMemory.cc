@@ -29,6 +29,10 @@ void test(int device_index, CudaMemory *mem){
     mem->copyFrom(msg);
     mem->copyTo(check);
     ASSERT_TRUE(strcmp(msg, check) == 0);
+
+    char value = 8, offset = 5;
+    mem->set(value, offset);
+    ASSERT_TRUE(mem->getChar(offset) == value);
 }
 
 TEST_F(TestCudaMemory, testMemory) {

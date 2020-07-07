@@ -113,9 +113,9 @@ rdma::AtomicsLatencyPerfTest::~AtomicsLatencyPerfTest(){
 std::string rdma::AtomicsLatencyPerfTest::getTestParameters(){
 	std::ostringstream oss;
 	if(m_is_server){
-		oss << "Server | memory=";
+		oss << "Server, memory=";
 	} else {
-		oss << "Client | threads=" << m_thread_count << " | memory=";
+		oss << "Client, threads=" << m_thread_count << ", memory=";
 	}
 	oss << m_memory_size << " (2x " << m_thread_count << "x " << (rdma::ATOMICS_SIZE*8) << "bit) [";
 	if(m_gpu_index < 0){
@@ -125,12 +125,13 @@ std::string rdma::AtomicsLatencyPerfTest::getTestParameters(){
 	}
 	oss << " mem]";
 	if(m_is_server)
-		oss << " | iterations=" << m_iterations;
+		oss << ", iterations=" << m_iterations;
 	return oss.str();
 }
 
 void rdma::AtomicsLatencyPerfTest::makeThreadsReady(TestMode testMode){
 	AtomicsLatencyPerfTest::testMode = testMode;
+	AtomicsLatencyPerfTest::signaled = false;
 	for(AtomicsLatencyPerfClientThread* perfThread : m_client_threads){
 		perfThread->start();
 		while(!perfThread->ready()) {
@@ -242,7 +243,7 @@ std::string rdma::AtomicsLatencyPerfTest::getTestResults(std::string csvFileName
 			std::ofstream ofs;
 			ofs.open(csvFileName, std::ofstream::out | std::ofstream::app);
 			if(csvAddHeader){
-				ofs << std::endl << "LATENCY, " << getTestParameters() << std::endl;
+				ofs << std::endl << "ATOMICS LATENCY, " << getTestParameters() << std::endl;
 				ofs << "Threads, Avg Fetch&Add [usec], Avg Comp&Swap [usec], Median Fetch&Add [usec], Median Comp&Swap [usec], ";
 				ofs << "Min Fetch&Add [usec], Min Comp&Swap [usec], Max Fetch&Add [usec], Max Comp&Swap [usec]" << std::endl;
 			}

@@ -18,10 +18,11 @@ public:
      *
      * buffer:  pointer to CUDA memory that should be handled
      * mem_size:  size of CUDA memory that should be handled
+     * device_index: index of CUDA device
      * freeFunc:  function handle to release buffer
      *
      */
-    LocalCudaMemoryStub(void* buffer, size_t mem_size, std::function<void(const void* buffer)> freeFunc);
+    LocalCudaMemoryStub(void* buffer, size_t mem_size, int device_index, std::function<void(const void* buffer)> freeFunc);
 
 };
 

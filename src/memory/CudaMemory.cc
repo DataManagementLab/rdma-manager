@@ -26,7 +26,7 @@ CudaMemory::~CudaMemory(){
 }
 
 LocalBaseMemoryStub *CudaMemory::malloc(size_t size){
-    return (LocalBaseMemoryStub*) new LocalCudaMemoryStub(alloc(size), size, [this](const void* ptr){
+    return (LocalBaseMemoryStub*) new LocalCudaMemoryStub(alloc(size), size, this->device_index, [this](const void* ptr){
         free(ptr);
     });
 }

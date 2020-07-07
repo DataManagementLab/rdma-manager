@@ -48,11 +48,11 @@ public:
         long double u = 1000.0;
         if(ns<0){ ns = -ns; oss << "-"; }
         if(ns >= u*u*86400){
-            oss << (round(ns/u/u/u/3600 * 1000)/1000.0) << "h"; return oss.str();
+            oss << (round(ns/u/u/86400 * 1000)/1000.0) << "h"; return oss.str();
         } else if(ns >= u*u*3600){
-            oss << (round(ns/u/u/u/60 * 1000)/1000.0) << "m"; return oss.str();
+            oss << (round(ns/u/u/3600 * 1000)/1000.0) << "min"; return oss.str();
         } else if(ns >= u*u*60){
-            oss << (round(ns/u/u/u * 1000)/1000.0) << "s"; return oss.str();
+            oss << (round(ns/u/u/60 * 1000)/1000.0) << "s"; return oss.str();
         } else if(ns >= u*u){
             oss << (round(ns/u/u * 1000)/1000.0) << "ms"; return oss.str();
         } else if(ns >= u){

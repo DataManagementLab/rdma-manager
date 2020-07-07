@@ -28,7 +28,6 @@ void AbstractCudaMemory::openContext(){
     this->previous_device_index = -1;
     checkCudaError(cudaGetDevice(&(this->previous_device_index)), "AbstractCudaMemory::openContext could not get selected device\n");
     if(this->previous_device_index == this->device_index) return;
-    fprintf(stderr, "TRYING TO SELECT CUDA DEVICE %i  prev=%i\n", this->device_index, this->previous_device_index); // TODO REMOVE
     checkCudaError(cudaSetDevice(this->device_index), "AbstractCudaMemory::openContext could not set selected device\n");
 }
 
