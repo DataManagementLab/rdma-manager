@@ -240,13 +240,13 @@ std::string rdma::AtomicsBandwidthPerfTest::getTestResults(std::string csvFileNa
 			ofs.open(csvFileName, std::ofstream::out | std::ofstream::app);
 			if(csvAddHeader){
 				ofs << std::endl << "ATOMICS BANDWIDTH, " << getTestParameters() << std::endl;
-				ofs << "Threads, Fetch&Add [MB/s], Comp&Swap [MB/s], Min Fetch&Add [MB/s], Min Comp&Swap [MB/s], ";
+				ofs << "Iterations, Fetch&Add [MB/s], Comp&Swap [MB/s], Min Fetch&Add [MB/s], Min Comp&Swap [MB/s], ";
 				ofs << "Max Fetch&Add [MB/s], Max Comp&Swap [MB/s], Avg Fetch&Add [MB/s], Avg Comp&Swap [MB/s], ";
 				ofs << "Median Fetch&Add [MB/s], Median Comp&Swap [MB/s], Fetch&Add [Sec], Comp&Swap [Sec], ";
 				ofs << "Min Fetch&Add [Sec], Min Comp&Swap [Sec], Max Fetch&Add [Sec], Max Comp&Swap [Sec], ";
 				ofs << "Avg Fetch&Add [Sec], Avg Comp&Swap [Sec], Median Fetch&Add [Sec], Median Comp&Swap [Sec]" << std::endl;
 			}
-			ofs << m_thread_count << ", ";
+			ofs << m_iterations << ", ";
 			ofs << (round(transferedBytesFetchAdd*tu/su/m_elapsedFetchAddMs * 100000)/100000.0) << ", "; // fetch&add MB/s
 			ofs << (round(transferedBytesCompSwap*tu/su/m_elapsedCompareSwapMs * 100000)/100000.0) << ", "; // comp&swap MB/s
 			ofs << (round(transBytePerThrFetchAdd*tu/su/maxFetchAddMs * 100000)/100000.0) << ", "; // min fetch&add MB/s

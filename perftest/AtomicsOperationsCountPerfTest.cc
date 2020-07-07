@@ -237,13 +237,13 @@ std::string rdma::AtomicsOperationsCountPerfTest::getTestResults(std::string csv
 			ofs.open(csvFileName, std::ofstream::out | std::ofstream::app);
 			if(csvAddHeader){
 				ofs << std::endl << "ATOMIC OPERATIONS PER SECOND, " << getTestParameters() << std::endl;
-				ofs << "Threads, Fetch&Add [megaOp/s], Comp&Swap [megaOp/s], Min Fetch&Add [megaOp/s], Min Comp&Swap [megaOp/s], ";
+				ofs << "Iterations, Fetch&Add [megaOp/s], Comp&Swap [megaOp/s], Min Fetch&Add [megaOp/s], Min Comp&Swap [megaOp/s], ";
 				ofs << "Max Fetch&Add [megaOp/s], Max Comp&Swap [megaOp/s], Avg Fetch&Add [megaOp/s], Avg Comp&Swap [megaOp/s], ";
 				ofs << "Median Fetch&Add [megaOp/s], Median Comp&Swap [megaOp/s], Fetch&Add [Sec], Comp&Swap [Sec], ";
 				ofs << "Min Fetch&Add [Sec], Min Comp&Swap [Sec], Max Fetch&Add [Sec], Max Comp&Swap [Sec], ";
 				ofs << "Avg Fetch&Add [Sec], Avg Comp&Swap [Sec], Median Fetch&Add [Sec], Median Comp&Swap [Sec]" << std::endl;
 			}
-			ofs << m_thread_count << ", ";
+			ofs << m_iterations << ", ";
 			ofs << (round(totalItrs*tu/su/m_elapsedFetchAdd * 100000)/100000.0) << ", "; // fetch&add Op/s
 			ofs << (round(totalItrs*tu/su/m_elapsedCompareSwap * 100000)/100000.0) << ", "; // comp&swap Op/s
 			ofs << (round(itrs*tu/su/maxFetchAdd * 100000)/100000.0) << ", "; // min fetch&add Op/s

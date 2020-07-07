@@ -244,10 +244,10 @@ std::string rdma::AtomicsLatencyPerfTest::getTestResults(std::string csvFileName
 			ofs.open(csvFileName, std::ofstream::out | std::ofstream::app);
 			if(csvAddHeader){
 				ofs << std::endl << "ATOMICS LATENCY, " << getTestParameters() << std::endl;
-				ofs << "Threads, Avg Fetch&Add [usec], Avg Comp&Swap [usec], Median Fetch&Add [usec], Median Comp&Swap [usec], ";
+				ofs << "Iterations, Avg Fetch&Add [usec], Avg Comp&Swap [usec], Median Fetch&Add [usec], Median Comp&Swap [usec], ";
 				ofs << "Min Fetch&Add [usec], Min Comp&Swap [usec], Max Fetch&Add [usec], Max Comp&Swap [usec]" << std::endl;
 			}
-			ofs << m_thread_count << ", " << (round(avgFetchAddMs/ustu * 10)/10.0) << ", " << (round(avgCompareSwapMs/ustu * 10)/10.0) << ", "; // avg fetch&add, comp&swap us
+			ofs << m_iterations << ", " << (round(avgFetchAddMs/ustu * 10)/10.0) << ", " << (round(avgCompareSwapMs/ustu * 10)/10.0) << ", "; // avg fetch&add, comp&swap us
 			ofs << (round(medianFetchAddMs/ustu * 10)/10.0) << ", " << (round(medianCompareSwapMs/ustu * 10)/10.0) << ", "; // median fetch&add, comp&swap us
 			ofs << (round(minFetchAddMs/ustu * 10)/10.0) << ", " << (round(minCompareSwapMs/ustu * 10)/10.0) << ", "; // min fetch&add, comp&swap us
 			ofs << (round(maxFetchAddMs/ustu * 10)/10.0) << ", " << (round(maxCompareSwapMs/ustu * 10)/10.0) << std::endl; // max fetch&add, comp&swap us
