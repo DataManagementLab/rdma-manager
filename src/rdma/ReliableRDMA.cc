@@ -15,6 +15,12 @@ ReliableRDMA::ReliableRDMA(size_t mem_size) : BaseRDMA(mem_size) {
 
 //------------------------------------------------------------------------------------//
 
+ReliableRDMA::ReliableRDMA(size_t mem_size, int numaNode) : BaseRDMA(mem_size, numaNode) {
+  m_qpType = IBV_QPT_RC;
+}
+
+//------------------------------------------------------------------------------------//
+
 ReliableRDMA::~ReliableRDMA() {
   // destroy QPS
   destroyQPs();

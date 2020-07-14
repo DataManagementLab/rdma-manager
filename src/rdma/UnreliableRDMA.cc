@@ -3,12 +3,16 @@
 using namespace rdma;
 
 /********** constructor and destructor **********/
-UnreliableRDMA::UnreliableRDMA(size_t mem_size) : BaseRDMA(mem_size) {
+UnreliableRDMA::UnreliableRDMA(size_t mem_size) : UnreliableRDMA(mem_size, (int)Config::RDMA_NUMAREGION) {
+}
+
+UnreliableRDMA::UnreliableRDMA(size_t mem_size, int numaNode) : BaseRDMA(mem_size, numaNode) {
   m_qpType = IBV_QPT_UD;
   m_lastMCastConnKey = 0;
 
   initQPWithSuppliedID(0);
 }
+
 
 UnreliableRDMA::~UnreliableRDMA() {
   rdmaConnID mcastID = 0;

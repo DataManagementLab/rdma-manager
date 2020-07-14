@@ -18,7 +18,11 @@ rdma_mem_t BaseRDMA::s_nillmem;
 
 //------------------------------------------------------------------------------------//
 
-BaseRDMA::BaseRDMA(size_t mem_size) {
+BaseRDMA::BaseRDMA(size_t mem_size) : BaseRDMA(mem_size, (int)Config::RDMA_NUMAREGION) {
+
+}
+
+BaseRDMA::BaseRDMA(size_t mem_size, int numaNode) : m_numaNode(numaNode) {
   m_memSize = mem_size;
   m_ibPort = Config::RDMA_IBPORT;
   m_gidIdx = -1;
@@ -80,7 +84,7 @@ void BaseRDMA::createBuffer() {
     numa_node_file.open(std::string(dev_list[i]->ibdev_path)+"/device/numa_node");
     int numa_node = -1;
     numa_node_file >> numa_node;
-    if (numa_node == (int)Config::RDMA_NUMAREGION)
+    if (numa_node == m_numaNode)
     {
       ib_dev = dev_list[i];
       found = true;
@@ -92,7 +96,7 @@ void BaseRDMA::createBuffer() {
   
   if (!found)
   {
-    throw runtime_error("Did not find a device connected to specified numa node (Config::RDMA_NUMAREGION)");
+    throw runtime_error("Did not find a device connected to specified numa node: " + std::to_string(m_numaNode) + " (Sat in Config::RDMA_NUMAREGION or constructor)");
   }
 
   if (!Filehelper::isDirectory(Config::RDMA_DEVICE_FILE_PATH + "/device/net/" + Config::RDMA_INTERFACE))

@@ -75,6 +75,7 @@ class BaseRDMA {
  public:
   // constructors and destructor
   BaseRDMA(size_t mem_size);
+  BaseRDMA(size_t mem_size, int numaNode);
 
   virtual ~BaseRDMA();
 
@@ -199,6 +200,8 @@ class BaseRDMA {
   unordered_map<size_t, rdma_mem_t> m_usedRdmaMem;
 
   static rdma_mem_t s_nillmem;
+
+  const int m_numaNode;
 
 static void* malloc_huge(size_t size) {
    void* p = mmap(NULL, size, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
