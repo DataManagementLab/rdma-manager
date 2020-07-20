@@ -97,6 +97,9 @@ class Config
     static vector<int> THREAD_CPUS;
     static vector<vector<int>> NUMA_THREAD_CPUS;
     
+    // GPUS
+    static vector<vector<int>> NUMA_GPUS; // GPU index to NUMA id
+
     //LOGGING
     static int LOGGING_LEVEL; //0=all, 1=ERR, 2=DBG, 3=INF, (>=4)=NONE
 

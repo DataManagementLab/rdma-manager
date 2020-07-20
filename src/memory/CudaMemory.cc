@@ -5,7 +5,12 @@
 using namespace rdma;
 
 // constructors
-CudaMemory::CudaMemory(size_t mem_size) : CudaMemory(mem_size, -1){}
+/* Constructor
+ * -------------
+ * Selects GPU based on the NUMA region
+ *
+ */
+CudaMemory::CudaMemory(size_t mem_size) : CudaMemory(mem_size, GpuNumaUtils::get_cuda_device_index_for_numa_node()){}
 CudaMemory::CudaMemory(size_t mem_size, int device_index) : AbstractBaseMemory(mem_size), AbstractCudaMemory(mem_size, device_index), BaseMemory(mem_size){
     // allocate CUDA memory
     openContext();
