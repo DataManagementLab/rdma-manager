@@ -13,9 +13,10 @@ condition_variable rdma::AtomicsOperationsCountPerfTest::waitCv;
 bool rdma::AtomicsOperationsCountPerfTest::signaled;
 rdma::TestMode rdma::AtomicsOperationsCountPerfTest::testMode;
 
-rdma::AtomicsOperationsCountPerfClientThread::AtomicsOperationsCountPerfClientThread(BaseMemory *memory, std::vector<std::string>& rdma_addresses, size_t iterations) {
+rdma::AtomicsOperationsCountPerfClientThread::AtomicsOperationsCountPerfClientThread(BaseMemory *memory, std::vector<std::string>& rdma_addresses, int buffer_slots, size_t iterations) {
 	this->m_client = new RDMAClient<ReliableRDMA>(memory, "AtomicsOperationsCountPerfTestClient");
 	this->m_rdma_addresses = rdma_addresses;
+	this->m_buffer_slots = buffer_slots;
 	this->m_iterations = iterations;
 	m_remOffsets = new size_t[m_rdma_addresses.size()];
 
@@ -34,6 +35,7 @@ rdma::AtomicsOperationsCountPerfClientThread::AtomicsOperationsCountPerfClientTh
 	}
 
 	m_local_memory = m_client->localMalloc(rdma::ATOMICS_SIZE);
+	m_local_memory->openContext();
 	m_local_memory->setMemory(1);
 }
 
@@ -60,7 +62,8 @@ void rdma::AtomicsOperationsCountPerfClientThread::run() {
 			for(size_t i = 0; i < m_iterations; i++){
 				size_t connIdx = i % m_rdma_addresses.size();
 				bool signaled = (i == (m_iterations - 1) || (i+1)%Config::RDMA_MAX_WR==0);
-				m_client->fetchAndAdd(m_addr[connIdx], m_remOffsets[connIdx], m_local_memory->pointer(), 1, rdma::ATOMICS_SIZE, signaled); // true=signaled
+				int offset = (i % m_buffer_slots) * rdma::ATOMICS_SIZE;
+				m_client->fetchAndAdd(m_addr[connIdx], m_remOffsets[connIdx] + offset, m_local_memory->pointer(offset), 1, rdma::ATOMICS_SIZE, signaled); // true=signaled
 			}
 			m_elapsedFetchAdd = rdma::PerfTest::stopTimer(start);
 			break;
@@ -68,7 +71,8 @@ void rdma::AtomicsOperationsCountPerfClientThread::run() {
 			for(size_t i = 0; i < m_iterations; i++){
 				size_t connIdx = i % m_rdma_addresses.size();
 				bool signaled = (i == (m_iterations - 1) || (i+1)%Config::RDMA_MAX_WR==0);
-				m_client->compareAndSwap(m_addr[connIdx], m_remOffsets[connIdx], m_local_memory->pointer(), 2, 3, rdma::ATOMICS_SIZE, signaled); // true=signaled
+				int offset = (i % m_buffer_slots) * rdma::ATOMICS_SIZE;
+				m_client->compareAndSwap(m_addr[connIdx], m_remOffsets[connIdx] + offset, m_local_memory->pointer(offset), 2, 3, rdma::ATOMICS_SIZE, signaled); // true=signaled
 			}
 			m_elapsedCompareSwap = rdma::PerfTest::stopTimer(start);
 			break;
@@ -79,12 +83,13 @@ void rdma::AtomicsOperationsCountPerfClientThread::run() {
 
 
 
-rdma::AtomicsOperationsCountPerfTest::AtomicsOperationsCountPerfTest(bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, int gpu_index, int thread_count, uint64_t iterations) : PerfTest(){
+rdma::AtomicsOperationsCountPerfTest::AtomicsOperationsCountPerfTest(bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, int gpu_index, int thread_count, int buffer_slots, uint64_t iterations) : PerfTest(){
 	this->m_is_server = is_server;
 	this->m_rdma_port = rdma_port;
 	this->m_gpu_index = gpu_index;
 	this->m_thread_count = thread_count;
-	this->m_memory_size = thread_count * rdma::ATOMICS_SIZE;
+	this->m_memory_size = thread_count * rdma::ATOMICS_SIZE * buffer_slots;
+	this->m_buffer_slots = buffer_slots;
 	this->m_iterations = iterations;
 	this->m_rdma_addresses = rdma_addresses;
 }
@@ -156,7 +161,7 @@ void rdma::AtomicsOperationsCountPerfTest::setupTest(){
 	} else {
 		// Client
 		for (int i = 0; i < m_thread_count; i++) {
-			AtomicsOperationsCountPerfClientThread* perfThread = new AtomicsOperationsCountPerfClientThread(m_memory, m_rdma_addresses, m_iterations);
+			AtomicsOperationsCountPerfClientThread* perfThread = new AtomicsOperationsCountPerfClientThread(m_memory, m_rdma_addresses, m_buffer_slots, m_iterations);
 			m_client_threads.push_back(perfThread);
 		}
 	}

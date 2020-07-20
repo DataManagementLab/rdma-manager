@@ -16,7 +16,7 @@ namespace rdma {
 
 class AtomicsOperationsCountPerfClientThread : public Thread {
 public:
-	AtomicsOperationsCountPerfClientThread(BaseMemory *memory, std::vector<std::string>& rdma_addresses, size_t iterations);
+	AtomicsOperationsCountPerfClientThread(BaseMemory *memory, std::vector<std::string>& rdma_addresses, int buffer_slots, size_t iterations);
 	~AtomicsOperationsCountPerfClientThread();
 	void run();
 	bool ready() {
@@ -30,6 +30,7 @@ private:
 	bool m_ready = false;
 	RDMAClient<ReliableRDMA> *m_client;
 	LocalBaseMemoryStub *m_local_memory;
+	int m_buffer_slots;
 	size_t m_iterations;
 	std::vector<std::string> m_rdma_addresses;
 	std::vector<NodeID> m_addr;
@@ -39,7 +40,7 @@ private:
 
 class AtomicsOperationsCountPerfTest : public rdma::PerfTest {
 public:
-	AtomicsOperationsCountPerfTest(bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, int gpu_index, int thread_count, uint64_t iterations);
+	AtomicsOperationsCountPerfTest(bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, int gpu_index, int thread_count, int buffer_slots, uint64_t iterations);
 	virtual ~AtomicsOperationsCountPerfTest();
 	std::string getTestParameters();
 	void setupTest();
@@ -59,6 +60,7 @@ private:
 	int m_gpu_index;
 	int m_thread_count;
 	uint64_t m_memory_size;
+	int m_buffer_slots;
 	uint64_t m_iterations;
 	std::vector<AtomicsOperationsCountPerfClientThread*> m_client_threads;
 	int64_t m_elapsedFetchAdd;

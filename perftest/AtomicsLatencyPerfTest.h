@@ -18,7 +18,7 @@ namespace rdma {
 
 class AtomicsLatencyPerfClientThread : public Thread {
 public:
-	AtomicsLatencyPerfClientThread(BaseMemory *memory, std::vector<std::string>& rdma_addresses, size_t iterations);
+	AtomicsLatencyPerfClientThread(BaseMemory *memory, std::vector<std::string>& rdma_addresses, int buffer_slots, size_t iterations);
 	~AtomicsLatencyPerfClientThread();
 	void run();
 	bool ready() {
@@ -33,6 +33,7 @@ private:
 	bool m_ready = false;
 	RDMAClient<ReliableRDMA> *m_client;
 	LocalBaseMemoryStub *m_local_memory;
+	int m_buffer_slots;
 	size_t m_iterations;
 	std::vector<std::string> m_rdma_addresses;
 	std::vector<NodeID> m_addr;
@@ -42,7 +43,7 @@ private:
 
 class AtomicsLatencyPerfTest : public rdma::PerfTest {
 public:
-    AtomicsLatencyPerfTest(bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, int gpu_index, int thread_count, uint64_t iterations);
+    AtomicsLatencyPerfTest(bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, int gpu_index, int thread_count, int buffer_slots, uint64_t iterations);
 	virtual ~AtomicsLatencyPerfTest();
 	std::string getTestParameters();
 	void setupTest();
@@ -62,6 +63,7 @@ private:
 	int m_gpu_index;
 	int m_thread_count;
 	uint64_t m_memory_size;
+	int m_buffer_slots;
 	uint64_t m_iterations;
 	std::vector<AtomicsLatencyPerfClientThread*> m_client_threads;
 

@@ -16,7 +16,7 @@ namespace rdma {
 
 class BandwidthPerfClientThread : public Thread {
 public:
-	BandwidthPerfClientThread(BaseMemory *memory, std::vector<std::string>& rdma_addresses, size_t memory_size_per_thread, size_t iterations);
+	BandwidthPerfClientThread(BaseMemory *memory, std::vector<std::string>& rdma_addresses, size_t packet_size, int buffer_slots, size_t iterations);
 	~BandwidthPerfClientThread();
 	void run();
 	bool ready() {
@@ -31,6 +31,8 @@ private:
 	bool m_ready = false;
 	RDMAClient<ReliableRDMA> *m_client;
 	LocalBaseMemoryStub *m_local_memory;
+	size_t m_packet_size;
+	int m_buffer_slots;
 	size_t m_memory_size_per_thread;
 	size_t m_iterations;
 	std::vector<std::string> m_rdma_addresses;
@@ -41,7 +43,7 @@ private:
 
 class BandwidthPerfServerThread : public Thread {
 public:
-	BandwidthPerfServerThread(RDMAServer<ReliableRDMA> *server, size_t memory_size_per_thread, size_t iterations);
+	BandwidthPerfServerThread(RDMAServer<ReliableRDMA> *server, size_t packet_size, int buffer_slots, size_t iterations);
 	~BandwidthPerfServerThread();
 	void run();
 	bool ready(){
@@ -50,6 +52,8 @@ public:
 
 private:
 	bool m_ready = false;
+	size_t m_packet_size;
+	int m_buffer_slots;
 	size_t m_memory_size_per_thread;
 	size_t m_iterations;
 	RDMAServer<ReliableRDMA> *m_server;
@@ -59,7 +63,7 @@ private:
 
 class BandwidthPerfTest : public rdma::PerfTest {
 public:
-	BandwidthPerfTest(bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, int gpu_index, int thread_count, uint64_t memory_size_per_thread, uint64_t iterations);
+	BandwidthPerfTest(bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, int gpu_index, int thread_count, uint64_t packet_size, int buffer_slots, uint64_t iterations);
 	virtual ~BandwidthPerfTest();
 	std::string getTestParameters();
 	void setupTest();
@@ -78,7 +82,8 @@ private:
 	int m_rdma_port;
 	int m_gpu_index;
 	int m_thread_count;
-	uint64_t m_memory_size_per_thread;
+	uint64_t m_packet_size;
+	int m_buffer_slots;
 	uint64_t m_memory_size;
 	uint64_t m_iterations;
 	std::vector<BandwidthPerfClientThread*> m_client_threads;

@@ -12,10 +12,12 @@ rdma::TestMode rdma::LatencyPerfTest::testMode;
 int rdma::LatencyPerfTest::thread_count;
 
 
-rdma::LatencyPerfClientThread::LatencyPerfClientThread(BaseMemory *memory, std::vector<std::string>& rdma_addresses, size_t memory_size_per_thread, size_t iterations) {
+rdma::LatencyPerfClientThread::LatencyPerfClientThread(BaseMemory *memory, std::vector<std::string>& rdma_addresses, size_t packet_size, int buffer_slots, size_t iterations) {
 	this->m_client = new RDMAClient<ReliableRDMA>(memory, "LatencyPerfTestClient");
 	this->m_rdma_addresses = rdma_addresses;
-	this->m_memory_size_per_thread = memory_size_per_thread;
+	this->m_packet_size = packet_size;
+	this->m_buffer_slots = buffer_slots;
+	this->m_memory_size_per_thread = packet_size * buffer_slots;
 	this->m_iterations = iterations;
 	this->m_remOffsets = new size_t[m_rdma_addresses.size()];
 
@@ -38,6 +40,7 @@ rdma::LatencyPerfClientThread::LatencyPerfClientThread(BaseMemory *memory, std::
 	}
 
 	m_local_memory = m_client->localMalloc(m_memory_size_per_thread * 2); // write: client-send via first and receive via second
+	m_local_memory->openContext();
 	m_local_memory->setMemory(1);
 }
 
@@ -67,16 +70,17 @@ void rdma::LatencyPerfClientThread::run() {
 	switch(LatencyPerfTest::testMode){
 		case TEST_WRITE: // Write
 			arrSend = m_local_memory->pointer(m_memory_size_per_thread);
-			m_local_memory->set((int16_t)0, 0); // 0, 0
+			m_local_memory->setMemory(0);
 			for(size_t i = 0; i < m_iterations; i++){
 				size_t connIdx = i % m_rdma_addresses.size();
+				int offset = (i % m_buffer_slots) * m_packet_size;
 				value = (i % 100) + 1; // send 1-100
-				m_local_memory->set(value, m_memory_size_per_thread + (value%2)); // send 1-100
-				if(m_local_memory->getChar(m_memory_size_per_thread + (value%2)) != value) // prevents compiler to switch statements
+				m_local_memory->set(value, m_memory_size_per_thread + offset + (value%2)); // send 1-100
+				if(m_local_memory->getChar(m_memory_size_per_thread + offset + (value%2)) != value) // prevents compiler to switch statements
 					throw runtime_error("Compiler makes stupid stuff");
 				auto start = rdma::PerfTest::startTimer();
-				m_client->write(m_addr[connIdx], m_remOffsets[connIdx], (void*)arrSend, m_memory_size_per_thread, true); // true=signaled
-				while(m_local_memory->getChar(value%2) != value);
+				m_client->write(m_addr[connIdx], m_remOffsets[connIdx] + offset, (void*)((size_t)arrSend + offset), m_packet_size, true); // true=signaled
+				while(m_local_memory->getChar(offset + (value%2)) != value);
 				int64_t time = rdma::PerfTest::stopTimer(start) / 2; // one trip time
 				m_sumWriteMs += time;
 				if(m_minWriteMs > time) m_minWriteMs = time;
@@ -88,8 +92,9 @@ void rdma::LatencyPerfClientThread::run() {
 		case TEST_READ: // Read
 			for(size_t i = 0; i < m_iterations; i++){
 				size_t connIdx = i % m_rdma_addresses.size();
+				int offset = (i % m_buffer_slots) * m_packet_size;
 				auto start = rdma::PerfTest::startTimer();
-				m_client->read(m_addr[connIdx], m_remOffsets[connIdx], m_local_memory->pointer(), m_memory_size_per_thread, true); // true=signaled
+				m_client->read(m_addr[connIdx], m_remOffsets[connIdx] + offset, m_local_memory->pointer(offset), m_packet_size, true); // true=signaled
 				int64_t time = rdma::PerfTest::stopTimer(start) / 2; // one trip time
 				m_sumReadMs += time;
 				if(m_minReadMs > time) m_minReadMs = time;
@@ -100,14 +105,15 @@ void rdma::LatencyPerfClientThread::run() {
 
 		case TEST_SEND_AND_RECEIVE: // Send & Receive
 			for(size_t i = 0; i < m_rdma_addresses.size(); i++){
-				m_client->receive(m_addr[i], m_local_memory->pointer(), m_memory_size_per_thread);
+				m_client->receive(m_addr[i], m_local_memory->pointer(), m_packet_size);
 			}
 			for(size_t i = 0; i < m_iterations; i++){
 				size_t clientId = m_addr[i % m_rdma_addresses.size()];
+				int offset = (i % m_buffer_slots) * m_packet_size, nextOffset = ((i+1) % m_buffer_slots) * m_packet_size;
 				auto start = rdma::PerfTest::startTimer();
-				m_client->send(clientId, m_local_memory->pointer(), m_memory_size_per_thread, true); // true=signaled
+				m_client->send(clientId, m_local_memory->pointer(offset), m_packet_size, true); // true=signaled
 				m_client->pollReceive(clientId, true); // true=poll
-				m_client->receive(clientId, m_local_memory->pointer(), m_memory_size_per_thread);
+				m_client->receive(clientId, m_local_memory->pointer(nextOffset), m_packet_size);
 				int64_t time = rdma::PerfTest::stopTimer(start) / 2; // one trip time
 				m_sumSendMs += time;
 				if(m_minSendMs > time) m_minSendMs = time;
@@ -120,12 +126,15 @@ void rdma::LatencyPerfClientThread::run() {
 }
 
 
-rdma::LatencyPerfServerThread::LatencyPerfServerThread(RDMAServer<ReliableRDMA> *server, int thread_index, size_t memory_size_per_thread, size_t iterations) {
+rdma::LatencyPerfServerThread::LatencyPerfServerThread(RDMAServer<ReliableRDMA> *server, int thread_index, size_t packet_size, int buffer_slots, size_t iterations) {
 	this->m_server = server;
 	this->m_thread_index = thread_index;
-	this->m_memory_size_per_thread = memory_size_per_thread;
+	this->m_packet_size = packet_size;
+	this->m_buffer_slots = buffer_slots;
+	this->m_memory_size_per_thread = packet_size * buffer_slots;
 	this->m_iterations = iterations;
-	this->m_local_memory = server->localMalloc(memory_size_per_thread);
+	this->m_local_memory = server->localMalloc(this->m_memory_size_per_thread);
+	this->m_local_memory->openContext();
 }
 
 rdma::LatencyPerfServerThread::~LatencyPerfServerThread() {
@@ -150,18 +159,20 @@ void rdma::LatencyPerfServerThread::run() {
 		case TEST_WRITE: // Write
 			arrRecv = m_local_memory->pointer(offset);
 			for(size_t i = 0; i < m_iterations; i++){
+				int off = (i % m_buffer_slots) * m_packet_size;
 				value = (i % 100) + 1;
-				while(m_local_memory->getChar(offset + (value%2)) != value);
-				m_server->write(clientId, remOffset, (void*)arrRecv, m_memory_size_per_thread, true); // true=signaled
+				while(m_local_memory->getChar(offset + off + (value%2)) != value);
+				m_server->write(clientId, remOffset + off, (void*)((size_t)arrRecv + off), m_packet_size, true); // true=signaled
 			}
 			break;
 
 		case TEST_SEND_AND_RECEIVE: // Send & Receive
-			m_server->receive(clientId, m_local_memory->pointer(), m_memory_size_per_thread);
+			m_server->receive(clientId, m_local_memory->pointer(), m_packet_size);
 			for(size_t i = 0; i < m_iterations; i++){
+				int off = (i % m_buffer_slots) * m_packet_size, nextOff = ((i+1) % m_buffer_slots) * m_packet_size;
 				m_server->pollReceive(clientId, true); // true=poll
-				m_server->receive(clientId, m_local_memory->pointer(), m_memory_size_per_thread);
-				m_server->send(clientId, m_local_memory->pointer(), m_memory_size_per_thread, true); // true=signaled
+				m_server->receive(clientId, m_local_memory->pointer(nextOff), m_packet_size);
+				m_server->send(clientId, m_local_memory->pointer(off), m_packet_size, true); // true=signaled
 			}
 			break;
 		default: throw invalid_argument("LatencyPerfClientThread unknown test mode");
@@ -170,13 +181,14 @@ void rdma::LatencyPerfServerThread::run() {
 
 
 
-rdma::LatencyPerfTest::LatencyPerfTest(bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, int gpu_index, int thread_count, uint64_t memory_size_per_thread, uint64_t iterations) : PerfTest(){
+rdma::LatencyPerfTest::LatencyPerfTest(bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, int gpu_index, int thread_count, uint64_t packet_size, int buffer_slots, uint64_t iterations) : PerfTest(){
 	this->m_is_server = is_server;
 	this->m_rdma_port = rdma_port;
 	this->m_gpu_index = gpu_index;
 	this->thread_count = thread_count;
-	this->m_memory_size_per_thread = memory_size_per_thread;
-	this->m_memory_size = thread_count * memory_size_per_thread * 2; // two times because send & receive
+	this->m_packet_size = packet_size;
+	this->m_buffer_slots = buffer_slots;
+	this->m_memory_size = thread_count * packet_size * buffer_slots * 2; // two times because send & receive
 	this->m_iterations = iterations;
 	this->m_rdma_addresses = rdma_addresses;
 }
@@ -201,7 +213,7 @@ std::string rdma::LatencyPerfTest::getTestParameters(){
 	} else {
 		oss << "Client, threads=" << thread_count << ", memory=";
 	}
-	oss << m_memory_size << " (2x " << thread_count << "x " << m_memory_size_per_thread << ") [";
+	oss << m_memory_size << " (2x " << thread_count << "x " << m_buffer_slots << "x " << m_packet_size << ") [";
 	if(m_gpu_index < 0){
 		oss << "MAIN";
 	} else {
@@ -253,14 +265,14 @@ void rdma::LatencyPerfTest::setupTest(){
 		// Server
 		m_server = new RDMAServer<ReliableRDMA>("LatencyTestRDMAServer", m_rdma_port, m_memory);
 		for (int i = 0; i < thread_count; i++) {
-			LatencyPerfServerThread* perfThread = new LatencyPerfServerThread(m_server, i, m_memory_size_per_thread, m_iterations);
+			LatencyPerfServerThread* perfThread = new LatencyPerfServerThread(m_server, i, m_packet_size, m_buffer_slots, m_iterations);
 			m_server_threads.push_back(perfThread);
 		}
 
 	} else {
 		// Client
 		for (int i = 0; i < thread_count; i++) {
-			LatencyPerfClientThread* perfThread = new LatencyPerfClientThread(m_memory, m_rdma_addresses, m_memory_size_per_thread, m_iterations);
+			LatencyPerfClientThread* perfThread = new LatencyPerfClientThread(m_memory, m_rdma_addresses, m_packet_size, m_buffer_slots, m_iterations);
 			m_client_threads.push_back(perfThread);
 		}
 	}
@@ -369,7 +381,7 @@ std::string rdma::LatencyPerfTest::getTestResults(std::string csvFileName, bool 
 				ofs << "Min Write [usec], Min Read [usec], Min Send/Recv [usec], ";
 				ofs << "Max Write [usec], Max Read [usec], Max Send/Recv [usec]" << std::endl;
 			}
-			ofs << m_memory_size_per_thread << ", "; // packet size Bytes
+			ofs << m_packet_size << ", "; // packet size Bytes
 			ofs << (round(avgWriteMs/ustu * 10)/10.0) << ", " << (round(avgReadMs/ustu * 10)/10.0) << ", "; // avg write, read us
 			ofs << (round(avgSendMs/ustu * 10)/10.0) << ", "; // avg send us
 			ofs << (round(medianWriteMs/ustu * 10)/10.0) << ", " << (round(medianReadMs/ustu * 10)/10.0) << ", "; // median write, read us

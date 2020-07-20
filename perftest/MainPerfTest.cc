@@ -19,11 +19,12 @@
 
 #include <gflags/gflags.h>
 
-DEFINE_bool(fulltest, false, "Overwrites flags 'test, gpu, memsize, threads, iterations, csv' to execute a broad variety of predefined tests. If GPUs are supported then gpu=-1,-1,0,0 on client side and gpu=-1,0,-1,0 on server side to test all memory combinations: Main->Main, Main->GPU, GPU->Main, GPU->GPU");
+DEFINE_bool(fulltest, false, "Overwrites flags 'test, gpu, packetsize, threads, iterations, csv' to execute a broad variety of predefined tests. If GPUs are supported then gpu=-1,-1,0,0 on client side and gpu=-1,0,-1,0 on server side to test all memory combinations: Main->Main, Main->GPU, GPU->Main, GPU->GPU");
 DEFINE_string(test, "bandwidth", "Test: bandwidth, latency, operationscount, atomicsbandwidth, atomicslatency, atomicsoperationscount (multiples separated by comma without space, not full word required)");
 DEFINE_bool(server, false, "Act as server for a client to test performance");
 DEFINE_string(gpu, "-1", "Index of GPU for memory allocation (negative for main memory | multiples separated by comma without space)");
-DEFINE_string(memsize, "4096", "Memory size in bytes (per thread | multiples separated by comma without space)");
+DEFINE_string(packetsize, "4096", "Packet size in bytes (multiples separated by comma without space)");
+DEFINE_string(bufferslots, "16", "How many packets the buffer can hold (round-robin distribution of packets inside buffer | multiples separated by comma without space)");
 DEFINE_string(threads, "1", "Amout of threads used by client for testing (multiples separated by comma without space)");
 DEFINE_string(iterations, "500000", "Amount of test repeats (multiples separated by comma without space)");
 DEFINE_string(addr, "172.18.94.20", "Addresses of NodeIDSequencer to connect/bind to");
@@ -33,6 +34,7 @@ DEFINE_string(csvfile, "", "Results will be written into a given CSV file");
 DEFINE_bool(ignoreerrors, false, "If an error occurs test will be skiped and execution continues");
 
 enum TEST { BANDWIDTH_TEST, LATENCY_TEST, OPERATIONS_COUNT_TEST, ATOMICS_BANDWIDTH_TEST, ATOMICS_LATENCY_TEST, ATOMICS_OPERATIONS_COUNT_TEST };
+const uint64_t MINIMUM_PACKET_SIZE = 256;
 
 static std::vector<int> parseIntList(std::string str){
     std::vector<int> v;
@@ -109,7 +111,8 @@ int main(int argc, char *argv[]){
     
     std::vector<std::string> testNames = rdma::StringHelper::split(FLAGS_test);
     std::vector<int> gpus = parseIntList(FLAGS_gpu);
-    std::vector<uint64_t> memsizes = parseUInt64List(FLAGS_memsize);
+    std::vector<uint64_t> packetsizes = parseUInt64List(FLAGS_packetsize);
+    std::vector<int> bufferslots = parseIntList(FLAGS_bufferslots);
     std::vector<int> thread_counts = parseIntList(FLAGS_threads);
     std::vector<uint64_t> iteration_counts = parseUInt64List(FLAGS_iterations);
     std::vector<std::string> addresses = rdma::StringHelper::split(FLAGS_addr);
@@ -126,12 +129,23 @@ int main(int argc, char *argv[]){
         testNames.push_back("atomicsbandwidth"); 
         testNames.push_back("atomicslatency"); 
         testNames.push_back("atomicsoperationscount");
-        memsizes.clear(); 
-        // memsizes.push_back(64); memsizes.push_back(128); TODO for some reason GPUDirect not working for GPU memory smaller than 128 bytes
-        memsizes.push_back(256);
-        memsizes.push_back(512); memsizes.push_back(1024);
-        memsizes.push_back(2048); memsizes.push_back(4096); memsizes.push_back(8192); memsizes.push_back(16384);
-        memsizes.push_back(32768); memsizes.push_back(65536); memsizes.push_back(131072); memsizes.push_back(262144);
+
+        packetsizes.clear();
+        // TODO for some reason GPUDirect not working for GPU memory smaller than 128 bytes
+        // packetsizes.push_back(64);
+        // packetsizes.push_back(128);
+        packetsizes.push_back(256);
+        packetsizes.push_back(512);
+        packetsizes.push_back(1024);
+        packetsizes.push_back(2048);
+        packetsizes.push_back(4096);
+        packetsizes.push_back(8192);
+        packetsizes.push_back(16384);
+        packetsizes.push_back(32768);
+        packetsizes.push_back(65536);
+        packetsizes.push_back(131072);
+        packetsizes.push_back(262144);
+
         // TODO REDO thread_counts.clear(); thread_counts.push_back(1); thread_counts.push_back(2); thread_counts.push_back(4); thread_counts.push_back(8);
         iteration_counts.clear(); iteration_counts.push_back(1000); iteration_counts.push_back(500000);
         gpus.clear();
@@ -141,6 +155,13 @@ int main(int argc, char *argv[]){
             gpus.push_back(-1); gpus.push_back(-1); gpus.push_back(0); gpus.push_back(0); // Main, Main, GPU, GPU
         }
     }
+
+    // check packet sizes
+    for(uint64_t &ps : packetsizes)
+        if(ps < MINIMUM_PACKET_SIZE){
+            std::cerr << "Given packet size " << ps << " must be at least " << MINIMUM_PACKET_SIZE << " bytes for GPUDirect to work" << std::endl;
+            throw runtime_error("Packet size too small");
+        }
 
     std::string csvFileName = FLAGS_csvfile;
     if(FLAGS_csv && csvFileName.empty()){
@@ -171,18 +192,18 @@ int main(int argc, char *argv[]){
             continue;
         std::transform(testName.begin(), testName.end(), testName.begin(), ::tolower);
 
-        size_t count = gpus.size() * thread_counts.size() * iteration_counts.size();
+        size_t count = gpus.size() * thread_counts.size() * iteration_counts.size() * bufferslots.size();
 
         if(std::string("bandwidth").rfind(testName, 0) == 0){
             tests.push_back(BANDWIDTH_TEST);
-            count *= memsizes.size();
+            count *= packetsizes.size();
         } else if(std::string("latency").rfind(testName, 0) == 0){
             tests.push_back(LATENCY_TEST);
-            count *= memsizes.size();
+            count *= packetsizes.size();
         } else if(std::string("operationscount").rfind(testName, 0) == 0 || std::string("operationcount").rfind(testName, 0) == 0 || 
                     std::string("ops").rfind(testName, 0) == 0){
             tests.push_back(OPERATIONS_COUNT_TEST);
-            count *= memsizes.size();
+            count *= packetsizes.size();
         } else if(std::string("atomicsbandwidth").rfind(testName, 0) == 0 || std::string("atomicbandwidth").rfind(testName, 0) == 0){
             tests.push_back(ATOMICS_BANDWIDTH_TEST);
         } else if(std::string("atomicslatency").rfind(testName, 0) == 0 || std::string("atomiclatency").rfind(testName, 0) == 0){
@@ -204,55 +225,57 @@ int main(int argc, char *argv[]){
     for(TEST &t : tests){
         for(int &gpu_index : gpus){
             for(int &thread_count : thread_counts){
-                bool csvAddHeader = true;
-                for(uint64_t &iterations : iteration_counts){
-                    rdma::PerfTest *test = nullptr;
-                    std::string testName;
-                    
-                    if(t == ATOMICS_BANDWIDTH_TEST){
-                        // Atomics Bandwidth Test
-                        testName = "Atomics Bandwidth";
-                        test = new rdma::AtomicsBandwidthPerfTest(FLAGS_server, addresses, FLAGS_port, gpu_index, thread_count, iterations);
+                for(int &buffer_slots : bufferslots){
+                    bool csvAddHeader = true;
+                    for(uint64_t &iterations : iteration_counts){
+                        rdma::PerfTest *test = nullptr;
+                        std::string testName;
+                        
+                        if(t == ATOMICS_BANDWIDTH_TEST){
+                            // Atomics Bandwidth Test
+                            testName = "Atomics Bandwidth";
+                            test = new rdma::AtomicsBandwidthPerfTest(FLAGS_server, addresses, FLAGS_port, gpu_index, thread_count, buffer_slots, iterations);
 
-                    } else if(t == ATOMICS_LATENCY_TEST){
-                        // Atomics Latency Test
-                        testName = "Atomics Latency";
-                        test = new rdma::AtomicsLatencyPerfTest(FLAGS_server, addresses, FLAGS_port, gpu_index, thread_count, iterations);
+                        } else if(t == ATOMICS_LATENCY_TEST){
+                            // Atomics Latency Test
+                            testName = "Atomics Latency";
+                            test = new rdma::AtomicsLatencyPerfTest(FLAGS_server, addresses, FLAGS_port, gpu_index, thread_count, buffer_slots, iterations);
 
-                    } else if(t == ATOMICS_OPERATIONS_COUNT_TEST){
-                        // Atomics Operations Count Test
-                        testName = "Atomics Operations Count";
-                        test = new rdma::AtomicsOperationsCountPerfTest(FLAGS_server, addresses, FLAGS_port, gpu_index, thread_count, iterations);
-                    }
-
-                    if(test != nullptr){
-                        testCounter++;
-                        runTest(testCounter, testIterations, testName, test, csvFileName, csvAddHeader);
-                        csvAddHeader = false;
-                        continue;
-                    }
-
-                    csvAddHeader = true;
-                    for(uint64_t &memsize : memsizes){
-                        if(t == BANDWIDTH_TEST){
-                            // Bandwidth Test
-                            testName = "Bandwidth";
-                            test = new rdma::BandwidthPerfTest(FLAGS_server, addresses, FLAGS_port, gpu_index, thread_count, memsize, iterations);
-
-                        } else if(t == LATENCY_TEST){
-                            // Latency Test
-                            testName = "Latency";
-                            test = new rdma::LatencyPerfTest(FLAGS_server, addresses, FLAGS_port, gpu_index, thread_count, memsize, iterations);
-
-                        } else if(t == OPERATIONS_COUNT_TEST){
-                            // Operations Count Test
-                            testName = "Operations Count";
-                            test = new rdma::OperationsCountPerfTest(FLAGS_server, addresses, FLAGS_port, gpu_index, thread_count, memsize, iterations);
+                        } else if(t == ATOMICS_OPERATIONS_COUNT_TEST){
+                            // Atomics Operations Count Test
+                            testName = "Atomics Operations Count";
+                            test = new rdma::AtomicsOperationsCountPerfTest(FLAGS_server, addresses, FLAGS_port, gpu_index, thread_count, buffer_slots, iterations);
                         }
 
-                        testCounter++;
-                        runTest(testCounter, testIterations, testName, test, csvFileName, csvAddHeader);
-                        csvAddHeader = false;
+                        if(test != nullptr){
+                            testCounter++;
+                            runTest(testCounter, testIterations, testName, test, csvFileName, csvAddHeader);
+                            csvAddHeader = false;
+                            continue;
+                        }
+
+                        csvAddHeader = true;
+                        for(uint64_t &packet_size : packetsizes){
+                            if(t == BANDWIDTH_TEST){
+                                // Bandwidth Test
+                                testName = "Bandwidth";
+                                test = new rdma::BandwidthPerfTest(FLAGS_server, addresses, FLAGS_port, gpu_index, thread_count, packet_size, buffer_slots, iterations);
+
+                            } else if(t == LATENCY_TEST){
+                                // Latency Test
+                                testName = "Latency";
+                                test = new rdma::LatencyPerfTest(FLAGS_server, addresses, FLAGS_port, gpu_index, thread_count, packet_size, buffer_slots, iterations);
+
+                            } else if(t == OPERATIONS_COUNT_TEST){
+                                // Operations Count Test
+                                testName = "Operations Count";
+                                test = new rdma::OperationsCountPerfTest(FLAGS_server, addresses, FLAGS_port, gpu_index, thread_count, packet_size, buffer_slots, iterations);
+                            }
+
+                            testCounter++;
+                            runTest(testCounter, testIterations, testName, test, csvFileName, csvAddHeader);
+                            csvAddHeader = false;
+                        }
                     }
                 }
             }

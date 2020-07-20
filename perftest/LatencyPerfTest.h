@@ -18,7 +18,7 @@ namespace rdma {
 
 class LatencyPerfClientThread : public Thread {
 public:
-	LatencyPerfClientThread(BaseMemory *memory, std::vector<std::string>& rdma_addresses, size_t memory_size_per_thread, size_t iterations);
+	LatencyPerfClientThread(BaseMemory *memory, std::vector<std::string>& rdma_addresses, size_t packet_size, int buffer_slots, size_t iterations);
 	~LatencyPerfClientThread();
 	void run();
 	bool ready() {
@@ -34,6 +34,8 @@ private:
 	bool m_ready = false;
 	RDMAClient<ReliableRDMA> *m_client;
 	LocalBaseMemoryStub *m_local_memory;
+	size_t m_packet_size;
+	int m_buffer_slots;
 	size_t m_memory_size_per_thread;
 	size_t m_iterations;
 	std::vector<std::string> m_rdma_addresses;
@@ -44,7 +46,7 @@ private:
 
 class LatencyPerfServerThread : public Thread {
 public:
-	LatencyPerfServerThread(RDMAServer<ReliableRDMA> *server, int thread_index, size_t memory_size_per_thread, size_t iterations);
+	LatencyPerfServerThread(RDMAServer<ReliableRDMA> *server, int thread_index, size_t packet_size, int buffer_slots, size_t iterations);
 	~LatencyPerfServerThread();
 	void run();
 	bool ready(){
@@ -54,6 +56,8 @@ public:
 private:
 	bool m_ready = false;
 	int m_thread_index;
+	size_t m_packet_size;
+	int m_buffer_slots;
 	size_t m_memory_size_per_thread;
 	size_t m_iterations;
 	RDMAServer<ReliableRDMA> *m_server;
@@ -63,7 +67,7 @@ private:
 
 class LatencyPerfTest : public rdma::PerfTest {
 public:
-    LatencyPerfTest(bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, int gpu_index, int thread_count, uint64_t mem_per_thread, uint64_t iterations);
+    LatencyPerfTest(bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, int gpu_index, int thread_count, uint64_t packet_size, int buffer_slots, uint64_t iterations);
 	virtual ~LatencyPerfTest();
 	std::string getTestParameters();
 	void setupTest();
@@ -82,7 +86,8 @@ private:
 	std::vector<std::string> m_rdma_addresses;
 	int m_rdma_port;
 	int m_gpu_index;
-	uint64_t m_memory_size_per_thread;
+	uint64_t m_packet_size;
+	int m_buffer_slots;
 	uint64_t m_memory_size;
 	uint64_t m_iterations;
 	std::vector<LatencyPerfClientThread*> m_client_threads;
