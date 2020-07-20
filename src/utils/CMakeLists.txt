@@ -7,6 +7,7 @@ set(RDMA_UTILS_SRC
   Timer.h
   Network.h
   CpuNumaUtils.h
+  GpuNumaUtils.h
   RdmaCounter.h
   ) # Adding headers required for portability reasons http://voices.canonical.com/jussi.pakkanen/2013/03/26/a-list-of-common-cmake-antipatterns/
 add_library(rdma_utils ${RDMA_UTILS_SRC})

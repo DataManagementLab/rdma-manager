@@ -10,9 +10,8 @@ void TestCudaMemory::SetUp() {
 
 }
 
-void test(int device_index, CudaMemory *mem){
+void test(CudaMemory *mem){
     ASSERT_EQ(MEMORY_SIZE, mem->getSize());
-    ASSERT_EQ(device_index, mem->getDeviceIndex());
     ASSERT_TRUE(mem);
     ASSERT_TRUE(mem->pointer());
 
@@ -36,9 +35,8 @@ void test(int device_index, CudaMemory *mem){
 }
 
 TEST_F(TestCudaMemory, testMemory) {
-    int device_index = 0;
-    CudaMemory *mem = new CudaMemory(MEMORY_SIZE, device_index);
-    test(device_index, mem);
+    CudaMemory *mem = new CudaMemory(MEMORY_SIZE);
+    test(mem);
     delete mem;
 }
 

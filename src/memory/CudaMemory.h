@@ -15,7 +15,7 @@ public:
     
     /* Constructor
      * --------------
-     * Allocates CUDA (GPU) memory on the currently selected GPU
+     * Allocates CUDA (GPU) memory based of the preferred NUMA region
      *
      * mem_size:      size how much memory should be allocated
      *
@@ -28,8 +28,9 @@ public:
      *
      * mem_size:      size how much memory should be allocated
      * device_index:  index of the GPU device that should be used to
-     *                allocate the memory. If negative the currently 
-     *                selected device will be used
+     *                allocate the memory. If -1 the currently 
+     *                selected device will be used. If -2 a device 
+     *                will be selected base on the NUMA region
      *
      */
     CudaMemory(size_t mem_size, int device_index);
