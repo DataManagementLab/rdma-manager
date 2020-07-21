@@ -70,6 +70,14 @@ inline void AbstractMainMemory::set(int16_t value, size_t offset){
     ((int16_t*)this->buffer)[offset] = value;
 }
 
+inline uint16_t AbstractMainMemory::getUInt16(size_t offset){
+    return ((uint16_t*)this->buffer)[offset];
+}
+
+inline void AbstractMainMemory::set(uint16_t value, size_t offset){
+    ((uint16_t*)this->buffer)[offset] = value;
+}
+
 inline int32_t AbstractMainMemory::getInt32(size_t offset){
     return ((int32_t*)this->buffer)[offset];
 }
@@ -78,10 +86,26 @@ inline void AbstractMainMemory::set(int32_t value, size_t offset){
     ((int32_t*)this->buffer)[offset] = value;
 }
 
+inline uint32_t AbstractMainMemory::getUInt32(size_t offset){
+    return ((uint32_t*)this->buffer)[offset];
+}
+
+inline void AbstractMainMemory::set(uint32_t value, size_t offset){
+    ((uint32_t*)this->buffer)[offset] = value;
+}
+
 inline int64_t AbstractMainMemory::getInt64(size_t offset){
     return ((int64_t*)this->buffer)[offset];
 }
 
 inline void AbstractMainMemory::set(int64_t value, size_t offset){
     ((int64_t*)this->buffer)[offset] = value;
+}
+
+inline uint64_t AbstractMainMemory::getUInt64(size_t offset){
+    return ((uint64_t*)this->buffer)[offset];
+}
+
+inline void AbstractMainMemory::set(uint64_t value, size_t offset){
+    ((uint64_t*)this->buffer)[offset] = value;
 }

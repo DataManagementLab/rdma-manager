@@ -59,13 +59,25 @@ public:
 
     virtual void set(int16_t value, size_t offset) override;
 
+    virtual uint16_t getUInt16(size_t offset) override;
+
+    virtual void set(uint16_t value, size_t offset) override;
+
     virtual int32_t getInt32(size_t offset) override;
 
     virtual void set(int32_t value, size_t offset) override;
 
+    virtual uint32_t getUInt32(size_t offset) override;
+
+    virtual void set(uint32_t value, size_t offset) override;
+
     virtual int64_t getInt64(size_t offset) override;
 
     virtual void set(int64_t value, size_t offset) override;
+
+    virtual uint64_t getUInt64(size_t offset) override;
+
+    virtual void set(uint64_t value, size_t offset) override;
 };
 
 } // namespace rdma

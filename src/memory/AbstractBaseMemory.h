@@ -223,6 +223,25 @@ public:
      */
     virtual void set(int16_t value, size_t offset) = 0;
 
+    /* Function:  getUInt16
+     * ---------------------
+     * Reads a 16 bit unsigned int
+     * 
+     * offset: where to start reading
+     * return: read int
+     */
+    virtual uint16_t getUInt16(size_t offset) = 0;
+
+    /* Function:  set
+     * ---------------------
+     * Writes a 16 bit unsigned int
+     * 
+     * value:  value that should be written
+     * offset: where to start writing
+     * 
+     */
+    virtual void set(uint16_t value, size_t offset) = 0;
+
     /* Function:  getInt32
      * ---------------------
      * Reads a 32 bit int
@@ -241,6 +260,25 @@ public:
      * 
      */
     virtual void set(int32_t value, size_t offset) = 0;
+
+    /* Function:  getUInt32
+     * ---------------------
+     * Reads a 32 bit unsigned int
+     * 
+     * offset: where to start reading
+     * return: read int
+     */
+    virtual uint32_t getUInt32(size_t offset) = 0;
+
+    /* Function:  set
+     * ---------------------
+     * Writes a 32 bit unsigned int
+     * 
+     * value:  value that should be written
+     * offset: where to start writing
+     * 
+     */
+    virtual void set(uint32_t value, size_t offset) = 0;
 
     /* Function:  getInt64
      * ---------------------
@@ -261,6 +299,24 @@ public:
      */
     virtual void set(int64_t value, size_t offset) = 0;
 
+    /* Function:  getUInt64
+     * ---------------------
+     * Reads a 64 bit unsigned int
+     * 
+     * offset: where to start reading
+     * return: read int
+     */
+    virtual uint64_t getUInt64(size_t offset) = 0;
+
+    /* Function:  set
+     * ---------------------
+     * Writes a 64 bit unsigned int
+     * 
+     * value:  value that should be written
+     * offset: where to start writing
+     * 
+     */
+    virtual void set(uint64_t value, size_t offset) = 0;
 };
 
 } // namespace rdma

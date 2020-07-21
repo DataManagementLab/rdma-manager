@@ -106,6 +106,16 @@ void AbstractCudaMemory::set(int16_t value, size_t offset){
     copyFrom((void*)&value, 0, offset, sizeof(value));
 }
 
+uint16_t AbstractCudaMemory::getUInt16(size_t offset){
+    uint16_t tmp[1];
+    copyTo((void*)tmp, 0, offset, sizeof(tmp));
+    return tmp[0];
+}
+
+void AbstractCudaMemory::set(uint16_t value, size_t offset){
+    copyFrom((void*)&value, 0, offset, sizeof(value));
+}
+
 int32_t AbstractCudaMemory::getInt32(size_t offset){
     int32_t tmp[1];
     copyTo((void*)tmp, 0, offset, sizeof(tmp));
@@ -116,6 +126,16 @@ void AbstractCudaMemory::set(int32_t value, size_t offset){
     copyFrom((void*)&value, 0, offset, sizeof(value));
 }
 
+uint32_t AbstractCudaMemory::getUInt32(size_t offset){
+    uint32_t tmp[1];
+    copyTo((void*)tmp, 0, offset, sizeof(tmp));
+    return tmp[0];
+}
+
+void AbstractCudaMemory::set(uint32_t value, size_t offset){
+    copyFrom((void*)&value, 0, offset, sizeof(value));
+}
+
 int64_t AbstractCudaMemory::getInt64(size_t offset){
     int64_t tmp[1];
     copyTo((void*)tmp, 0, offset, sizeof(tmp));
@@ -123,6 +143,16 @@ int64_t AbstractCudaMemory::getInt64(size_t offset){
 }
 
 void AbstractCudaMemory::set(int64_t value, size_t offset){
+    copyFrom((void*)&value, 0, offset, sizeof(value));
+}
+
+uint64_t AbstractCudaMemory::getUInt64(size_t offset){
+    uint64_t tmp[1];
+    copyTo((void*)tmp, 0, offset, sizeof(tmp));
+    return tmp[0];
+}
+
+void AbstractCudaMemory::set(uint64_t value, size_t offset){
     copyFrom((void*)&value, 0, offset, sizeof(value));
 }
 
