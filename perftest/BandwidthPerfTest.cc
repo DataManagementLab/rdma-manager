@@ -267,9 +267,6 @@ void rdma::BandwidthPerfTest::setupTest(){
 			BandwidthPerfServerThread* perfThread = new BandwidthPerfServerThread(m_server, m_packet_size, m_buffer_slots, m_iterations, max_rdma_wr_per_thread, thread_id);
 			m_server_threads.push_back(perfThread);
 		}
-		/*// If server only allows to be single threaded
-		BandwidthPerfServerThread* perfThread = new BandwidthPerfServerThread(m_server, m_packet_size, m_buffer_slots, m_iterations*m_thread_count, rdma::Config::RDMA_MAX_WR);
-		m_server_threads.push_back(perfThread);*/
 
 	} else {
 		// Client

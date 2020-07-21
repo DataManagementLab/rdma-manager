@@ -16,7 +16,7 @@ namespace rdma {
 
 class OperationsCountPerfClientThread : public Thread {
 public:
-	OperationsCountPerfClientThread(BaseMemory *memory, std::vector<std::string>& rdma_addresses, size_t packet_size, int buffer_slots, size_t iterations);
+	OperationsCountPerfClientThread(BaseMemory *memory, std::vector<std::string>& rdma_addresses, size_t packet_size, int buffer_slots, size_t iterations, size_t max_rdma_wr_per_thread);
 	~OperationsCountPerfClientThread();
 	void run();
 	bool ready() {
@@ -35,6 +35,7 @@ private:
 	int m_buffer_slots;
 	size_t m_memory_size_per_thread;
 	size_t m_iterations;
+	size_t m_max_rdma_wr_per_thread;
 	std::vector<std::string> m_rdma_addresses;
 	std::vector<NodeID> m_addr;
 	size_t* m_remOffsets;
@@ -43,7 +44,7 @@ private:
 
 class OperationsCountPerfServerThread : public Thread {
 public:
-	OperationsCountPerfServerThread(RDMAServer<ReliableRDMA> *server, size_t packet_size, int buffer_slots, size_t iterations);
+	OperationsCountPerfServerThread(RDMAServer<ReliableRDMA> *server, size_t packet_size, int buffer_slots, size_t iterations, size_t max_rdma_wr_per_thread, int thread_id);
 	~OperationsCountPerfServerThread();
 	void run();
 	bool ready(){
@@ -56,6 +57,8 @@ private:
 	int m_buffer_slots;
 	size_t m_memory_size_per_thread;
 	size_t m_iterations;
+	size_t m_max_rdma_wr_per_thread;
+	int m_thread_id;
 	RDMAServer<ReliableRDMA> *m_server;
 	LocalBaseMemoryStub *m_local_memory;
 };
