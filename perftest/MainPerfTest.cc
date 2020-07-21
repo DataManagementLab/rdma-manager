@@ -25,7 +25,7 @@ DEFINE_bool(server, false, "Act as server for a client to test performance");
 DEFINE_string(gpu, "-1", "Index of GPU for memory allocation (negative for main memory | multiples separated by comma without space)");
 DEFINE_string(packetsize, "4096", "Packet size in bytes (multiples separated by comma without space)");
 DEFINE_string(bufferslots, "16", "How many packets the buffer can hold (round-robin distribution of packets inside buffer | multiples separated by comma without space)");
-DEFINE_string(threads, "1", "Amout of threads used by client for testing (multiples separated by comma without space)");
+DEFINE_string(threads, "1", "How many individual clients connect to the server. Server has to run same number of threads (multiples separated by comma without space)");
 DEFINE_string(iterations, "500000", "Amount of test repeats (multiples separated by comma without space)");
 DEFINE_string(addr, "172.18.94.20", "Addresses of NodeIDSequencer to connect/bind to");
 DEFINE_int32(port, rdma::Config::RDMA_PORT, "RDMA port");
@@ -132,22 +132,19 @@ int main(int argc, char *argv[]){
 
         packetsizes.clear();
         // TODO for some reason GPUDirect not working for GPU memory smaller than 128 bytes
-        // packetsizes.push_back(64);
-        // packetsizes.push_back(128);
-        packetsizes.push_back(256);
-        packetsizes.push_back(512);
-        packetsizes.push_back(1024);
-        packetsizes.push_back(2048);
-        packetsizes.push_back(4096);
-        packetsizes.push_back(8192);
-        packetsizes.push_back(16384);
-        packetsizes.push_back(32768);
-        packetsizes.push_back(65536);
-        packetsizes.push_back(131072);
+        // packetsizes.push_back(64); packetsizes.push_back(128);
+        packetsizes.push_back(256); packetsizes.push_back(512); packetsizes.push_back(1024);
+        packetsizes.push_back(2048); packetsizes.push_back(4096); packetsizes.push_back(8192);
+        packetsizes.push_back(16384); packetsizes.push_back(32768); packetsizes.push_back(131072);
         packetsizes.push_back(262144);
 
-        // TODO REDO thread_counts.clear(); thread_counts.push_back(1); thread_counts.push_back(2); thread_counts.push_back(4); thread_counts.push_back(8);
-        iteration_counts.clear(); iteration_counts.push_back(1000); iteration_counts.push_back(500000);
+        thread_counts.clear(); 
+        thread_counts.push_back(1); thread_counts.push_back(2); 
+        thread_counts.push_back(4); thread_counts.push_back(8);
+
+        iteration_counts.clear(); 
+        iteration_counts.push_back(1000); iteration_counts.push_back(500000);
+        
         gpus.clear();
         if(FLAGS_server){
             gpus.push_back(-1); gpus.push_back(0); gpus.push_back(-1); gpus.push_back(0); // Main, GPU, Main, GPU
@@ -156,12 +153,22 @@ int main(int argc, char *argv[]){
         }
     }
 
+    // check thread counts
+    for(int &tc : thread_counts){
+        if(tc < 1) throw runtime_error("Thread count cannot be smaller than 1");
+        if(tc > (int)rdma::Config::RDMA_MAX_WR){
+            std::cerr << "Cannot handle " << tc << " threads because Config::RDMA_MAX_WR=" << rdma::Config::RDMA_MAX_WR << " which is also maximum thread number for this tests" << std::endl;
+            throw runtime_error("Cannot handle so many threads");
+        }
+    }
+
     // check packet sizes
-    for(uint64_t &ps : packetsizes)
+    for(uint64_t &ps : packetsizes){
         if(ps < MINIMUM_PACKET_SIZE){
             std::cerr << "Given packet size " << ps << " must be at least " << MINIMUM_PACKET_SIZE << " bytes for GPUDirect to work" << std::endl;
             throw runtime_error("Packet size too small");
         }
+    }
 
     std::string csvFileName = FLAGS_csvfile;
     if(FLAGS_csv && csvFileName.empty()){
