@@ -8,6 +8,8 @@
 #include <infiniband/verbs.h>
 #include <stdio.h>
 #include <list>
+#include <mutex>
+#include <condition_variable>
 
 namespace rdma {
 
@@ -38,8 +40,11 @@ protected:
 
     // Memory management
     list<rdma_mem_t> m_rdmaMem;
-    unordered_map<size_t, rdma_mem_t> m_usedRdmaMem;
+    unordered_map<size_t, rdma_mem_t> m_usedRdmaMem; // <offset, memory-segment>
     static rdma_mem_t s_nillmem;
+
+    // Thread safe alloc/free
+    std::recursive_mutex m_lockMem;
 
     void init();
 
@@ -100,7 +105,7 @@ public:
      */
     ibv_context* ib_context();
 
-    const list<rdma_mem_t> getFreeMemList() const { return m_rdmaMem; } // TODO REMOVE
+    const list<rdma_mem_t> getFreeMemList() const { return m_rdmaMem; }
     
     void mergeFreeMem(list<rdma_mem_t>::iterator &iter);
 
@@ -133,7 +138,7 @@ public:
      * offset:  offset to the allocated memory part
      * 
      */
-    void free(const size_t offset);
+    void free(const size_t &offset);
 
     /* Function: malloc
      * ---------------

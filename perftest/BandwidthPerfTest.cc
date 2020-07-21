@@ -46,7 +46,7 @@ rdma::BandwidthPerfClientThread::BandwidthPerfClientThread(BaseMemory *memory, s
 rdma::BandwidthPerfClientThread::~BandwidthPerfClientThread() {
 	for (size_t i = 0; i < m_rdma_addresses.size(); ++i) {
 		string addr = m_rdma_addresses[i];
-		m_client->remoteFree(addr, m_remOffsets[i], m_memory_size_per_thread);
+		m_client->remoteFree(addr, m_memory_size_per_thread, m_remOffsets[i]);
 	}
     delete m_remOffsets;
 	delete m_local_memory; // implicitly deletes local allocs in RDMAClient and also closes context
@@ -171,10 +171,6 @@ void rdma::BandwidthPerfServerThread::run() {
 			m_server->receive(clientIds[m_thread_id], m_local_memory->pointer(offset), m_packet_size);
 			offset = (offset + m_packet_size) % m_memory_size_per_thread;
 		}
-		/*for(size_t j = 0; j < clientIds.size(); j++){
-			//std::cout << "Send: " << i << "." << j << std::endl; // TODO REMOVE
-			m_server->send(clientIds[m_thread_id], m_local_memory->pointer(offset), m_packet_size, (j+1)==clientIds.size()); // true=signaled
-		}*/
 		m_server->send(clientIds[m_thread_id], m_local_memory->pointer(offset), m_packet_size, true);
 		offset = (offset + m_packet_size) % m_memory_size_per_thread;
 	}

@@ -42,7 +42,7 @@ rdma::AtomicsOperationsCountPerfClientThread::AtomicsOperationsCountPerfClientTh
 rdma::AtomicsOperationsCountPerfClientThread::~AtomicsOperationsCountPerfClientThread() {
 	for (size_t i = 0; i < m_rdma_addresses.size(); ++i) {
 		string addr = m_rdma_addresses[i];
-		m_client->remoteFree(addr, m_remOffsets[i], rdma::ATOMICS_SIZE);
+		m_client->remoteFree(addr, rdma::ATOMICS_SIZE, m_remOffsets[i]);
 	}
     delete m_remOffsets;
 	delete m_local_memory; // implicitly deletes local allocs in RDMAClient
