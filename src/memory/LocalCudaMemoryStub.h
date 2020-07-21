@@ -14,15 +14,15 @@ public:
 
     /* Constructor
      * --------------
-     * Handles CUDA memory.
+     * Handles CUDA memory part.
      *
-     * buffer:  pointer to CUDA memory that should be handled
-     * mem_size:  size of CUDA memory that should be handled
-     * device_index: index of CUDA device
-     * freeFunc:  function handle to release buffer
+     * rootBuffer:  pointer of whole memory that contains memory part
+     * rootOffset:  offset from the whole memory pointer where memory part begins
+     * mem_size:  how big the memory part is (beginning from buffer+offset)
+     * freeFunc:  function handle to release memory part
      *
      */
-    LocalCudaMemoryStub(void* buffer, size_t mem_size, int device_index, std::function<void(const void* buffer)> freeFunc);
+    LocalCudaMemoryStub(void* rootBuffer, size_t rootOffset, size_t mem_size, int device_index, std::function<void(const void* buffer)> freeFunc);
 
 };
 

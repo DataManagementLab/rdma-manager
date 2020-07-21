@@ -29,7 +29,8 @@ CudaMemory::~CudaMemory(){
 }
 
 LocalBaseMemoryStub *CudaMemory::malloc(size_t size){
-    return (LocalBaseMemoryStub*) new LocalCudaMemoryStub(alloc(size), size, this->device_index, [this](const void* ptr){
+    size_t rootOffset = (size_t)alloc(size) - (size_t)this->buffer;
+    return (LocalBaseMemoryStub*) new LocalCudaMemoryStub(this->buffer, rootOffset, size, this->device_index, [this](const void* ptr){
         free(ptr);
     });
 }

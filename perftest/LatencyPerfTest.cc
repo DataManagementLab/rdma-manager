@@ -73,10 +73,10 @@ void rdma::LatencyPerfClientThread::run() {
 			m_local_memory->setMemory(0);
 			for(size_t i = 0; i < m_iterations; i++){
 				size_t connIdx = i % m_rdma_addresses.size();
-				const int offset = (i % m_buffer_slots) * m_packet_size, valueOffset = offset + sizeof(int64_t) + (value%2);
+				const int offset = (i % m_buffer_slots) * m_packet_size, valueOffset = offset + sizeof(uint64_t) + (value%2);
 				value = (i % 100) + 1; // send 1-100
-				m_local_memory->set((int64_t)((size_t)m_local_memory->pointer() + offset), m_memory_size_per_thread + offset); // send 
-				std::cout << "Send addr: " << m_local_memory->getInt64(m_memory_size_per_thread + offset) << std::endl; // TODO REMOVE
+				m_local_memory->set((uint64_t)m_local_memory->pointer(offset), m_memory_size_per_thread + offset); // send 
+				std::cout << "Send addr: " << m_local_memory->getUInt64(m_memory_size_per_thread + offset) << std::endl; // TODO REMOVE
 				m_local_memory->set(value, m_memory_size_per_thread + valueOffset); // send 1-100
 				if(m_local_memory->getChar(m_memory_size_per_thread + valueOffset) != value) // prevents compiler to switch statements
 					throw runtime_error("Compiler makes stupid stuff");
@@ -160,11 +160,11 @@ void rdma::LatencyPerfServerThread::run() {
 		case TEST_WRITE: // Write
 			arrRecv = m_local_memory->pointer(receiveOffset);
 			for(size_t i = 0; i < m_iterations; i++){
-				int offset = (i % m_buffer_slots) * m_packet_size, valueOffset = offset + sizeof(int64_t) + (value%2);
+				int offset = (i % m_buffer_slots) * m_packet_size, valueOffset = offset + sizeof(uint64_t) + (value%2);
 				value = (i % 100) + 1;
 				while(m_local_memory->getChar(receiveOffset + valueOffset) != value);
-				size_t remoteOff = m_local_memory->getInt64(receiveOffset + offset);
-				std::cout << "Recv addr: " << m_local_memory->getInt64(receiveOffset + offset) << std::endl; // TODO REMOVE
+				uint64_t remoteOff = m_local_memory->getUInt64(receiveOffset + offset);
+				std::cout << "Recv addr: " << m_local_memory->getUInt64(receiveOffset + offset) << std::endl; // TODO REMOVE
 				m_server->write(clientId, remoteOff, (void*)((size_t)arrRecv + offset), m_packet_size, true); // true=signaled
 			}
 			break;

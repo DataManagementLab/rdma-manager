@@ -62,7 +62,8 @@ int MainMemory::getNumaNode(){
 }
 
 LocalBaseMemoryStub *MainMemory::malloc(size_t size){
-    return (LocalBaseMemoryStub*) new LocalMainMemoryStub(alloc(size), size, [this](const void* ptr){
+    size_t rootOffset = (size_t)alloc(size) - (size_t)this->buffer;
+    return (LocalBaseMemoryStub*) new LocalMainMemoryStub(this->buffer, rootOffset, size, [this](const void* ptr){
       free(ptr);
     });
 }
