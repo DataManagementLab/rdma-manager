@@ -117,12 +117,9 @@ rdma::AtomicsLatencyPerfTest::~AtomicsLatencyPerfTest(){
 
 std::string rdma::AtomicsLatencyPerfTest::getTestParameters(){
 	std::ostringstream oss;
-	if(m_is_server){
-		oss << "Server, memory=";
-	} else {
-		oss << "Client, threads=" << m_thread_count << ", memory=";
-	}
-	oss << m_memory_size << " (2x " << m_thread_count << "x " << (rdma::ATOMICS_SIZE*8) << "bit) [";
+	const int packetsize = rdma::ATOMICS_SIZE*8;
+	oss << (m_is_server ? "Server" : "Client") << ", threads=" << m_thread_count << ", bufferslots=" << m_buffer_slots << ", packetsize=" << packetsize << "bit, memory=";
+	oss << m_memory_size << " (" << m_thread_count << "x " << m_buffer_slots << "x " << packetsize << "bit) [";
 	if(m_gpu_index < 0){
 		oss << "MAIN";
 	} else {

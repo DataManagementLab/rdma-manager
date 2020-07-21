@@ -199,11 +199,7 @@ rdma::BandwidthPerfTest::~BandwidthPerfTest(){
 
 std::string rdma::BandwidthPerfTest::getTestParameters(){
 	std::ostringstream oss;
-	if(m_is_server){
-		oss << "Server, memory=";
-	} else {
-		oss << "Client, threads=" << m_thread_count << ", memory=";
-	}
+	oss << (m_is_server ? "Server" : "Client") << ", threads=" << m_thread_count << ", bufferslots=" << m_buffer_slots << ", packetsize=" << m_packet_size << ", memory=";
 	oss << m_memory_size << " (2x " << m_thread_count << "x " << m_buffer_slots << "x " << m_packet_size << ") [";
 	if(m_gpu_index < 0){
 		oss << "MAIN";
