@@ -42,6 +42,8 @@ rdma::LatencyPerfClientThread::LatencyPerfClientThread(BaseMemory *memory, std::
 	m_local_memory = m_client->localMalloc(m_memory_size_per_thread * 2); // write: receive via first half and send via second half
 	m_local_memory->openContext();
 	m_local_memory->setMemory(1);
+
+	std::cout << std::endl << "LOCAL=" << m_local_memory->getRootOffset() << "  REMOTE=" << m_remOffsets[0] << std::endl << std::endl; // TODO REMOVE
 }
 
 rdma::LatencyPerfClientThread::~LatencyPerfClientThread() {
@@ -73,13 +75,11 @@ void rdma::LatencyPerfClientThread::run() {
 			m_local_memory->setMemory(0);
 			for(size_t i = 0; i < m_iterations; i++){
 				size_t connIdx = i % m_rdma_addresses.size();
-				const int offset = (i % m_buffer_slots) * m_packet_size, valueOffset = offset + sizeof(uint64_t) + (value%2);
+				const int offset = (i % m_buffer_slots) * m_packet_size, valueOffset = offset + sizeof(uint32_t) + (value%2);
 				value = (i % 100) + 1; // send 1-100
-				m_local_memory->set((uint64_t)m_local_memory->pointer(offset), m_memory_size_per_thread + offset); // send 
-				std::cout << "Send addr: " << m_local_memory->getUInt64(m_memory_size_per_thread + offset) << std::endl; // TODO REMOVE
 				m_local_memory->set(value, m_memory_size_per_thread + valueOffset); // send 1-100
 				if(m_local_memory->getChar(m_memory_size_per_thread + valueOffset) != value) // prevents compiler to switch statements
-					throw runtime_error("Compiler makes stupid stuff");
+					throw runtime_error("Compiler makes stupid stuff with payload");
 				auto start = rdma::PerfTest::startTimer();
 				m_client->write(m_addr[connIdx], m_remOffsets[connIdx] + offset, (void*)((size_t)arrSend + offset), m_packet_size, true); // true=signaled
 				while(m_local_memory->getChar(valueOffset) != value);
@@ -154,19 +154,24 @@ void rdma::LatencyPerfServerThread::run() {
 	const std::vector<size_t> clientIds = m_server->getConnectedConnIDs();
 	const size_t clientId = clientIds[m_thread_id];
 	size_t receiveOffset = (m_thread_id + rdma::LatencyPerfTest::thread_count) * m_memory_size_per_thread; // client allocated at here with remoteAlloc()
+	size_t remoteOffset = m_thread_id * 2 * m_memory_size_per_thread;
+
+	std::cout << std::endl << "LOCAL=" << receiveOffset << "  REMOTE=" << remoteOffset << std::endl << std::endl; // TODO REMOVE
+
 	volatile void *arrRecv = nullptr;
 	volatile char value;
 	switch(LatencyPerfTest::testMode){
 		case TEST_WRITE: // Write
+			std::cout << m_thread_id << ". START WRITE TEST" << std::endl; // TODO REMOVE
 			arrRecv = m_local_memory->pointer(receiveOffset);
 			for(size_t i = 0; i < m_iterations; i++){
-				int offset = (i % m_buffer_slots) * m_packet_size, valueOffset = offset + sizeof(uint64_t) + (value%2);
+				int offset = (i % m_buffer_slots) * m_packet_size, valueOffset = offset + sizeof(uint32_t) + (value%2);
 				value = (i % 100) + 1;
 				while(m_local_memory->getChar(receiveOffset + valueOffset) != value);
-				uint64_t remoteOff = m_local_memory->getUInt64(receiveOffset + offset);
-				std::cout << "Recv addr: " << m_local_memory->getUInt64(receiveOffset + offset) << std::endl; // TODO REMOVE
-				m_server->write(clientId, remoteOff, (void*)((size_t)arrRecv + offset), m_packet_size, true); // true=signaled
+				//std::cout << m_thread_id << ".  recv=" << ((int)m_local_memory->getChar(receiveOffset + valueOffset)) << std::endl; // TODO REMOVE 
+				m_server->write(clientId, remoteOffset+offset, (void*)((size_t)arrRecv + offset), m_packet_size, true); // true=signaled
 			}
+			std::cout << m_thread_id << ". DONE WRITE TEST" << std::endl; // TODO REMOVE
 			break;
 
 		case TEST_SEND_AND_RECEIVE: // Send & Receive
@@ -278,6 +283,9 @@ void rdma::LatencyPerfTest::setupTest(){
 }
 
 void rdma::LatencyPerfTest::runTest(){
+
+	std::cout << std::endl << "MEMORY PER THREAD = " << (m_packet_size * m_buffer_slots) << std::endl << std::endl; // TODO REMOVE
+
 	if(m_is_server){
 		// Server
 		std::cout << "Starting server on '" << rdma::Config::getIP(rdma::Config::RDMA_INTERFACE) << ":" << m_rdma_port << "' . . ." << std::endl;

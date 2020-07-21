@@ -15,10 +15,10 @@ rdma::TestMode rdma::AtomicsLatencyPerfTest::testMode;
 rdma::AtomicsLatencyPerfClientThread::AtomicsLatencyPerfClientThread(BaseMemory *memory, std::vector<std::string>& rdma_addresses, int buffer_slots, size_t iterations) {
 	this->m_client = new RDMAClient<ReliableRDMA>(memory, "AtomicsLatencyPerfTestClient");
 	this->m_rdma_addresses = rdma_addresses;
+	this->m_memory_per_thread = buffer_slots * rdma::ATOMICS_SIZE;
 	this->m_buffer_slots = buffer_slots;
 	this->m_iterations = iterations;
 	this->m_remOffsets = new size_t[m_rdma_addresses.size()];
-
 	this->m_arrFetchAddMs = new int64_t[iterations];
 	this->m_arrCompareSwapMs = new int64_t[iterations];
 
@@ -33,10 +33,10 @@ rdma::AtomicsLatencyPerfClientThread::AtomicsLatencyPerfClientThread(BaseMemory 
 		}
 		//std::cout << "Thread connected to '" << conn << "'" << std::endl; // TODO REMOVE
 		m_addr.push_back(nodeId);
-		m_client->remoteAlloc(conn, 2*rdma::ATOMICS_SIZE, m_remOffsets[i]);
+		m_client->remoteAlloc(conn, m_memory_per_thread, m_remOffsets[i]);
 	}
 
-	m_local_memory = m_client->localMalloc(2*rdma::ATOMICS_SIZE);
+	m_local_memory = m_client->localMalloc(m_memory_per_thread);
 	m_local_memory->openContext();
 	m_local_memory->setMemory(0);
 }
@@ -44,14 +44,14 @@ rdma::AtomicsLatencyPerfClientThread::AtomicsLatencyPerfClientThread(BaseMemory 
 rdma::AtomicsLatencyPerfClientThread::~AtomicsLatencyPerfClientThread() {
 	for (size_t i = 0; i < m_rdma_addresses.size(); ++i) {
 		string addr = m_rdma_addresses[i];
-		m_client->remoteFree(addr, 2*rdma::ATOMICS_SIZE, m_remOffsets[i]);
+		m_client->remoteFree(addr, m_memory_per_thread, m_remOffsets[i]);
 	}
     delete m_remOffsets;
 	delete m_local_memory; // implicitly deletes local allocs in RDMAClient
+	delete m_client;
 
 	delete m_arrFetchAddMs;
 	delete m_arrCompareSwapMs;
-	delete m_client;
 }
 
 void rdma::AtomicsLatencyPerfClientThread::run() {
@@ -100,7 +100,7 @@ rdma::AtomicsLatencyPerfTest::AtomicsLatencyPerfTest(bool is_server, std::vector
 	this->m_rdma_port = rdma_port;
 	this->m_gpu_index = gpu_index;
 	this->m_thread_count = thread_count;
-	this->m_memory_size = thread_count * 2*rdma::ATOMICS_SIZE * buffer_slots;
+	this->m_memory_size = thread_count * rdma::ATOMICS_SIZE * buffer_slots;
 	this->m_buffer_slots = buffer_slots;
 	this->m_iterations = iterations;
 	this->m_rdma_addresses = rdma_addresses;
@@ -213,9 +213,8 @@ std::string rdma::AtomicsLatencyPerfTest::getTestResults(std::string csvFileName
 		int64_t minFetchAddMs=std::numeric_limits<int64_t>::max(), maxFetchAddMs=-1, medianFetchAddMs=-1;
 		int64_t minCompareSwapMs=std::numeric_limits<int64_t>::max(), maxCompareSwapMs=-1, medianCompareSwapMs=-1;
 		long double avgFetchAddMs=0, avgCompareSwapMs=0;
-		int64_t tmpMs[m_iterations];
+		int64_t mediansFetchAddNs[m_thread_count], mediansCompareSwapNs[m_thread_count];
 
-		uint64_t index = 0;
 		for(size_t i=0; i<m_client_threads.size(); i++){
 			long double itr = (long double)m_iterations;
 			AtomicsLatencyPerfClientThread *thr = m_client_threads[i];
@@ -225,19 +224,19 @@ std::string rdma::AtomicsLatencyPerfTest::getTestResults(std::string csvFileName
 			if(minCompareSwapMs > thr->m_minCompareSwapMs) minCompareSwapMs = thr->m_minCompareSwapMs;
 			if(maxCompareSwapMs < thr->m_maxCompareSwapMs) maxCompareSwapMs = thr->m_maxCompareSwapMs;
 			avgCompareSwapMs += thr->m_sumCompareSwapMs / itr;
-
-			for(uint64_t j = 0; j < m_iterations; j++){ tmpMs[index++] = thr->m_arrFetchAddMs[j]; }
-			std::sort(tmpMs, tmpMs + m_iterations);
-			medianFetchAddMs = tmpMs[(int)(m_iterations/2)];
+			std::sort(thr->m_arrFetchAddMs, thr->m_arrFetchAddMs + m_iterations);
+			mediansFetchAddNs[i] = thr->m_arrFetchAddMs[(int)(m_iterations/2)];
 		}
+		std::sort(mediansFetchAddNs, mediansFetchAddNs + m_thread_count);
+		medianFetchAddMs = mediansFetchAddNs[(int)(m_thread_count/2)];
 
-		index = 0;
 		for(size_t i=0; i<m_client_threads.size(); i++){
 			AtomicsLatencyPerfClientThread *thr = m_client_threads[i];
-			for(uint64_t j = 0; j < m_iterations; j++){ tmpMs[index++] = thr->m_arrCompareSwapMs[j]; }
-			std::sort(tmpMs, tmpMs + m_iterations);
-			medianCompareSwapMs = tmpMs[(int)(m_iterations/2)];
+			std::sort(thr->m_arrCompareSwapMs, thr->m_arrCompareSwapMs + m_iterations);
+			mediansCompareSwapNs[i] = thr->m_arrCompareSwapMs[(int)(m_iterations/2)];
 		}
+		std::sort(mediansCompareSwapNs, mediansCompareSwapNs + m_thread_count);
+		medianCompareSwapMs = mediansCompareSwapNs[(int)(m_thread_count/2)];
 
 		// write results into CSV file
 		if(!csvFileName.empty()){
@@ -258,7 +257,7 @@ std::string rdma::AtomicsLatencyPerfTest::getTestResults(std::string csvFileName
 
 		// generate result string
 		std::ostringstream oss;
-		std::cout << "Measured as 'one trip time' latencies:" << std::endl;
+		std::cout << " Measured as 'one trip time' latencies:" << std::endl;
 		std::cout << " - Fetch&Add:       average = " << rdma::PerfTest::convertTime(avgFetchAddMs) << "    median = " << rdma::PerfTest::convertTime(medianFetchAddMs);
 		std::cout << "    range = " <<  rdma::PerfTest::convertTime(minFetchAddMs) << " - " << rdma::PerfTest::convertTime(maxFetchAddMs) << std::endl;
 		std::cout << " - Compare&Swap:    average = " << rdma::PerfTest::convertTime(avgCompareSwapMs) << "   median = " << rdma::PerfTest::convertTime(medianCompareSwapMs);

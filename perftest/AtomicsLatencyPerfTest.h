@@ -33,6 +33,7 @@ private:
 	bool m_ready = false;
 	RDMAClient<ReliableRDMA> *m_client;
 	LocalBaseMemoryStub *m_local_memory;
+	size_t m_memory_per_thread;
 	int m_buffer_slots;
 	size_t m_iterations;
 	std::vector<std::string> m_rdma_addresses;

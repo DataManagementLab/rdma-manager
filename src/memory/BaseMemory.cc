@@ -251,6 +251,7 @@ void BaseMemory::free(const size_t &offset){
     std::unique_lock<std::recursive_mutex> lock(m_lockMem);
     size_t lastOffset = 0;
     rdma_mem_t memResFree = m_usedRdmaMem[offset];
+
     m_usedRdmaMem.erase(offset);
     // std::cout << "offset: " << offset << " m_rdmaMem.size() " << m_rdmaMem.size() << std::endl;
     // lookup the memory region that was assigned to this pointer
@@ -267,11 +268,21 @@ void BaseMemory::free(const size_t &offset){
                 // printMem();
                 mergeFreeMem(listIter);
                 // printMem();
+
                 lock.unlock();
                 return;
             }
             lastOffset += memRes.offset;
         }
+
+        // added because otherwise not able to append largest offset at end
+        if(lastOffset <= offset){
+            m_rdmaMem.insert(listIter, memResFree);
+            mergeFreeMem(listIter);
+            lock.unlock();
+            return;
+        }
+        
     } else {
         memResFree.free = true;
         m_rdmaMem.insert(listIter, memResFree);
