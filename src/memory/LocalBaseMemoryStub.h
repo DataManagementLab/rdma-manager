@@ -33,16 +33,16 @@ public:
      */
     virtual ~LocalBaseMemoryStub();
 
-    /* Function:  getPointerOfBuffer
+    /* Function:  getRootPointer
      * -------------
      * Returns the pointer of the whole memory buffer 
      * where this memory part is allocated in
      * 
      * return:  pointer of whole memory buffer
      */
-    void* getPointerOfBuffer();
+    void* getRootPointer();
 
-    /* Function:  getPointerOfBuffer
+    /* Function:  getRootPointer
      * -------------
      * Returns the pointer of the whole memory buffer 
      * where this memory part is allocated in
@@ -50,16 +50,16 @@ public:
      * offset:  offset that will be added to pointer
      * return:  (pointer+offset) of whole memory buffer
      */
-    void* getPointerOfBuffer(const size_t &offset);
+    void* getRootPointer(const size_t &offset);
 
-    /* Function:  getOffsetInsideBuffer
+    /* Function:  getRootOffset
      * -------------
      * Returns the offset of this memory part 
      * inside of the whole memory buffer
      * 
      * return:  offset inside whole memory buffer
      */
-    size_t getOffsetInsideBuffer();
+    size_t getRootOffset();
 };
 
 } // namespace rdma

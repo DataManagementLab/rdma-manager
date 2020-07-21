@@ -18,14 +18,14 @@ LocalBaseMemoryStub::~LocalBaseMemoryStub(){
 }
 
 
-void* LocalBaseMemoryStub::getPointerOfBuffer(){
+void* LocalBaseMemoryStub::getRootPointer(){
     return this->rootBuffer;
 }
 
-void* LocalBaseMemoryStub::getPointerOfBuffer(const size_t &offset){
+void* LocalBaseMemoryStub::getRootPointer(const size_t &offset){
     return (void*)((size_t)this->rootBuffer + offset);
 }
 
-size_t LocalBaseMemoryStub::getOffsetInsideBuffer(){
+size_t LocalBaseMemoryStub::getRootOffset(){
     return this->rootOffset;
 }
