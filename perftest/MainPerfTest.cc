@@ -163,7 +163,7 @@ int main(int argc, char *argv[]){
 
     } else if(FLAGS_halftest){
         // TODO for some reason GPUDirect not working for GPU memory smaller than 128 bytes
-        packetsizes.push_back(64);
+        //packetsizes.push_back(64);
         packetsizes.push_back(256); packetsizes.push_back(1024); packetsizes.push_back(4096);
         packetsizes.push_back(16384); packetsizes.push_back(65536);
         packetsizes.push_back(262144); packetsizes.push_back(1048576); // > 1MB
