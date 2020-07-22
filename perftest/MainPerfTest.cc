@@ -175,8 +175,8 @@ int main(int argc, char *argv[]){
         iteration_counts.push_back(1000); iteration_counts.push_back(500000);
 
     } else if(FLAGS_fasttest){
-         //packetsizes.push_back(64);
-         packetsizes.push_back(256);
+        //packetsizes.push_back(64);
+        packetsizes.push_back(256);
         packetsizes.push_back(1024);
         packetsizes.push_back(4096);
         packetsizes.push_back(16384);
