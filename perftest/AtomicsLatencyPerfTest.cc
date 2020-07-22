@@ -224,17 +224,14 @@ std::string rdma::AtomicsLatencyPerfTest::getTestResults(std::string csvFileName
 			if(minCompareSwapMs > thr->m_minCompareSwapMs) minCompareSwapMs = thr->m_minCompareSwapMs;
 			if(maxCompareSwapMs < thr->m_maxCompareSwapMs) maxCompareSwapMs = thr->m_maxCompareSwapMs;
 			avgCompareSwapMs += thr->m_sumCompareSwapMs / itr;
+			
 			std::sort(thr->m_arrFetchAddMs, thr->m_arrFetchAddMs + m_iterations);
 			mediansFetchAddNs[i] = thr->m_arrFetchAddMs[(int)(m_iterations/2)];
-		}
-		std::sort(mediansFetchAddNs, mediansFetchAddNs + m_thread_count);
-		medianFetchAddMs = mediansFetchAddNs[(int)(m_thread_count/2)];
-
-		for(size_t i=0; i<m_client_threads.size(); i++){
-			AtomicsLatencyPerfClientThread *thr = m_client_threads[i];
 			std::sort(thr->m_arrCompareSwapMs, thr->m_arrCompareSwapMs + m_iterations);
 			mediansCompareSwapNs[i] = thr->m_arrCompareSwapMs[(int)(m_iterations/2)];
 		}
+		std::sort(mediansFetchAddNs, mediansFetchAddNs + m_thread_count);
+		medianFetchAddMs = mediansFetchAddNs[(int)(m_thread_count/2)];
 		std::sort(mediansCompareSwapNs, mediansCompareSwapNs + m_thread_count);
 		medianCompareSwapMs = mediansCompareSwapNs[(int)(m_thread_count/2)];
 
