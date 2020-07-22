@@ -330,7 +330,7 @@ void rdma::LatencyPerfTest::runTest(){
         runThreads();
 
 		// Measure Latency for sending
-		usleep(2 * Config::RDMA_SLEEP_INTERVAL); // let server first post the receives
+		usleep(4 * Config::RDMA_SLEEP_INTERVAL); // let server first post the receives
 		makeThreadsReady(TEST_SEND_AND_RECEIVE); // send
         runThreads();
 	}

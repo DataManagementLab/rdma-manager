@@ -318,7 +318,7 @@ void rdma::OperationsCountPerfTest::runTest(){
 
 		// Measure operations/s for sending
 		makeThreadsReady(TEST_SEND_AND_RECEIVE); // send
-		usleep(2 * Config::RDMA_SLEEP_INTERVAL); // let server first post the receives
+		usleep(4 * Config::RDMA_SLEEP_INTERVAL); // let server first post the receives
 		auto startSend = rdma::PerfTest::startTimer();
         runThreads();
 		m_elapsedSend = rdma::PerfTest::stopTimer(startSend);
