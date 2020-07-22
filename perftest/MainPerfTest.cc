@@ -21,6 +21,7 @@
 #include <gflags/gflags.h>
 
 DEFINE_bool(fulltest, false, "Overwrites flags 'test, gpu, packetsize, threads, iterations, csv' to execute a broad variety of predefined tests. If GPUs are supported then gpu=-1,-1,0,0 on client side and gpu=-1,0,-1,0 on server side to test all memory combinations: Main->Main, Main->GPU, GPU->Main, GPU->GPU");
+DEFINE_bool(halftest, false, "Overwrites flags 'test, gpu, packetsize, threads, iterations, csv' to execute a smaller variety of predefined tests. If GPUs are supported then gpu=-1,-1,0,0 on client side and gpu=-1,0,-1,0 on server side to test all memory combinations: Main->Main, Main->GPU, GPU->Main, GPU->GPU");
 DEFINE_string(test, "bandwidth", "Test: bandwidth, latency, operationscount, atomicsbandwidth, atomicslatency, atomicsoperationscount (multiples separated by comma without space, not full word required)");
 DEFINE_bool(server, false, "Act as server for a client to test performance");
 DEFINE_string(gpu, "-1", "Index of GPU for memory allocation (negative for main memory | multiples separated by comma without space)");
@@ -124,7 +125,7 @@ int main(int argc, char *argv[]){
 		addr += ":" + to_string(FLAGS_port);
 	}
     
-    if(FLAGS_fulltest){
+    if(FLAGS_fulltest || FLAGS_halftest){
         FLAGS_csv = true;
         testNames.clear(); 
         testNames.push_back("bandwidth");
@@ -135,16 +136,7 @@ int main(int argc, char *argv[]){
         testNames.push_back("atomicsoperationscount");
 
         packetsizes.clear();
-        // TODO for some reason GPUDirect not working for GPU memory smaller than 128 bytes
-        // packetsizes.push_back(64); packetsizes.push_back(128);
-        packetsizes.push_back(256); packetsizes.push_back(512); packetsizes.push_back(1024);
-        packetsizes.push_back(2048); packetsizes.push_back(4096); packetsizes.push_back(8192);
-        packetsizes.push_back(16384); packetsizes.push_back(32768); packetsizes.push_back(131072);
-        packetsizes.push_back(262144);
-
-        thread_counts.clear(); 
-        thread_counts.push_back(1); thread_counts.push_back(2); 
-        thread_counts.push_back(4); thread_counts.push_back(8);
+        thread_counts.clear();
 
         iteration_counts.clear(); 
         iteration_counts.push_back(1000); iteration_counts.push_back(500000);
@@ -155,6 +147,28 @@ int main(int argc, char *argv[]){
         } else {                                                                          //  ^     ^     ^    ^
             gpus.push_back(-1); gpus.push_back(-1); gpus.push_back(0); gpus.push_back(0); // Main, Main, GPU, GPU
         }
+    }
+    if(FLAGS_fulltest){
+        // TODO for some reason GPUDirect not working for GPU memory smaller than 128 bytes
+        // packetsizes.push_back(64); packetsizes.push_back(128);
+        packetsizes.push_back(256); packetsizes.push_back(512); packetsizes.push_back(1024);
+        packetsizes.push_back(2048); packetsizes.push_back(4096); packetsizes.push_back(8192);
+        packetsizes.push_back(16384); packetsizes.push_back(32768); packetsizes.push_back(65536);
+        packetsizes.push_back(131072); packetsizes.push_back(262144); packetsizes.push_back(524288);
+        packetsizes.push_back(1048576); // > 1MB
+
+        thread_counts.push_back(1); thread_counts.push_back(2); 
+        thread_counts.push_back(4); thread_counts.push_back(8);
+        thread_counts.push_back(16);
+
+    } else if(FLAGS_halftest){
+        // TODO for some reason GPUDirect not working for GPU memory smaller than 128 bytes
+        packetsizes.push_back(64);
+        /*packetsizes.push_back(256); packetsizes.push_back(1024); packetsizes.push_back(4096);
+        packetsizes.push_back(16384); packetsizes.push_back(65536);
+        packetsizes.push_back(262144); packetsizes.push_back(1048576); // > 1MB*/
+
+        thread_counts.push_back(1); thread_counts.push_back(4); thread_counts.push_back(16);
     }
 
     // check thread counts
@@ -241,21 +255,24 @@ int main(int argc, char *argv[]){
                     for(uint64_t &iterations : iteration_counts){
                         rdma::PerfTest *test = nullptr;
                         std::string testName;
+
+                        uint64_t iterations_per_thread = iterations / thread_count;
+                        if(iterations_per_thread==0) iterations_per_thread = 1;
                         
                         if(t == ATOMICS_BANDWIDTH_TEST){
                             // Atomics Bandwidth Test
                             testName = "Atomics Bandwidth";
-                            test = new rdma::AtomicsBandwidthPerfTest(FLAGS_server, addresses, FLAGS_port, gpu_index, thread_count, buffer_slots, iterations);
+                            test = new rdma::AtomicsBandwidthPerfTest(FLAGS_server, addresses, FLAGS_port, gpu_index, thread_count, buffer_slots, iterations_per_thread);
 
                         } else if(t == ATOMICS_LATENCY_TEST){
                             // Atomics Latency Test
                             testName = "Atomics Latency";
-                            test = new rdma::AtomicsLatencyPerfTest(FLAGS_server, addresses, FLAGS_port, gpu_index, thread_count, buffer_slots, iterations);
+                            test = new rdma::AtomicsLatencyPerfTest(FLAGS_server, addresses, FLAGS_port, gpu_index, thread_count, buffer_slots, iterations_per_thread);
 
                         } else if(t == ATOMICS_OPERATIONS_COUNT_TEST){
                             // Atomics Operations Count Test
                             testName = "Atomics Operations Count";
-                            test = new rdma::AtomicsOperationsCountPerfTest(FLAGS_server, addresses, FLAGS_port, gpu_index, thread_count, buffer_slots, iterations);
+                            test = new rdma::AtomicsOperationsCountPerfTest(FLAGS_server, addresses, FLAGS_port, gpu_index, thread_count, buffer_slots, iterations_per_thread);
                         }
 
                         if(test != nullptr){
@@ -270,17 +287,17 @@ int main(int argc, char *argv[]){
                             if(t == BANDWIDTH_TEST){
                                 // Bandwidth Test
                                 testName = "Bandwidth";
-                                test = new rdma::BandwidthPerfTest(FLAGS_server, addresses, FLAGS_port, gpu_index, thread_count, packet_size, buffer_slots, iterations);
+                                test = new rdma::BandwidthPerfTest(FLAGS_server, addresses, FLAGS_port, gpu_index, thread_count, packet_size, buffer_slots, iterations_per_thread);
 
                             } else if(t == LATENCY_TEST){
                                 // Latency Test
                                 testName = "Latency";
-                                test = new rdma::LatencyPerfTest(FLAGS_server, addresses, FLAGS_port, gpu_index, thread_count, packet_size, buffer_slots, iterations);
+                                test = new rdma::LatencyPerfTest(FLAGS_server, addresses, FLAGS_port, gpu_index, thread_count, packet_size, buffer_slots, iterations_per_thread);
 
                             } else if(t == OPERATIONS_COUNT_TEST){
                                 // Operations Count Test
                                 testName = "Operations Count";
-                                test = new rdma::OperationsCountPerfTest(FLAGS_server, addresses, FLAGS_port, gpu_index, thread_count, packet_size, buffer_slots, iterations);
+                                test = new rdma::OperationsCountPerfTest(FLAGS_server, addresses, FLAGS_port, gpu_index, thread_count, packet_size, buffer_slots, iterations_per_thread);
                             }
 
                             testCounter++;
