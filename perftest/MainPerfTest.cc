@@ -130,7 +130,7 @@ int main(int argc, char *argv[]){
         FLAGS_csv = true;
         testNames.clear(); 
         testNames.push_back("bandwidth");
-        testNames.push_back("latency");
+        // TODO REDO testNames.push_back("latency");
         testNames.push_back("operationscount");
         testNames.push_back("atomicsbandwidth"); 
         testNames.push_back("atomicslatency"); 
