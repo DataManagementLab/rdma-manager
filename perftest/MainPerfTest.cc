@@ -70,8 +70,6 @@ static void runTest(size_t testNumber, size_t testIterations, std::string testNa
     std::string errorstr = "";
     try {
         std::cout << std::endl << "TEST " << testNumber << " / " << testIterations << " (" << (testNumber*100/testIterations) << "%)" << std::endl;
-        //std::time_t systime = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-        //std::string timestr = std::ctime(&systime);
         char timestr[255];
         std::time_t systime = std::time(NULL);
         std::strftime(timestr, 255, "%F %T", std::localtime(&systime));
