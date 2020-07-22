@@ -36,7 +36,7 @@ DEFINE_string(csvfile, "", "Results will be written into a given CSV file");
 DEFINE_bool(ignoreerrors, false, "If an error occurs test will be skiped and execution continues");
 
 enum TEST { BANDWIDTH_TEST, LATENCY_TEST, OPERATIONS_COUNT_TEST, ATOMICS_BANDWIDTH_TEST, ATOMICS_LATENCY_TEST, ATOMICS_OPERATIONS_COUNT_TEST };
-const uint64_t MINIMUM_PACKET_SIZE = 256;
+const uint64_t MINIMUM_PACKET_SIZE = 256; // only GPUDirect doesn't work with smaller sizes
 
 static std::vector<int> parseIntList(std::string str){
     std::vector<int> v;
@@ -164,9 +164,9 @@ int main(int argc, char *argv[]){
     } else if(FLAGS_halftest){
         // TODO for some reason GPUDirect not working for GPU memory smaller than 128 bytes
         packetsizes.push_back(64);
-        /*packetsizes.push_back(256); packetsizes.push_back(1024); packetsizes.push_back(4096);
+        packetsizes.push_back(256); packetsizes.push_back(1024); packetsizes.push_back(4096);
         packetsizes.push_back(16384); packetsizes.push_back(65536);
-        packetsizes.push_back(262144); packetsizes.push_back(1048576); // > 1MB*/
+        packetsizes.push_back(262144); packetsizes.push_back(1048576); // > 1MB
 
         thread_counts.push_back(1); thread_counts.push_back(4); thread_counts.push_back(16);
     }
