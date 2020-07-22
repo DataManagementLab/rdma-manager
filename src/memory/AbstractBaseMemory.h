@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include <cstdint>
+#include <string>
 
 namespace rdma {
 
@@ -83,6 +84,43 @@ public:
      * can use it again
      */
     virtual void closeContext() = 0;
+
+    /* Function: toString
+     * ----------------------
+     * Returns all bytes of this memory as string
+     * 
+     * return:  byte values as string
+     */
+    virtual std::string toString();
+
+    /* Function: toString
+     * ----------------------
+     * Returns the byte values of a certain section 
+     * of this memory as string
+     * 
+     * offset:  offset from where to start reading bytes
+     * length:  how many bytes should be returned
+     * 
+     * return:  byte values as string
+     */
+    virtual std::string toString(size_t offset, size_t length);
+
+    /* Function: print
+     * ----------------------
+     * Prints all bytes of this memory
+     * 
+     */
+    virtual void print();
+
+    /* Function: print
+     * ----------------------
+     * Prints the byte values of a certain section of this memory
+     * 
+     * offset:  offset from where to start printing bytes
+     * length:  how many bytes should be printed
+     * 
+     */
+    virtual void print(size_t offset, size_t length);
 
     /* Function:  setMemory
      * ---------------------
