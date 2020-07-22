@@ -83,7 +83,10 @@ void rdma::LatencyPerfClientThread::run() {
 				arrSend = m_local_memory->pointer(sendOffset);
 				auto start = rdma::PerfTest::startTimer(); 
 				m_client->write(m_addr[connIdx], remoteOffset, (void*)arrSend, m_packet_size, true); // true=signaled
-				while(m_local_memory->getChar(receiveOffset) != value);
+				int counter = 0;
+				while(m_local_memory->getChar(receiveOffset) != value){
+					if((++counter) % 100000000 == 0){ std::cerr << "KILL ME, I'M FROCEN" << std::endl; }
+				}
 
 				int64_t time = rdma::PerfTest::stopTimer(start) / 2; // one trip time
 				m_sumWriteMs += time;
@@ -166,7 +169,10 @@ void rdma::LatencyPerfServerThread::run() {
 				volatile size_t sendOffset = (i % m_buffer_slots) * m_packet_size;
 				volatile size_t receiveOffset = sendOffset + rdma::LatencyPerfTest::thread_count * m_memory_size_per_thread;
 				arrSend = m_local_memory->pointer(sendOffset);
-				while(m_local_memory->getChar(receiveOffset) != value);
+				int counter = 0;
+				while(m_local_memory->getChar(receiveOffset) != value){
+					if((++counter) % 100000000 == 0){ std::cerr << "KILL ME, I'M FROCEN" << std::endl; }
+				}
 				remoteRootOffset = m_thread_id * 2 * m_memory_size_per_thread + sendOffset;
 				m_local_memory->set(value, sendOffset); // send payload value
 				if(m_local_memory->getChar(sendOffset) != value) // prevents compiler to switch statements
