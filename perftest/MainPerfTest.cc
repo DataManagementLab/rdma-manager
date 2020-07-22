@@ -15,6 +15,7 @@
 #include <vector>
 #include <string>
 #include <ctime>
+#include <chrono>
 #include <bits/stdc++.h>
 
 #include <gflags/gflags.h>
@@ -69,7 +70,12 @@ static void runTest(size_t testNumber, size_t testIterations, std::string testNa
     std::string errorstr = "";
     try {
         std::cout << std::endl << "TEST " << testNumber << " / " << testIterations << " (" << (testNumber*100/testIterations) << "%)" << std::endl;
-        std::cout << "SETTING UP ENVIRONMENT FOR TEST '" << testName << "' ..." << std::endl;
+        //std::time_t systime = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+        //std::string timestr = std::ctime(&systime);
+        char timestr[255];
+        std::time_t systime = std::time(NULL);
+        std::strftime(timestr, 255, "%F %T", std::localtime(&systime));
+        std::cout << "SETTING UP ENVIRONMENT FOR TEST '" << testName << "' (" << timestr << ") ..." << std::endl;
         test->setupTest();
 
         std::cout << "RUN TEST WITH PARAMETERS:  " << test->getTestParameters() << std::endl;
