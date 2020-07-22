@@ -191,7 +191,13 @@ int main(int argc, char *argv[]){
     std::string csvFileName = FLAGS_csvfile;
     if(FLAGS_csv && csvFileName.empty()){
         std::ostringstream oss;
-        oss << "rdma-performance-tests-" << ((int)time(0)) << ".csv";
+        oss << "rdma-performance-tests-";
+        if(FLAGS_fulltest){
+            oss << "fulltest-";
+        } else if(FLAGS_halftest){
+            oss << "halftest-";
+        }
+        oss << ((int)time(0)) << ".csv";
         csvFileName = oss.str();
     }
 
