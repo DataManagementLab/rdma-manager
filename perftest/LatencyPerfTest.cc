@@ -81,8 +81,14 @@ void rdma::LatencyPerfClientThread::run() {
 				if(m_local_memory->getChar(m_memory_size_per_thread + valueOffset) != value) // prevents compiler to switch statements
 					throw runtime_error("Compiler makes stupid stuff with payload");
 				auto start = rdma::PerfTest::startTimer();
+				std::cout << "Send: " << m_local_memory->toString(0, 8) << std::endl; // TODO REMOVE
 				m_client->write(m_addr[connIdx], m_remOffsets[connIdx] + offset, (void*)((size_t)arrSend + offset), m_packet_size, true); // true=signaled
-				while(m_local_memory->getChar(valueOffset) != value);
+				int counter = 0; // TODO REMOVE
+				while(m_local_memory->getChar(valueOffset) != value){
+					if((++counter) % 1000000000 == 0){
+						std::cout << "Recv: " << m_local_memory->toString(0, 8) << std::endl; // TODO REMOVE
+					}
+				}
 				int64_t time = rdma::PerfTest::stopTimer(start) / 2; // one trip time
 				m_sumWriteMs += time;
 				if(m_minWriteMs > time) m_minWriteMs = time;

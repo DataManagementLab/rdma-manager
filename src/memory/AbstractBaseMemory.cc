@@ -36,9 +36,9 @@ std::string AbstractBaseMemory::toString(size_t offset, size_t length){
     std::ostringstream oss;
     oss << "[";
     bool next = false;
-    for(size_t i=offset; i < length; i++){
+    for(size_t i=0; i < length; i++){
         if(next){ oss << ", "; } else { next = true; }
-        oss << ((int)getChar(i));
+        oss << ((int)getChar(i + offset));
     }
     oss << "]";
     return oss.str();
