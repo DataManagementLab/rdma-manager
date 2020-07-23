@@ -213,7 +213,7 @@ std::string rdma::BandwidthPerfTest::getTestParameters(){
 	} else {
 		oss << "GPU." << m_gpu_index; 
 	}
-	oss << " mem], iterations=" << m_iterations;
+	oss << " mem], iterations=" << (m_iterations*m_thread_count);
 	return oss.str();
 }
 
@@ -386,7 +386,7 @@ std::string rdma::BandwidthPerfTest::getTestResults(std::string csvFileName, boo
 				ofs << "Avg Write [Sec], Avg Read [Sec], Avg Send/Recv [Sec], ";
 				ofs << "Median Write [Sec], Median Read [Sec], Median Send/Recv [Sec]" << std::endl;
 			}
-			ofs << m_packet_size << ", " << (round(transferedBytes/su * 100000)/100000.0); // packet size Bytes
+			ofs << m_packet_size << ", " << (round(transferedBytes/su * 100000)/100000.0) << ", "; // packet size Bytes
 			ofs << (round(transferedBytes*tu/su/m_elapsedWriteMs * 100000)/100000.0) << ", "; // write MB/s
 			ofs << (round(transferedBytes*tu/su/m_elapsedReadMs * 100000)/100000.0) << ", "; // read MB/s
 			ofs << (round(transferedBytes*tu/su/m_elapsedSendMs * 100000)/100000.0) << ", "; // send/recv MB/s

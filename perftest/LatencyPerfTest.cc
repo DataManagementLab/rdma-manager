@@ -72,6 +72,8 @@ void rdma::LatencyPerfClientThread::run() {
 		case TEST_WRITE: // Write
 			m_local_memory->setMemory(0);
 			for(size_t i = 0; i < m_iterations; i++){
+				if(i % 100 == 0) // TODO REMOVE
+					std::cout << i << " / " << m_iterations << " Iterations" << std::endl; // TODO REMOVE
 				size_t connIdx = i % m_rdma_addresses.size();
 				value = (i % 100) + 1;
 				size_t receiveOffset = (i % m_buffer_slots) * m_packet_size;
@@ -85,7 +87,7 @@ void rdma::LatencyPerfClientThread::run() {
 				m_client->write(m_addr[connIdx], remoteOffset, (void*)arrSend, m_packet_size, true); // true=signaled
 				int counter = 0;
 				while(m_local_memory->getChar(receiveOffset) != value){
-					if((++counter) % 10000000 == 0){ std::cout << "KILL ME, I'M FROCEN" << std::endl; }
+					if((++counter) % 100000000 == 0){ std::cout << "KILL ME, I'M FROZEN" << std::endl; }
 				}
 
 				int64_t time = rdma::PerfTest::stopTimer(start) / 2; // one trip time
@@ -94,7 +96,7 @@ void rdma::LatencyPerfClientThread::run() {
 				if(m_maxWriteMs < time) m_maxWriteMs = time;
 				m_arrWriteMs[i] = time;
 			}
-
+			std::cout << "Write Done" << std::endl; // TODO REMOVE
 			break;
 
 		case TEST_READ: // Read
@@ -173,7 +175,7 @@ void rdma::LatencyPerfServerThread::run() {
 				arrRecv = m_local_memory->pointer(receiveOffset);
 				int counter = 0;
 				while(m_local_memory->getChar(receiveOffset) != value){
-					if((++counter) % 10000000 == 0){ std::cout << "KILL ME, I'M FROCEN" << std::endl; }
+					if((++counter) % 100000000 == 0){ std::cout << "KILL ME, I'M FROZEN" << std::endl; }
 				}
 				remoteRootOffset = m_thread_id * 2 * m_memory_size_per_thread + sendOffset;
 				/*m_local_memory->set(value, sendOffset); // send payload value
@@ -233,7 +235,7 @@ std::string rdma::LatencyPerfTest::getTestParameters(){
 	} else {
 		oss << "GPU." << m_gpu_index; 
 	}
-	oss << " mem], iterations=" << m_iterations;
+	oss << " mem], iterations=" << (m_iterations*thread_count);
 	return oss.str();
 }
 

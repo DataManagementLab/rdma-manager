@@ -116,7 +116,7 @@ std::string rdma::AtomicsOperationsCountPerfTest::getTestParameters(){
 	}
 	oss << " mem], packetsize=" << (rdma::ATOMICS_SIZE*8) << "bits";
 	if(!m_is_server){
-		oss << ", iterations=" << m_iterations;
+		oss << ", iterations=" << (m_iterations*m_thread_count);
 	}
 	return oss.str();
 }

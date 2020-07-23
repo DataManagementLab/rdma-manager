@@ -127,7 +127,7 @@ std::string rdma::AtomicsLatencyPerfTest::getTestParameters(){
 	}
 	oss << " mem]";
 	if(m_is_server)
-		oss << ", iterations=" << m_iterations;
+		oss << ", iterations=" << (m_iterations*m_thread_count);
 	return oss.str();
 }
 

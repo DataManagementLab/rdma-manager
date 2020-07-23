@@ -232,7 +232,7 @@ std::string rdma::OperationsCountPerfTest::getTestParameters(){
 	} else {
 		oss << "GPU." << m_gpu_index; 
 	}
-	oss << " mem], iterations=" << m_iterations;
+	oss << " mem], iterations=" << (m_iterations*m_thread_count);
 	return oss.str();
 }
 
