@@ -18,7 +18,7 @@ rdma::OperationsCountPerfClientThread::OperationsCountPerfClientThread(BaseMemor
 	this->m_rdma_addresses = rdma_addresses;
 	this->m_packet_size = packet_size;
 	this->m_buffer_slots = buffer_slots;
-	this->m_memory_size_per_thread = packet_size * buffer_slots * 2;  // separat for send & receive
+	this->m_memory_size_per_thread = packet_size * buffer_slots;
 	this->m_iterations = iterations;
 	this->m_max_rdma_wr_per_thread = max_rdma_wr_per_thread;
 	m_remOffsets = new size_t[m_rdma_addresses.size()];
@@ -34,10 +34,10 @@ rdma::OperationsCountPerfClientThread::OperationsCountPerfClientThread(BaseMemor
 		}
 		//std::cout << "Thread connected to '" << conn << "'" << std::endl; // TODO REMOVE
 		m_addr.push_back(nodeId);
-		m_client->remoteAlloc(conn, m_memory_size_per_thread, m_remOffsets[i]);
+		m_client->remoteAlloc(conn, m_memory_size_per_thread, m_remOffsets[i]); // one chunk needed on remote side for write & read
 	}
 
-	m_local_memory = m_client->localMalloc(this->m_memory_size_per_thread);
+	m_local_memory = m_client->localMalloc(this->m_memory_size_per_thread * 2); // two chunks needed on local side for send & receive
 	m_local_memory->openContext();
 	m_local_memory->setMemory(1);
 }
@@ -100,7 +100,7 @@ void rdma::OperationsCountPerfClientThread::run() {
 				for(size_t j = 0; j < budgetS; j++){
 					// TODO REMOVE std::cout << "Send: " << (i+j) << std::endl; // TODO REMOVE
 					sendCounter = (sendCounter+1) % m_buffer_slots;
-					int sendOffset = sendCounter * m_packet_size + m_memory_size_per_thread/2;
+					int sendOffset = sendCounter * m_packet_size + m_memory_size_per_thread;
 					m_client->send(m_addr[(i+j) % m_rdma_addresses.size()], m_local_memory->pointer(sendOffset), m_packet_size, (j+1)==budgetS); // signaled: (j+1)==budget
 				}
 
@@ -122,11 +122,11 @@ rdma::OperationsCountPerfServerThread::OperationsCountPerfServerThread(RDMAServe
 	this->m_server = server;
 	this->m_packet_size = packet_size;
 	this->m_buffer_slots = buffer_slots;
-	this->m_memory_size_per_thread = packet_size * buffer_slots * 2; // separat for send & receive
+	this->m_memory_size_per_thread = packet_size * buffer_slots;
 	this->m_iterations = iterations;
 	this->m_max_rdma_wr_per_thread = max_rdma_wr_per_thread;
 	this->m_thread_id = thread_id;
-	this->m_local_memory = server->localMalloc(this->m_memory_size_per_thread);
+	this->m_local_memory = server->localMalloc(this->m_memory_size_per_thread * 2); // two chunks needed on local side for send & receive
 	this->m_local_memory->openContext();
 }
 
@@ -169,7 +169,7 @@ void rdma::OperationsCountPerfServerThread::run() {
 		for(size_t j = 0; j < budgetS; j++){
 			// TODO REMOVE std::cout << "Send: " << (i+j) << std::endl; // TODO REMOVE
 			sendCounter = (sendCounter+1) % m_buffer_slots;
-			int sendOffset = sendCounter * m_packet_size + m_memory_size_per_thread/2;
+			int sendOffset = sendCounter * m_packet_size + m_memory_size_per_thread;
 			m_server->send(clientIds[m_thread_id], m_local_memory->pointer(sendOffset), m_packet_size, (j+1)==budgetS); // signaled: (j+1)==budget
 		}
 
@@ -187,7 +187,7 @@ rdma::OperationsCountPerfTest::OperationsCountPerfTest(bool is_server, std::vect
 	this->m_thread_count = thread_count;
 	this->m_packet_size = packet_size;
 	this->m_buffer_slots = buffer_slots;
-	this->m_memory_size = 2 * thread_count * packet_size * buffer_slots; // 2x because for send & receive separat
+	this->m_memory_size = thread_count * packet_size * buffer_slots * 3; // 3x because for send + receive + write/read separat
 	this->m_iterations = iterations;
 	this->m_rdma_addresses = rdma_addresses;
 }
