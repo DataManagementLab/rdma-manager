@@ -82,29 +82,29 @@ void rdma::OperationsCountPerfClientThread::run() {
 			break;
 		case TEST_SEND_AND_RECEIVE: // Send & Receive
 			// alternating send/receive blocks to not overfill queues
-			for(size_t i = 0; i < m_iterations; i++){
-				size_t budgetS = m_iterations - i;
-				if(budgetS > m_max_rdma_wr_per_thread){ budgetS = m_max_rdma_wr_per_thread; }
+			for(size_t i = 0; i < m_iterations; ){
+				int budgetS = m_iterations - i;
+				if(budgetS > (int)m_max_rdma_wr_per_thread){ budgetS = m_max_rdma_wr_per_thread; }
 
 				size_t fi = i + budgetS;
-				size_t budgetR = m_iterations - fi;
-				if(budgetR > m_max_rdma_wr_per_thread){ budgetR = m_max_rdma_wr_per_thread; }
+				int budgetR = m_iterations - fi;
+				if(budgetR >(int)m_max_rdma_wr_per_thread){ budgetR = m_max_rdma_wr_per_thread; }
 
-				for(size_t j = 0; j < budgetR; j++){
+				for(int j = 0; j < budgetR; j++){
 					// TODO REMOVE std::cout << "Send: " << (i+j) << std::endl; // TODO REMOVE
 					receiveCounter = (receiveCounter+1) % m_buffer_slots;
 					int receiveOffset = receiveCounter * m_packet_size;
 					m_client->receive(m_addr[(fi+j) % m_rdma_addresses.size()], m_local_memory->pointer(receiveOffset), m_packet_size);
 				}
 
-				for(size_t j = 0; j < budgetS; j++){
+				for(int j = 0; j < budgetS; j++){
 					// TODO REMOVE std::cout << "Send: " << (i+j) << std::endl; // TODO REMOVE
 					sendCounter = (sendCounter+1) % m_buffer_slots;
 					int sendOffset = sendCounter * m_packet_size + m_memory_size_per_thread;
 					m_client->send(m_addr[(i+j) % m_rdma_addresses.size()], m_local_memory->pointer(sendOffset), m_packet_size, (j+1)==budgetS); // signaled: (j+1)==budget
 				}
 
-				for(size_t j = 0; j < budgetR; j++){
+				for(int j = 0; j < budgetR; j++){
 					m_client->pollReceive(m_addr[(fi+j) % m_rdma_addresses.size()], true);
 				}
 
@@ -126,13 +126,15 @@ rdma::OperationsCountPerfServerThread::OperationsCountPerfServerThread(RDMAServe
 	this->m_iterations = iterations;
 	this->m_max_rdma_wr_per_thread = max_rdma_wr_per_thread;
 	this->m_thread_id = thread_id;
-	this->m_local_memory = server->localMalloc(this->m_memory_size_per_thread * 2); // two chunks needed on local side for send & receive
+	this->m_local_memory = server->localMalloc(this->m_memory_size_per_thread * 2); // two chunks needed on local side for send & receive + one chunk by remote
 	this->m_local_memory->openContext();
 }
+
 
 rdma::OperationsCountPerfServerThread::~OperationsCountPerfServerThread() {
 	delete m_local_memory;  // implicitly deletes local allocs in RDMAServer
 }
+
 
 void rdma::OperationsCountPerfServerThread::run() {
 	unique_lock<mutex> lck(OperationsCountPerfTest::waitLock);
@@ -145,28 +147,44 @@ void rdma::OperationsCountPerfServerThread::run() {
 
 	// Measure operations/s for receiving
 	//auto start = rdma::PerfTest::startTimer();
-	int sendCounter = 0, receiveCounter = 0;
-	for(size_t i = 0; i < m_iterations; i++){
+	int sendCounter = 0, receiveCounter = 0, totalBudget = m_iterations;
 
-		size_t budgetR = m_iterations - i;
-		if(budgetR > m_max_rdma_wr_per_thread){ budgetR = m_max_rdma_wr_per_thread; }
+	// Calculate receive budget for even blocks
+	int budgetR = totalBudget;
+	if(budgetR > (int)m_max_rdma_wr_per_thread){ budgetR = m_max_rdma_wr_per_thread; }
+	totalBudget -= budgetR;
+	for(int j = 0; j < budgetR; j++){
+		// TODO REMOVE std::cout << "Send: " << (i+j) << std::endl; // TODO REMOVE
+		receiveCounter = (receiveCounter+1) % m_buffer_slots;
+		int receiveOffset = receiveCounter * m_packet_size;
+		m_server->receive(clientIds[m_thread_id], m_local_memory->pointer(receiveOffset), m_packet_size);
+	}
 
-		size_t fi = i + budgetR;
-		size_t budgetS = m_iterations - fi;
-		if(budgetS > m_max_rdma_wr_per_thread){ budgetS = m_max_rdma_wr_per_thread; }
+	for(size_t i = budgetR; i < m_iterations; ){
 
-		for(size_t j = 0; j < budgetR; j++){
+		// Calculate send budget for odd blocks
+		int budgetS = totalBudget;
+		if(budgetS > (int)m_max_rdma_wr_per_thread){ budgetS = m_max_rdma_wr_per_thread; }
+		else if(budgetS < 0){ budgetS = 0; }
+		totalBudget -= budgetS;
+
+		for(int j = 0; j < budgetR; j++){
+			m_server->pollReceive(clientIds[m_thread_id], true);
+		}
+
+		// Calculate receive budget for even blocks
+		budgetR = totalBudget; 
+		if(budgetR > (int)m_max_rdma_wr_per_thread){ budgetR = m_max_rdma_wr_per_thread; }
+		else if(budgetR < 0){ budgetR = 0; }
+		totalBudget -= budgetR;
+		for(int j = 0; j < budgetR; j++){
 			// TODO REMOVE std::cout << "Send: " << (i+j) << std::endl; // TODO REMOVE
 			receiveCounter = (receiveCounter+1) % m_buffer_slots;
 			int receiveOffset = receiveCounter * m_packet_size;
 			m_server->receive(clientIds[m_thread_id], m_local_memory->pointer(receiveOffset), m_packet_size);
 		}
 
-		for(size_t j = 0; j < budgetR; j++){
-			m_server->pollReceive(clientIds[m_thread_id], true);
-		}
-
-		for(size_t j = 0; j < budgetS; j++){
+		for(int j = 0; j < budgetS; j++){
 			// TODO REMOVE std::cout << "Send: " << (i+j) << std::endl; // TODO REMOVE
 			sendCounter = (sendCounter+1) % m_buffer_slots;
 			int sendOffset = sendCounter * m_packet_size + m_memory_size_per_thread;
@@ -294,7 +312,7 @@ void rdma::OperationsCountPerfTest::runTest(){
 
 		// waiting until clients have connected
 		while(m_server->getConnectedConnIDs().size() < (size_t)m_thread_count) usleep(Config::RDMA_SLEEP_INTERVAL);
-		
+
 		makeThreadsReady(TEST_SEND_AND_RECEIVE); // receive
 		//auto startReceive = rdma::PerfTest::startTimer();
         runThreads();
