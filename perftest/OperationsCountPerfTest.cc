@@ -291,10 +291,14 @@ void rdma::OperationsCountPerfTest::runTest(){
 		// waiting until clients have connected
 		while(m_server->getConnectedConnIDs().size() < (size_t)m_thread_count) usleep(Config::RDMA_SLEEP_INTERVAL);
 		
+		std::cout << "CHECK A" << std::endl; // TODO REMOVE
+
 		makeThreadsReady(TEST_SEND_AND_RECEIVE); // receive
 		//auto startReceive = rdma::PerfTest::startTimer();
         runThreads();
 		//m_elapsedReceive = rdma::PerfTest::stopTimer(startReceive);
+
+		std::cout << "CHECK B" << std::endl; // TODO REMOVE
 
 		// wait until server is done
 		while (m_server->isRunning() && m_server->getConnectedConnIDs().size() > 0) usleep(Config::RDMA_SLEEP_INTERVAL);
@@ -303,12 +307,15 @@ void rdma::OperationsCountPerfTest::runTest(){
 	} else {
 		// Client
 
+		std::cout << "CHECK A" << std::endl; // TODO REMOVE
 
         // Measure operations/s for writing
 		makeThreadsReady(TEST_WRITE); // write
 		auto startWrite = rdma::PerfTest::startTimer();
         runThreads();
 		m_elapsedWrite = rdma::PerfTest::stopTimer(startWrite);
+		
+		std::cout << "CHECK B" << std::endl; // TODO REMOVE
 
 		// Measure operations/s for reading
 		makeThreadsReady(TEST_READ); // read
@@ -316,12 +323,16 @@ void rdma::OperationsCountPerfTest::runTest(){
         runThreads();
 		m_elapsedRead = rdma::PerfTest::stopTimer(startRead);
 
+		std::cout << "CHECK C" << std::endl; // TODO REMOVE
+
 		// Measure operations/s for sending
 		makeThreadsReady(TEST_SEND_AND_RECEIVE); // send
 		usleep(4 * Config::RDMA_SLEEP_INTERVAL); // let server first post the receives
 		auto startSend = rdma::PerfTest::startTimer();
         runThreads();
 		m_elapsedSend = rdma::PerfTest::stopTimer(startSend);
+
+		std::cout << "CHECK D" << std::endl; // TODO REMOVE
 	}
 }
 
