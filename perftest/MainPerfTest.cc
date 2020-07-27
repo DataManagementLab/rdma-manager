@@ -22,7 +22,7 @@
 
 DEFINE_bool(fulltest, false, "Overwrites flags 'test, gpu, packetsize, threads, iterations, csv' to execute a broad variety of predefined tests. If GPUs are supported then gpu=-1,-1,0,0 on client side and gpu=-1,0,-1,0 on server side to test all memory combinations: Main->Main, Main->GPU, GPU->Main, GPU->GPU");
 DEFINE_bool(halftest, false, "Overwrites flags 'test, gpu, packetsize, threads, iterations, csv' to execute a smaller variety of predefined tests. If GPUs are supported then gpu=-1,-1,0,0 on client side and gpu=-1,0,-1,0 on server side to test all memory combinations: Main->Main, Main->GPU, GPU->Main, GPU->GPU");
-DEFINE_bool(fasttest, false, "Overwrites flags 'test, gpu, packetsize, threads, iterations, csv' to execute a very smaller variety of predefined tests. If GPUs are supported then gpu=-1,-1,0,0 on client side and gpu=-1,0,-1,0 on server side to test all memory combinations: Main->Main, Main->GPU, GPU->Main, GPU->GPU");
+DEFINE_bool(quicktest, false, "Overwrites flags 'test, gpu, packetsize, threads, iterations, csv' to execute a very smaller variety of predefined tests. If GPUs are supported then gpu=-1,-1,0,0 on client side and gpu=-1,0,-1,0 on server side to test all memory combinations: Main->Main, Main->GPU, GPU->Main, GPU->GPU");
 DEFINE_string(test, "bandwidth", "Test: bandwidth, latency, operationscount, atomicsbandwidth, atomicslatency, atomicsoperationscount (multiples separated by comma without space, not full word required)");
 DEFINE_bool(server, false, "Act as server for a client to test performance");
 DEFINE_string(gpu, "-1", "Index of GPU for memory allocation (negative for main memory | multiples separated by comma without space)");
@@ -126,11 +126,11 @@ int main(int argc, char *argv[]){
 		addr += ":" + to_string(FLAGS_port);
 	}
     
-    if(FLAGS_fulltest || FLAGS_halftest || FLAGS_fasttest){
+    if(FLAGS_fulltest || FLAGS_halftest || FLAGS_quicktest){
         FLAGS_csv = true;
         testNames.clear(); 
         testNames.push_back("bandwidth");
-        // TODO REDO testNames.push_back("latency");
+        testNames.push_back("latency");
         testNames.push_back("operationscount");
         testNames.push_back("atomicsbandwidth"); 
         testNames.push_back("atomicslatency"); 
@@ -174,7 +174,7 @@ int main(int argc, char *argv[]){
 
         iteration_counts.push_back(1000); iteration_counts.push_back(500000);
 
-    } else if(FLAGS_fasttest){
+    } else if(FLAGS_quicktest){
         //packetsizes.push_back(64);
         packetsizes.push_back(256);
         packetsizes.push_back(1024);
@@ -212,8 +212,8 @@ int main(int argc, char *argv[]){
             oss << "fulltest-";
         } else if(FLAGS_halftest){
             oss << "halftest-";
-        } else if(FLAGS_fasttest){
-            oss << "fasttest-";
+        } else if(FLAGS_quicktest){
+            oss << "quicktest-";
         }
         oss << ((int)time(0)) << ".csv";
         csvFileName = oss.str();
