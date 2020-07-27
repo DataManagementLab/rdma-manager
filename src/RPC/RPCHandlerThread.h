@@ -10,71 +10,67 @@
 #include "../thread/Thread.h"
 #include "RPCVoidHandlerThread.h"
 
-
-
 #include "../rdma/RDMAServer.h"
 
 
 
 namespace rdma
 {
+
+
+
     //templated RPCHandler Class
-    template <class MessageType,typename RDMA_API_T>
-    class RPCHandlerThread : public RPCVoidHandlerThread<RDMA_API_T>
+    template <template<class> class VoidHandlerT,class MessageType,typename RDMA_API_T>
+    class RPCHandlerThreadTemp : public VoidHandlerT<RDMA_API_T>
     {
 
     public:
-        RPCHandlerThread(RDMAServer<ReliableRDMA> *rdmaServer, size_t srqID,
+        RPCHandlerThreadTemp(RDMAServer<ReliableRDMA> *rdmaServer, size_t srqID,
                          size_t maxNumberMsgs,char* rpcbuffer
                           )
-                :RPCVoidHandlerThread<RDMA_API_T>(rdmaServer,srqID,sizeof(MessageType),maxNumberMsgs,rpcbuffer)
+                :VoidHandlerT<RDMA_API_T>(rdmaServer,srqID,sizeof(MessageType),maxNumberMsgs,rpcbuffer)
 
         {
-            m_intermediateRspBuffer = static_cast<MessageType*>(RPCVoidHandlerThread<RDMA_API_T>::m_intermediateRspBufferVoid);
+            m_intermediateRspBuffer = static_cast<MessageType*>(VoidHandlerT<RDMA_API_T>::m_intermediateRspBufferVoid);
 
 
         };
 
         //constructor without rpcbuffer
-        RPCHandlerThread(RDMAServer<RDMA_API_T> *rdmaServer, size_t srqID,
+        RPCHandlerThreadTemp(RDMAServer<RDMA_API_T> *rdmaServer, size_t srqID,
                          size_t maxNumberMsgs
         )
-                :RPCVoidHandlerThread<RDMA_API_T>(rdmaServer,srqID,sizeof(MessageType),maxNumberMsgs)
+                :VoidHandlerT<RDMA_API_T>(rdmaServer,srqID,sizeof(MessageType),maxNumberMsgs)
 
         {
 
-            m_intermediateRspBuffer = static_cast<MessageType*>(RPCVoidHandlerThread<RDMA_API_T>::m_intermediateRspBufferVoid);
+            m_intermediateRspBuffer = static_cast<MessageType*>(VoidHandlerT<RDMA_API_T>::m_intermediateRspBufferVoid);
 
 
         };
 
         //constructor without rpcbuffer and without srqID
-        RPCHandlerThread(RDMAServer<RDMA_API_T> *rdmaServer,
+        RPCHandlerThreadTemp(RDMAServer<RDMA_API_T> *rdmaServer,
                          size_t maxNumberMsgs
         )
-                :RPCVoidHandlerThread<RDMA_API_T>(rdmaServer,sizeof(MessageType),maxNumberMsgs)
+                :VoidHandlerT<RDMA_API_T>(rdmaServer,sizeof(MessageType),maxNumberMsgs)
 
         {
-            m_intermediateRspBuffer = static_cast<MessageType*>(RPCVoidHandlerThread<RDMA_API_T>::m_intermediateRspBufferVoid);
+            m_intermediateRspBuffer = static_cast<MessageType*>(VoidHandlerT<RDMA_API_T>::m_intermediateRspBufferVoid);
 
         };
 
-
-        ~RPCHandlerThread(){
+        ~RPCHandlerThreadTemp(){
 
 
         };
-
-
-
-
 
         void  handleRDMARPCVoid(void *message, NodeID &returnAdd){
             handleRDMARPC(static_cast<MessageType*>(message),returnAdd);
         }
 
         //This Message needs to be implemented in subclass to handle the messages
-        void virtual handleRDMARPC(MessageType* message,NodeID & returnAdd) =0;
+        virtual void  handleRDMARPC(MessageType* message,NodeID & returnAdd) =0;
 
 
         protected:
@@ -82,12 +78,22 @@ namespace rdma
         MessageType *m_intermediateRspBuffer;
 
 
-
     };
 
 
 
+    template <class MessageType,typename RDMA_API_T>
+    class RPCHandlerThread : public RPCHandlerThreadTemp<RPCVoidHandlerThread,MessageType,RDMA_API_T>
+            {
+            using RPCHandlerThreadTemp<RPCVoidHandlerThread,MessageType,RDMA_API_T>::RPCHandlerThreadTemp;
+            };
 
+    //todo remove
+    template <class MessageType,typename RDMA_API_T>
+    class RPCHandlerThreadOld : public RPCHandlerThreadTemp<RPCVoidHandlerThreadOld,MessageType,RDMA_API_T>
+    {
+        using RPCHandlerThreadTemp<RPCVoidHandlerThreadOld,MessageType,RDMA_API_T>::RPCHandlerThreadTemp;
+    };
    
 
 } /* namespace rdma */

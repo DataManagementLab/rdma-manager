@@ -15,6 +15,12 @@ ReliableRDMA::ReliableRDMA(size_t mem_size) : BaseRDMA(mem_size) {
 
 //------------------------------------------------------------------------------------//
 
+ReliableRDMA::ReliableRDMA(size_t mem_size, int numaNode) : BaseRDMA(mem_size, numaNode) {
+  m_qpType = IBV_QPT_RC;
+}
+
+//------------------------------------------------------------------------------------//
+
 ReliableRDMA::~ReliableRDMA() {
   // destroy QPS
   destroyQPs();
@@ -461,7 +467,7 @@ void ReliableRDMA::createQP(struct ib_qp_t *qp) {
   qp_init_attr.send_cq = qp->send_cq;
   qp_init_attr.recv_cq = qp->recv_cq;
   qp_init_attr.sq_sig_all = 0;  // In every WR, it must be decided whether to generate a WC or not
-  qp_init_attr.cap.max_inline_data = 220;
+  qp_init_attr.cap.max_inline_data = Config::MAX_RC_INLINE_SEND;
 
   // TODO: Enable atomic for DM cluster
   // qp_init_attr.max_atomic_arg = 32;
@@ -706,6 +712,7 @@ int ReliableRDMA::pollReceiveSRQ(size_t srq_id, rdmaConnID& retRdmaConnID, std::
                                     to_string(wc.status));
             }
 
+
         } while (ne == 0 && doPoll);
 
         if (doPoll) {
@@ -741,6 +748,85 @@ int ReliableRDMA::pollReceiveSRQ(size_t srq_id, rdmaConnID& retRdmaConnID,uint32
         uint64_t qp = wc.qp_num;
         retRdmaConnID = m_qpNum2connID.at(qp);
         *imm = wc.imm_data;
+    }
+    return ne;
+
+}
+
+void ReliableRDMA::receiveSRQ(size_t srq_id, size_t memoryIndex ,const void *memAddr, size_t size) {
+    struct ibv_sge sge;
+    struct ibv_recv_wr wr;
+    struct ibv_recv_wr *bad_wr;
+    memset(&sge, 0, sizeof(sge));
+    sge.addr = (uintptr_t)memAddr;
+    sge.length = size;
+    sge.lkey = m_res.mr->lkey;
+
+    memset(&wr, 0, sizeof(wr));
+    // wr.wr_id = 0;
+    wr.wr_id = memoryIndex;
+    wr.sg_list = &sge;
+    wr.num_sge = 1;
+
+    if ((errno = ibv_post_srq_recv(m_srqs.at(srq_id).shared_rq, &wr, &bad_wr))) {
+        throw runtime_error("RECV has not been posted successfully! errno: " +
+                            std::string(std::strerror(errno)));
+    }
+
+    // std::cout << "Receive WR ID " << wr.wr_id  << "\n";
+}
+
+int ReliableRDMA::pollReceiveSRQ(size_t srq_id, rdmaConnID &retRdmaConnID, size_t& retMemoryIdx,
+                                 std::atomic<bool> &doPoll) {
+    int ne;
+    struct ibv_wc wc;
+
+    do {
+        wc.status = IBV_WC_SUCCESS;
+        ne = ibv_poll_cq(m_srqs.at(srq_id).recv_cq, 1, &wc);
+        if (wc.status != IBV_WC_SUCCESS) {
+            throw runtime_error("RDMA completion event in CQ with error! " +
+                                to_string(wc.status));
+        }
+
+
+    } while (ne == 0 && doPoll);
+
+
+    if (ne < 0) {
+        throw runtime_error("RDMA polling from CQ failed!");
+    }
+    if(ne > 0){
+        uint64_t qp = wc.qp_num;
+        retRdmaConnID = m_qpNum2connID.at(qp);
+        retMemoryIdx =  wc.wr_id;
+    }
+    return ne;
+
+}
+
+int ReliableRDMA::pollReceiveSRQ(size_t srq_id, rdmaConnID& retRdmaConnID, size_t& retMemoryIdx, uint32_t *imm, std::atomic<bool>& doPoll){
+    int ne;
+    struct ibv_wc wc;
+
+    do {
+        wc.status = IBV_WC_SUCCESS;
+        ne = ibv_poll_cq(m_srqs.at(srq_id).recv_cq, 1, &wc);
+        if (wc.status != IBV_WC_SUCCESS) {
+            throw runtime_error("RDMA completion event in CQ with error! " +
+                                to_string(wc.status));
+        }
+
+    } while (ne == 0 && doPoll);
+
+    if (doPoll) {
+        if (ne < 0) {
+            throw runtime_error("RDMA polling from CQ failed!");
+        }
+        uint64_t qp = wc.qp_num;
+        retRdmaConnID = m_qpNum2connID.at(qp);
+        *imm = wc.imm_data;
+        retMemoryIdx =  wc.wr_id;
     }
     return ne;
 
@@ -842,7 +928,7 @@ void ReliableRDMA::createQP(size_t srq_id, struct ib_qp_t &qp) {
   qp_init_attr.recv_cq = m_srqs[srq_id].recv_cq;
   qp_init_attr.sq_sig_all =
       0;  // In every WR, it must be decided whether to generate a WC or not
-  qp_init_attr.cap.max_inline_data = 220;
+  qp_init_attr.cap.max_inline_data = Config::MAX_RC_INLINE_SEND;
 
   // TODO: Enable atomic for DM cluster
   // qp_init_attr.max_atomic_arg = 32;

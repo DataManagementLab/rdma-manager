@@ -4,6 +4,7 @@ using namespace rdma;
 
 NodeIDSequencer::NodeIDSequencer(/* args */) : ProtoServer("NodeIDSequencer", Config::SEQUENCER_PORT)
 {
+  // std::cout << "Starting NodeIDSequencer" << std::endl;
   if (!ProtoServer::isRunning())
   {
     ProtoServer::startServer();

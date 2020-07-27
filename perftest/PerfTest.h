@@ -11,7 +11,7 @@
 #include "../utils/Config.h"
 
 #include <getopt.h>
-#include <math.h>
+#include <cmath>
 
 namespace rdma {
 
@@ -24,6 +24,10 @@ struct config_t {
 	size_t data = 2048;
 	size_t numa = 0;
 	string logfile;
+	std::size_t returnMethod = 0;
+	bool old = false;
+	bool signaled = false;
+
 };
 
 class PerfTest {
@@ -31,48 +35,67 @@ public:
 	static config_t parseParameters(int argc, char* argv[]) {
 		// parse parameters
 		struct config_t config;
-		while (1) {
-			struct option long_options[] = {{ "number", required_argument, 0,'n' }, { "server", optional_argument, 0, 's' },
-											{ "port", optional_argument, 0, 'p' }, { "data", optional_argument, 0,'d' }, 
-											{ "threads", optional_argument, 0, 't' }, { "logfile", optional_argument, 0, 'f' }, 
-											{ "iterations", optional_argument, 0, 'i' },{ "numa_region", optional_argument, 0, 'r' } };
+		while (true) {
+			struct option long_options[] = {
+			        { "number", required_argument, nullptr,'n' },
+			        { "server", optional_argument, nullptr, 's' },
+			        { "port",optional_argument, nullptr, 'p' },
+			        { "data", optional_argument, nullptr,'d' },
+			        { "threads", optional_argument, nullptr, 't' },
+			        { "logfile", optional_argument, nullptr, 'f' },
+					{ "iterations", optional_argument, nullptr, 'i' },
+                    { "return", optional_argument, nullptr, 'r' },
+					{ "numa_region", optional_argument, 0, 'q' },
+                    { "old", no_argument, nullptr, 'o' },
+                    { "signaled", no_argument, nullptr, 'g' }
+			};
 
-			int c = getopt_long(argc, argv, "n:d:s:t:p:f:i:r:", long_options, NULL);
+			int c = getopt_long(argc, argv, "n:d:s:t:p:f:i:r:q:og", long_options, nullptr);
 			if (c == -1)
 				break;
 
 			switch (c) {
 			case 'n':
-				config.number = strtoul(optarg, NULL, 0);
+				config.number = strtoul(optarg, nullptr, 0);
 				break;
 			case 'd':
-				config.data = strtoul(optarg, NULL, 0);
+				config.data = strtoul(optarg, nullptr, 0);
 				break;
 			case 's':
 				config.server = string(optarg);
 				break;
 			case 'p':
-				config.port = strtoul(optarg, NULL, 0);
+				config.port = strtoul(optarg, nullptr, 0);
 				break;
 			case 't':
-				config.threads = strtoul(optarg, NULL, 0);
+				config.threads = strtoul(optarg, nullptr, 0);
 				break;
 			case 'i':
-				config.iter = strtoul(optarg, NULL, 0);
+				config.iter = strtoul(optarg, nullptr, 0);
 				break;
 			case 'f':
 				config.logfile = string(optarg);
 				break;
-			case 'r':
+            case 'r':
+                config.returnMethod = strtoul(optarg, nullptr,0);
+                break;
+			case 'q':
 				config.numa = strtoul(optarg, NULL, 0);
 				break;
+            case 'o':
+                config.old = true;
+                break;
+            case 'g':
+                config.signaled = true;
+                break;
+            default:
+                break;
 			}
 		}
 		return config;
 	}
 
-	virtual ~PerfTest() {
-	}
+	virtual ~PerfTest() = default;
 
 	virtual void runClient()=0;
 	virtual void runServer()=0;
@@ -90,15 +113,15 @@ public:
 		m_isRunnable = isRunnable;
 	}
 
-	bool isClient() {
+	bool isClient() const {
 		return m_isClient;
 	}
 
-	bool isRunnable() {
+	bool isRunnable() const {
 		return m_isRunnable;
 	}
 
-	void waitForUser() {
+	static void waitForUser() {
 		//wait for user input
 		cout << "Press Enter to run Benchmark!" << flush << endl;
 		char temp;

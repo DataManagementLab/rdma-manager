@@ -16,8 +16,8 @@ static std::vector<std::vector<int>> get_cpu_numa_map(int &num_cpus, int &num_no
     int ncpus_ = numa_num_task_cpus();
     int nnodes_ = numa_max_node() + 1;
     int nphycpus_ = 0;
-    static bool stats_printed = true;
-    if (!stats_printed)
+    static bool print_stats = false;
+    if (print_stats)
        printf("We are running on %d nodes and %d CPUs\n", nnodes_, ncpus_);
     auto cpuids_ = new std::vector<std::vector<int> >[nnodes_];
     {
@@ -50,33 +50,33 @@ static std::vector<std::vector<int>> get_cpu_numa_map(int &num_cpus, int &num_no
             cpuids_[node].push_back(phy_core);
         }
     }
-    if (!stats_printed)
+    if (print_stats)
        printf("CPU Topology: \n");
     for (unsigned i = 0; i < (unsigned)nnodes_; ++i) {
-        if (!stats_printed)
+        if (print_stats)
               printf("node %d:\t", i);
         for (std::vector<std::vector<int> >::const_iterator cpu = cpuids_[i].begin(); cpu != cpuids_[i].end(); ++cpu) {
-            if (!stats_printed) {
+            if (print_stats) {
                 printf("[ ");
                 for (std::vector<int>::const_iterator t = (*cpu).begin(); t != (*cpu).end(); ++t)
                     printf("%d ", *t);
                 printf("] ");
             }
         }
-        if (!stats_printed)
+        if (print_stats)
               putchar('\n');
         nphycpus_ += cpuids_[i].size();
     }
-    if (!stats_printed)
+    if (print_stats)
        printf("%d physical cores total.\n", nphycpus_);
     int node_count = numa_max_node() + 1;
     for (int i = 0; i < node_count; ++i) {
         long fr;
         unsigned long sz = numa_node_size(i, &fr);
-        if (!stats_printed)
+        if (print_stats)
             printf("Node %d: %13lu Available %13ld Free\n", i, sz, fr);
     }
-    stats_printed = true;
+    print_stats = true;
     std::vector<std::vector<int>> cpu_map;
     cpu_map.resize(nnodes_);
     for (unsigned i = 0; i < (unsigned)nnodes_; i++) {

@@ -22,6 +22,7 @@ class ReliableRDMA : public BaseRDMA {
  public:
   ReliableRDMA();
   ReliableRDMA(size_t mem_size);
+  ReliableRDMA(size_t mem_size, int numaNode);
   ~ReliableRDMA();
 
   void initQPWithSuppliedID(const rdmaConnID suppliedID) override;
@@ -65,10 +66,17 @@ class ReliableRDMA : public BaseRDMA {
   void initQPForSRQWithSuppliedID(size_t srq_id, const rdmaConnID rdmaConnID);
   void initQPForSRQ(size_t srq_id, rdmaConnID& retRdmaConnID);
 
+  //remove these
   void receiveSRQ(size_t srq_id, const void* memAddr, size_t size);
   void pollReceiveSRQ(size_t srq_id, rdmaConnID& retrdmaConnID, bool& doPoll);
   int pollReceiveSRQ(size_t srq_id, rdmaConnID& retrdmaConnID, std::atomic<bool> & doPoll);
   int pollReceiveSRQ(size_t srq_id, rdmaConnID &retRdmaConnID, uint32_t *imm, atomic<bool> &doPoll);
+
+
+  void receiveSRQ(size_t srq_id, size_t memoryIndex ,const void* memAddr, size_t size);
+  int pollReceiveSRQ(size_t srq_id, rdmaConnID& retrdmaConnID, size_t& retMemoryIdx, std::atomic<bool>& doPoll);
+  int pollReceiveSRQ(size_t srq_id, rdmaConnID& retrdmaConnID, size_t& retMemoryIdx, uint32_t *imm, std::atomic<bool>& doPoll);
+
   void createSharedReceiveQueue(size_t& ret_srq_id);
 
  protected:
@@ -78,8 +86,7 @@ class ReliableRDMA : public BaseRDMA {
                size_t size, bool signaled, bool wait, enum ibv_wr_opcode verb,uint32_t * imm = nullptr) {
     DebugCode(
       if (memAddr < m_res.buffer || (char*)memAddr + size > (char*)m_res.buffer + m_res.mr->length) {
-        Logging::error(__FILE__, __LINE__,
-                        "Passed memAddr falls out of buffer addr space");
+        throw new runtime_error("Passed memAddr falls out of buffer addr space");
     })
 
     checkSignaled(signaled, rdmaConnID);
@@ -100,7 +107,7 @@ class ReliableRDMA : public BaseRDMA {
     sr.num_sge = 1;
     sr.opcode = verb;
     sr.next = nullptr;
-    sr.send_flags = (signaled) ? IBV_SEND_SIGNALED : 0;
+    sr.send_flags = ((signaled) ? IBV_SEND_SIGNALED : 0) | (size < Config::MAX_RC_INLINE_SEND && verb == IBV_WR_RDMA_WRITE ? IBV_SEND_INLINE: 0);
 
     // calculate remote address using offset in local buffer
     sr.wr.rdma.remote_addr = remoteConn.buffer + offset;

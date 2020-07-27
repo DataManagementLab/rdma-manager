@@ -22,13 +22,14 @@ namespace rdma {
 template <typename RDMA_API_T>
 class RDMAClient : public RDMA_API_T, public ProtoClient {
  protected:
-  RDMAClient(size_t mem_size, std::string name, std::string ownIpPort, NodeType::Enum nodeType) : RDMA_API_T(mem_size), m_name(name), m_ownIpPort(ownIpPort), m_nodeType(nodeType)
+  RDMAClient(size_t mem_size, std::string name, std::string ownIpPort, NodeType::Enum nodeType, int numaNode) : RDMA_API_T(mem_size, numaNode), m_name(name), m_ownIpPort(ownIpPort), m_nodeType(nodeType)
   {
   }
  public:
   RDMAClient() : RDMAClient(Config::RDMA_MEMSIZE) {}
   RDMAClient(size_t mem_size) : RDMAClient(mem_size, "RDMAClient") {}
-  RDMAClient(size_t mem_size, std::string name) : RDMAClient(mem_size, name, Config::getIP(Config::RDMA_INTERFACE), NodeType::Enum::CLIENT)
+  RDMAClient(size_t mem_size, std::string name) : RDMAClient(mem_size, name, (int)Config::RDMA_NUMAREGION) {}  
+  RDMAClient(size_t mem_size, std::string name, int numaNode) : RDMAClient(mem_size, name, Config::getIP(Config::RDMA_INTERFACE), NodeType::Enum::CLIENT, numaNode)
   {
   }
   
@@ -125,14 +126,14 @@ class RDMAClient : public RDMA_API_T, public ProtoClient {
           GetNodeIDForIpPortResponse connResponse;
           rcvAny.UnpackTo(&connResponse);
 
-          size_t retries = 150;
+          size_t retries = 50;
           size_t i = 0;
           while (i < retries && connResponse.return_() != MessageErrors::NO_ERROR)
           {
             ProtoClient::exchangeProtoMsg(m_sequencerIpPort, &getNodeIdReq, &rcvAny);
             rcvAny.UnpackTo(&connResponse);
             Logging::debug(__FILE__, __LINE__, "GetNodeIDForIpPortResponse returned an error: " + to_string(connResponse.return_()) + " retry " + to_string(i) + "/" + to_string(retries));
-            usleep(Config::RDMA_SLEEP_INTERVAL);
+            usleep(Config::RDMA_SLEEP_INTERVAL * i);
             ++i;
           }
 

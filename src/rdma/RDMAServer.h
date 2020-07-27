@@ -30,7 +30,9 @@ class RDMAServer : public ProtoServer, public RDMAClient<RDMA_API_T> {
   RDMAServer() : RDMAServer("RDMAserver"){}
   RDMAServer(string name) : RDMAServer(name, Config::RDMA_PORT){}
   RDMAServer(string name, int port) : RDMAServer(name, port, Config::RDMA_MEMSIZE){}
-  RDMAServer(string name, int port, uint64_t memsize) : ProtoServer(name, port), RDMAClient<RDMA_API_T>(memsize, name, Config::getIP(Config::RDMA_INTERFACE) + ":" + to_string(port), NodeType::Enum::SERVER)
+  RDMAServer(string name, int port, uint64_t memsize) : RDMAServer(name, port, memsize, (int)Config::RDMA_NUMAREGION) {}
+  RDMAServer(string name, int port, uint64_t memsize, int numaNode) 
+    : ProtoServer(name, port, Config::getIP(Config::RDMA_INTERFACE)), RDMAClient<RDMA_API_T>(memsize, name, Config::getIP(Config::RDMA_INTERFACE) + ":" + to_string(port), NodeType::Enum::SERVER, numaNode)
   {
     // if (!ProtoServer::isRunning())
     // {
@@ -43,10 +45,12 @@ class RDMAServer : public ProtoServer, public RDMAClient<RDMA_API_T> {
   // server methods
   bool startServer() override{
     if (!ProtoClient::isConnected(m_sequencerIpPort)) {
+      // std::cout << "RDMAServer requesting nodeid!" << std::endl;
       RDMAClient<RDMA_API_T>::m_ownNodeID = RDMAClient<RDMA_API_T>::requestNodeID(RDMAClient<RDMA_API_T>::m_sequencerIpPort, RDMAClient<RDMA_API_T>::m_ownIpPort, RDMAClient<RDMA_API_T>::m_nodeType);
     }
 
     if (ProtoServer::isRunning()) { 
+    // std::cout << "RDMAServer is running!!!" << std::endl;
       return true;
     }
       
@@ -55,7 +59,7 @@ class RDMAServer : public ProtoServer, public RDMAClient<RDMA_API_T> {
       Logging::error(__FILE__, __LINE__, "RDMAServer: could not be started");
       return false;
     }
-
+    // std::cout << "RDMAServer started!!!" << std::endl;
     Logging::debug(__FILE__, __LINE__, "RDMAServer: started server!");
     return true;
   }
