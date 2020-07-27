@@ -22,6 +22,7 @@ struct config_t {
 	size_t iter = 10000000;
 	size_t threads = 1;
 	size_t data = 2048;
+	size_t numa = 0;
 	string logfile;
 };
 
@@ -31,13 +32,12 @@ public:
 		// parse parameters
 		struct config_t config;
 		while (1) {
-			struct option long_options[] = { { "number", required_argument, 0,
-					'n' }, { "server", optional_argument, 0, 's' }, { "port",
-					optional_argument, 0, 'p' }, { "data", optional_argument, 0,
-					'd' }, { "threads", optional_argument, 0, 't' }, { "logfile", optional_argument, 0, 'f' }, 
-					{ "iterations", optional_argument, 0, 'i' } };
+			struct option long_options[] = {{ "number", required_argument, 0,'n' }, { "server", optional_argument, 0, 's' },
+											{ "port", optional_argument, 0, 'p' }, { "data", optional_argument, 0,'d' }, 
+											{ "threads", optional_argument, 0, 't' }, { "logfile", optional_argument, 0, 'f' }, 
+											{ "iterations", optional_argument, 0, 'i' },{ "numa_region", optional_argument, 0, 'r' } };
 
-			int c = getopt_long(argc, argv, "n:d:s:t:p:f:i:", long_options, NULL);
+			int c = getopt_long(argc, argv, "n:d:s:t:p:f:i:r:", long_options, NULL);
 			if (c == -1)
 				break;
 
@@ -62,6 +62,9 @@ public:
 				break;
 			case 'f':
 				config.logfile = string(optarg);
+				break;
+			case 'r':
+				config.numa = strtoul(optarg, NULL, 0);
 				break;
 			}
 		}

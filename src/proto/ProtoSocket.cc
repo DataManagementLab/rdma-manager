@@ -14,7 +14,6 @@ ProtoSocket::ProtoSocket(string addr, int port, int sockType)
   m_pSock->setsockopt(ZMQ_RCVHWM, &hwm, sizeof(hwm));
 
   if (m_sockType == ZMQ_SUB) m_pSock->setsockopt(ZMQ_SUBSCRIBE, NULL, 0);
-
   m_conn = "tcp://" + addr + ":" + to_string(port);
 }
 
