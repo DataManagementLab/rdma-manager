@@ -30,10 +30,11 @@ DEFINE_string(packetsize, "4096", "Packet size in bytes (multiples separated by 
 DEFINE_string(bufferslots, "16", "How many packets the buffer can hold (round-robin distribution of packets inside buffer | multiples separated by comma without space)");
 DEFINE_string(threads, "1", "How many individual clients connect to the server. Server has to run same number of threads (multiples separated by comma without space)");
 DEFINE_string(iterations, "500000", "Amount of test repeats (multiples separated by comma without space)");
-DEFINE_string(addr, "172.18.94.20", "Addresses of NodeIDSequencer to connect/bind to");
-DEFINE_int32(port, rdma::Config::RDMA_PORT, "RDMA port");
 DEFINE_bool(csv, false, "Results will be written into an automatically generated CSV file");
 DEFINE_string(csvfile, "", "Results will be written into a given CSV file");
+DEFINE_string(addr, "172.18.94.20", "Addresses of NodeIDSequencer to connect/bind to");
+DEFINE_int32(port, rdma::Config::RDMA_PORT, "RDMA port");
+DEFINE_string(writemode, "immediate", "Which RDMA write mode should be used. Possible values are 'immediate' where remote receives and completion entry after a write or 'normal' where remote possibly has constantly to pull the memory to detect changes (ignored by tests for atomics | multiples separated by comma without space)");
 DEFINE_bool(ignoreerrors, false, "If an error occurs test will be skiped and execution continues");
 
 enum TEST { BANDWIDTH_TEST, LATENCY_TEST, OPERATIONS_COUNT_TEST, ATOMICS_BANDWIDTH_TEST, ATOMICS_LATENCY_TEST, ATOMICS_OPERATIONS_COUNT_TEST };
