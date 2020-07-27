@@ -54,13 +54,15 @@ class ReliableRDMA : public BaseRDMA {
   /* Function: writeImm
    * ----------------
    * Writes data from a given array to the remote side. 
-   * In addition notifies receiver via the CompletionQueue with a value
+   * In addition notifies receiver via the CompletionQueue with a value.
+   * Therefore the remote must first post a receive() and then pollReceive() 
+   * to detect the writeImm().
    * 
    * rdmaConnID:  id of the remote
    * offset:      offset on the remote side where to start writing
    * memAddr:     address of the local array that should be transfered
    * size:        how many bytes should be transfered
-   * imm:         immediate value that receiver can read from CQ
+   * imm:         immediate value that receiver can retriev with pollReceive()
    * signaled:    if true the function blocks until the write request was
    *              processed by the NIC. Multiple writes can be called and 
    *              the last one should always be signaled=true.
@@ -104,6 +106,7 @@ class ReliableRDMA : public BaseRDMA {
    *              the last one should always be signaled=true. 
    *              At max Config::RDMA_MAX_WR fetches can be performed at once 
    *              without signaled=true.
+   * 
    */                 
   void fetchAndAdd(const rdmaConnID rdmaConnID, size_t offset,
                    const void* memAddr, size_t size, bool signaled);

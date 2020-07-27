@@ -385,7 +385,7 @@ void ReliableRDMA::receive(const rdmaConnID rdmaConnID, const void *memAddr,
                    "Passed memAddr falls out of buffer addr space");
   })
 
-      struct ib_qp_t localQP = m_qps[rdmaConnID];
+  struct ib_qp_t localQP = m_qps[rdmaConnID];
   struct ibv_sge sge;
   struct ibv_recv_wr wr;
   struct ibv_recv_wr *bad_wr;

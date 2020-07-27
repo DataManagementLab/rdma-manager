@@ -121,9 +121,23 @@ class BaseRDMA {
    * memAddr:     address of the local array where the received 
    *              data should be written into
    * size:        how many bytes are expected to receive
+   * 
    */
   virtual void receive(const rdmaConnID rdmaConnID, const void *memAddr,
                        size_t size) = 0;
+  
+  /* Function receiveWriteImm
+   * ----------------
+   * Must be called before remote calls writeImm().
+   * To wait until the actual write happended and to 
+   * receive the sent immediate value call pollReceive() afterwards.
+   * 
+   * rdmaConnID:  id of the remote
+   * 
+   */
+  void receiveWriteImm(const rdmaConnID rdmaConnID){
+    receive(rdmaConnID, nullptr, 0);
+  }
   
   /* Function: pollReceive
    * ----------------
@@ -132,9 +146,11 @@ class BaseRDMA {
    * rdmaConnID:  id of the remote
    * doPoll:      if true then function blocks until 
    *              data has arrived
+   * imm:         Pointer to variable where received immediate value
+   *              can be stored or nullptr (optional)
    * return:      how many receives arrived or zero
    */
-  virtual int pollReceive(const rdmaConnID rdmaConnID, bool doPoll = true,uint32_t* = nullptr) = 0;
+  virtual int pollReceive(const rdmaConnID rdmaConnID, bool doPoll = true, uint32_t* imm = nullptr) = 0;
   // virtual void pollReceive(const rdmaConnID rdmaConnID, uint32_t &ret_qp_num)
   // = 0;
 

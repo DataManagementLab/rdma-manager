@@ -34,7 +34,7 @@ DEFINE_bool(csv, false, "Results will be written into an automatically generated
 DEFINE_string(csvfile, "", "Results will be written into a given CSV file");
 DEFINE_string(addr, "172.18.94.20", "Addresses of NodeIDSequencer to connect/bind to");
 DEFINE_int32(port, rdma::Config::RDMA_PORT, "RDMA port");
-DEFINE_string(writemode, "immediate", "Which RDMA write mode should be used. Possible values are 'immediate' where remote receives and completion entry after a write or 'normal' where remote possibly has constantly to pull the memory to detect changes (ignored by tests for atomics | multiples separated by comma without space)");
+DEFINE_string(writemode, "auto", "Which RDMA write mode should be used. Possible values are 'immediate' where remote receives and completion entry after a write, 'normal' where remote possibly has to pull the memory constantly to detect changes, 'auto' which uses preferred (ignored by atomics tests | multiples separated by comma without space)");
 DEFINE_bool(ignoreerrors, false, "If an error occurs test will be skiped and execution continues");
 
 enum TEST { BANDWIDTH_TEST, LATENCY_TEST, OPERATIONS_COUNT_TEST, ATOMICS_BANDWIDTH_TEST, ATOMICS_LATENCY_TEST, ATOMICS_OPERATIONS_COUNT_TEST };
@@ -122,6 +122,7 @@ int main(int argc, char *argv[]){
     std::vector<int> bufferslots = parseIntList(FLAGS_bufferslots);
     std::vector<int> thread_counts = parseIntList(FLAGS_threads);
     std::vector<uint64_t> iteration_counts = parseUInt64List(FLAGS_iterations);
+    std::vector<std::string> writeModeNames = rdma::StringHelper::split(FLAGS_writemode);
     std::vector<std::string> addresses = rdma::StringHelper::split(FLAGS_addr);
 	for (auto &addr : addresses){
 		addr += ":" + to_string(FLAGS_port);
@@ -205,6 +206,7 @@ int main(int argc, char *argv[]){
         }
     }
 
+    // check CSV file
     std::string csvFileName = FLAGS_csvfile;
     if(FLAGS_csv && csvFileName.empty()){
         std::ostringstream oss;
@@ -220,19 +222,32 @@ int main(int argc, char *argv[]){
         csvFileName = oss.str();
     }
 
-    if(FLAGS_server){
-        // NodeIDSequencer (Server)
-		if (rdma::Config::getIP(rdma::Config::RDMA_INTERFACE) == rdma::Network::getAddressOfConnection(addresses[0])){
-			std::cout << "Starting NodeIDSequencer on " << rdma::Config::getIP(rdma::Config::RDMA_INTERFACE) << ":" << rdma::Config::SEQUENCER_PORT << std::endl;
-			new rdma::NodeIDSequencer();
-		}
-    }
-
+    // check CUDA support
     #ifndef CUDA_ENABLED /* defined in CMakeLists.txt to globally enable/disable CUDA support */
 		gpus.clear(); gpus.push_back(-1);
 	#endif
 
-    // parse test nams
+    // Parse write mode names
+    std::vector<rdma::WriteMode> write_modes;
+    auto writeModeIt = writeModeNames.begin();
+    while(writeModeIt != writeModeNames.end()){
+        std::string writeModeName = *writeModeIt;
+        if(writeModeName.length() == 0)
+            continue;
+        std::transform(writeModeName.begin(), writeModeName.end(), writeModeName.begin(), ::tolower);
+        if(std::string("automatic").rfind(writeModeName, 0) == 0 || std::string("preferred").rfind(writeModeName, 0) == 0 || std::string("default").rfind(writeModeName, 0) == 0){
+            write_modes.push_back(rdma::WRITE_MODE_AUTO);
+        } else if(std::string("normal").rfind(writeModeName, 0) == 0){
+            write_modes.push_back(rdma::WRITE_MODE_NORMAL);
+        } else  if(std::string("immediate").rfind(writeModeName, 0) == 0){
+            write_modes.push_back(rdma::WRITE_MODE_IMMEDIATE);
+        } else {
+            std::cerr << "No write mode with name '" << *writeModeIt << "' found" << std::endl;
+        }
+        writeModeIt++;
+    }
+
+    // Parse test names
     size_t testIterations = 0, testCounter = 0;
     std::vector<TEST> tests;
     auto testIt = testNames.begin();
@@ -246,14 +261,14 @@ int main(int argc, char *argv[]){
 
         if(std::string("bandwidth").rfind(testName, 0) == 0){
             tests.push_back(BANDWIDTH_TEST);
-            count *= packetsizes.size();
+            count *= packetsizes.size() * write_modes.size();
         } else if(std::string("latency").rfind(testName, 0) == 0){
             tests.push_back(LATENCY_TEST);
-            count *= packetsizes.size();
+            count *= packetsizes.size() * write_modes.size();
         } else if(std::string("operationscount").rfind(testName, 0) == 0 || std::string("operationcount").rfind(testName, 0) == 0 || 
                     std::string("ops").rfind(testName, 0) == 0){
             tests.push_back(OPERATIONS_COUNT_TEST);
-            count *= packetsizes.size();
+            count *= packetsizes.size() * write_modes.size();
         } else if(std::string("atomicsbandwidth").rfind(testName, 0) == 0 || std::string("atomicbandwidth").rfind(testName, 0) == 0){
             tests.push_back(ATOMICS_BANDWIDTH_TEST);
         } else if(std::string("atomicslatency").rfind(testName, 0) == 0 || std::string("atomiclatency").rfind(testName, 0) == 0){
@@ -271,7 +286,19 @@ int main(int argc, char *argv[]){
         testIt++;
     }
 
-     auto totalStart = rdma::PerfTest::startTimer();
+
+    // start NodeIDSequencer
+    if(FLAGS_server){
+        // NodeIDSequencer (Server)
+		if (rdma::Config::getIP(rdma::Config::RDMA_INTERFACE) == rdma::Network::getAddressOfConnection(addresses[0])){
+			std::cout << "Starting NodeIDSequencer on " << rdma::Config::getIP(rdma::Config::RDMA_INTERFACE) << ":" << rdma::Config::SEQUENCER_PORT << std::endl;
+			new rdma::NodeIDSequencer();
+		}
+    }
+
+
+    // EXECUTE TESTS
+    auto totalStart = rdma::PerfTest::startTimer();
     for(TEST &t : tests){
         for(int &gpu_index : gpus){
             for(int &thread_count : thread_counts){
@@ -307,27 +334,29 @@ int main(int argc, char *argv[]){
                             continue;
                         }
 
-                        csvAddHeader = true;
-                        for(uint64_t &packet_size : packetsizes){
-                            if(t == BANDWIDTH_TEST){
-                                // Bandwidth Test
-                                testName = "Bandwidth";
-                                test = new rdma::BandwidthPerfTest(FLAGS_server, addresses, FLAGS_port, gpu_index, thread_count, packet_size, buffer_slots, iterations_per_thread);
+                        for(rdma::WriteMode &write_mode : write_modes){
+                            csvAddHeader = true;
+                            for(uint64_t &packet_size : packetsizes){
+                                if(t == BANDWIDTH_TEST){
+                                    // Bandwidth Test
+                                    testName = "Bandwidth";
+                                    test = new rdma::BandwidthPerfTest(FLAGS_server, addresses, FLAGS_port, gpu_index, thread_count, packet_size, buffer_slots, iterations_per_thread);
 
-                            } else if(t == LATENCY_TEST){
-                                // Latency Test
-                                testName = "Latency";
-                                test = new rdma::LatencyPerfTest(FLAGS_server, addresses, FLAGS_port, gpu_index, thread_count, packet_size, buffer_slots, iterations_per_thread);
+                                } else if(t == LATENCY_TEST){
+                                    // Latency Test
+                                    testName = "Latency";
+                                    test = new rdma::LatencyPerfTest(FLAGS_server, addresses, FLAGS_port, gpu_index, thread_count, packet_size, buffer_slots, iterations_per_thread);
 
-                            } else if(t == OPERATIONS_COUNT_TEST){
-                                // Operations Count Test
-                                testName = "Operations Count";
-                                test = new rdma::OperationsCountPerfTest(FLAGS_server, addresses, FLAGS_port, gpu_index, thread_count, packet_size, buffer_slots, iterations_per_thread);
+                                } else if(t == OPERATIONS_COUNT_TEST){
+                                    // Operations Count Test
+                                    testName = "Operations Count";
+                                    test = new rdma::OperationsCountPerfTest(FLAGS_server, addresses, FLAGS_port, gpu_index, thread_count, packet_size, buffer_slots, iterations_per_thread, write_mode);
+                                }
+
+                                testCounter++;
+                                runTest(testCounter, testIterations, testName, test, csvFileName, csvAddHeader);
+                                csvAddHeader = false;
                             }
-
-                            testCounter++;
-                            runTest(testCounter, testIterations, testName, test, csvFileName, csvAddHeader);
-                            csvAddHeader = false;
                         }
                     }
                 }

@@ -13,7 +13,7 @@ condition_variable rdma::OperationsCountPerfTest::waitCv;
 bool rdma::OperationsCountPerfTest::signaled;
 rdma::TestMode rdma::OperationsCountPerfTest::testMode;
 
-rdma::OperationsCountPerfClientThread::OperationsCountPerfClientThread(BaseMemory *memory, std::vector<std::string>& rdma_addresses, size_t packet_size, int buffer_slots, size_t iterations, size_t max_rdma_wr_per_thread) {
+rdma::OperationsCountPerfClientThread::OperationsCountPerfClientThread(BaseMemory *memory, std::vector<std::string>& rdma_addresses, size_t packet_size, int buffer_slots, size_t iterations, size_t max_rdma_wr_per_thread, WriteMode write_mode) {
 	this->m_client = new RDMAClient<ReliableRDMA>(memory, "OperationsCountPerfTestClient");
 	this->m_rdma_addresses = rdma_addresses;
 	this->m_packet_size = packet_size;
@@ -21,6 +21,7 @@ rdma::OperationsCountPerfClientThread::OperationsCountPerfClientThread(BaseMemor
 	this->m_memory_size_per_thread = packet_size * buffer_slots;
 	this->m_iterations = iterations;
 	this->m_max_rdma_wr_per_thread = max_rdma_wr_per_thread;
+	this->m_write_mode = write_mode;
 	m_remOffsets = new size_t[m_rdma_addresses.size()];
 
 	for (size_t i = 0; i < m_rdma_addresses.size(); ++i) {
@@ -60,14 +61,47 @@ void rdma::OperationsCountPerfClientThread::run() {
 	}
 	lck.unlock();
 	int sendCounter = 0, receiveCounter = 0;
+	uint32_t localBaseOffset = (uint32_t)m_local_memory->getRootOffset();
 	auto start = rdma::PerfTest::startTimer();
 	switch(OperationsCountPerfTest::testMode){
 		case TEST_WRITE: // Write
-			for(size_t i = 0; i < m_iterations; i++){
-				size_t connIdx = i % m_rdma_addresses.size();
-				bool signaled = (i == (m_iterations - 1));
-				int offset = (i % m_buffer_slots) * m_packet_size;
-				m_client->write(m_addr[connIdx], m_remOffsets[connIdx]+offset, m_local_memory->pointer(offset), m_packet_size, signaled);
+			switch(m_write_mode){
+				case WRITE_MODE_NORMAL:
+					for(size_t i = 0; i < m_iterations; i++){
+						size_t connIdx = i % m_rdma_addresses.size();
+						bool signaled = (i == (m_iterations - 1));
+						int offset = (i % m_buffer_slots) * m_packet_size;
+						m_client->write(m_addr[connIdx], m_remOffsets[connIdx]+offset, m_local_memory->pointer(offset), m_packet_size, signaled);
+					}
+					break;
+				case WRITE_MODE_IMMEDIATE:
+					for(size_t i = 0; i < m_iterations; ){
+						int budgetS = m_iterations - i;
+						if(budgetS > (int)m_max_rdma_wr_per_thread){ budgetS = m_max_rdma_wr_per_thread; }
+
+						size_t fi = i + budgetS;
+						int budgetR = m_iterations - fi;
+						if(budgetR >(int)m_max_rdma_wr_per_thread){ budgetR = m_max_rdma_wr_per_thread; }
+
+						for(int j = 0; j < budgetR; j++){
+							m_client->receiveWriteImm(m_addr[(fi+j) % m_rdma_addresses.size()]);
+						}
+
+						for(int j = 0; j < budgetS; j++){
+							size_t connIdx = i % m_rdma_addresses.size();
+							int offset = (i % m_buffer_slots) * m_packet_size;
+							m_client->writeImm(m_addr[(i+j) % m_rdma_addresses.size()], m_remOffsets[connIdx]+offset, m_local_memory->pointer(offset), m_packet_size, localBaseOffset, (j+1)==budgetS);
+							//m_client->send(m_addr[(i+j) % m_rdma_addresses.size()], m_local_memory->pointer(sendOffset), m_packet_size, (j+1)==budgetS); // signaled: (j+1)==budget
+						}
+
+						for(int j = 0; j < budgetR; j++){
+							m_client->pollReceive(m_addr[(fi+j) % m_rdma_addresses.size()], true);
+						}
+
+						i += budgetS + budgetR;
+					}
+					break;
+				default: throw invalid_argument("OperationsCountPerfClientThread unknown write mode");
 			}
 			m_elapsedWrite = rdma::PerfTest::stopTimer(start);
 			break;
@@ -118,13 +152,14 @@ void rdma::OperationsCountPerfClientThread::run() {
 
 
 
-rdma::OperationsCountPerfServerThread::OperationsCountPerfServerThread(RDMAServer<ReliableRDMA> *server, size_t packet_size, int buffer_slots, size_t iterations, size_t max_rdma_wr_per_thread, int thread_id) {
+rdma::OperationsCountPerfServerThread::OperationsCountPerfServerThread(RDMAServer<ReliableRDMA> *server, size_t packet_size, int buffer_slots, size_t iterations, size_t max_rdma_wr_per_thread, WriteMode write_mode, int thread_id) {
 	this->m_server = server;
 	this->m_packet_size = packet_size;
 	this->m_buffer_slots = buffer_slots;
 	this->m_memory_size_per_thread = packet_size * buffer_slots;
 	this->m_iterations = iterations;
 	this->m_max_rdma_wr_per_thread = max_rdma_wr_per_thread;
+	this->m_write_mode = write_mode;
 	this->m_thread_id = thread_id;
 	this->m_local_memory = server->localMalloc(this->m_memory_size_per_thread * 2); // two chunks needed on local side for send & receive + one chunk by remote
 	this->m_local_memory->openContext();
@@ -148,57 +183,106 @@ void rdma::OperationsCountPerfServerThread::run() {
 	// Measure operations/s for receiving
 	//auto start = rdma::PerfTest::startTimer();
 	int sendCounter = 0, receiveCounter = 0, totalBudget = m_iterations;
-
-	// Calculate receive budget for even blocks
 	int budgetR = totalBudget;
-	if(budgetR > (int)m_max_rdma_wr_per_thread){ budgetR = m_max_rdma_wr_per_thread; }
-	totalBudget -= budgetR;
-	for(int j = 0; j < budgetR; j++){
-		// TODO REMOVE std::cout << "Send: " << (i+j) << std::endl; // TODO REMOVE
-		receiveCounter = (receiveCounter+1) % m_buffer_slots;
-		int receiveOffset = receiveCounter * m_packet_size;
-		m_server->receive(clientIds[m_thread_id], m_local_memory->pointer(receiveOffset), m_packet_size);
-	}
+	uint32_t remoteBaseOffset;
 
-	for(size_t i = budgetR; i < m_iterations; ){
+	switch(OperationsCountPerfTest::testMode){
+		case TEST_WRITE:
+			if(m_write_mode == WRITE_MODE_IMMEDIATE){
+				// Calculate receive budget for even blocks
+				if(budgetR > (int)m_max_rdma_wr_per_thread){ budgetR = m_max_rdma_wr_per_thread; }
+				totalBudget -= budgetR;
+				for(int j = 0; j < budgetR; j++){
+					m_server->receiveWriteImm(clientIds[m_thread_id]);
+				}
 
-		// Calculate send budget for odd blocks
-		int budgetS = totalBudget;
-		if(budgetS > (int)m_max_rdma_wr_per_thread){ budgetS = m_max_rdma_wr_per_thread; }
-		else if(budgetS < 0){ budgetS = 0; }
-		totalBudget -= budgetS;
+				for(size_t i = budgetR; i < m_iterations; ){
 
-		for(int j = 0; j < budgetR; j++){
-			m_server->pollReceive(clientIds[m_thread_id], true);
-		}
+					// Calculate send budget for odd blocks
+					int budgetS = totalBudget;
+					if(budgetS > (int)m_max_rdma_wr_per_thread){ budgetS = m_max_rdma_wr_per_thread; }
+					else if(budgetS < 0){ budgetS = 0; }
+					totalBudget -= budgetS;
 
-		// Calculate receive budget for even blocks
-		budgetR = totalBudget; 
-		if(budgetR > (int)m_max_rdma_wr_per_thread){ budgetR = m_max_rdma_wr_per_thread; }
-		else if(budgetR < 0){ budgetR = 0; }
-		totalBudget -= budgetR;
-		for(int j = 0; j < budgetR; j++){
-			// TODO REMOVE std::cout << "Send: " << (i+j) << std::endl; // TODO REMOVE
-			receiveCounter = (receiveCounter+1) % m_buffer_slots;
-			int receiveOffset = receiveCounter * m_packet_size;
-			m_server->receive(clientIds[m_thread_id], m_local_memory->pointer(receiveOffset), m_packet_size);
-		}
+					for(int j = 0; j < budgetR; j++){
+						m_server->pollReceive(clientIds[m_thread_id], true, &remoteBaseOffset);
+					}
 
-		for(int j = 0; j < budgetS; j++){
-			// TODO REMOVE std::cout << "Send: " << (i+j) << std::endl; // TODO REMOVE
-			sendCounter = (sendCounter+1) % m_buffer_slots;
-			int sendOffset = sendCounter * m_packet_size + m_memory_size_per_thread;
-			m_server->send(clientIds[m_thread_id], m_local_memory->pointer(sendOffset), m_packet_size, (j+1)==budgetS); // signaled: (j+1)==budget
-		}
+					// Calculate receive budget for even blocks
+					budgetR = totalBudget; 
+					if(budgetR > (int)m_max_rdma_wr_per_thread){ budgetR = m_max_rdma_wr_per_thread; }
+					else if(budgetR < 0){ budgetR = 0; }
+					totalBudget -= budgetR;
+					for(int j = 0; j < budgetR; j++){
+						m_server->receiveWriteImm(clientIds[m_thread_id]);
+					}
 
-		i += budgetR + budgetS;
+					for(int j = 0; j < budgetS; j++){
+						sendCounter = (sendCounter+1) % m_buffer_slots;
+						int sendOffset = sendCounter * m_packet_size + m_memory_size_per_thread;
+						uint32_t remoteOffset = remoteBaseOffset + sendCounter * m_packet_size; 
+						m_server->writeImm(clientIds[m_thread_id], remoteOffset, m_local_memory->pointer(sendOffset), m_packet_size, (uint32_t)(i+j), (j+1)==budgetS); // signaled: (j+1)==budget
+					}
+
+					i += budgetR + budgetS;
+				}
+			}
+			break;
+
+		case TEST_SEND_AND_RECEIVE:
+			// Calculate receive budget for even blocks
+			if(budgetR > (int)m_max_rdma_wr_per_thread){ budgetR = m_max_rdma_wr_per_thread; }
+			totalBudget -= budgetR;
+			for(int j = 0; j < budgetR; j++){
+				// TODO REMOVE std::cout << "Send: " << (i+j) << std::endl; // TODO REMOVE
+				receiveCounter = (receiveCounter+1) % m_buffer_slots;
+				int receiveOffset = receiveCounter * m_packet_size;
+				m_server->receive(clientIds[m_thread_id], m_local_memory->pointer(receiveOffset), m_packet_size);
+			}
+
+			for(size_t i = budgetR; i < m_iterations; ){
+
+				// Calculate send budget for odd blocks
+				int budgetS = totalBudget;
+				if(budgetS > (int)m_max_rdma_wr_per_thread){ budgetS = m_max_rdma_wr_per_thread; }
+				else if(budgetS < 0){ budgetS = 0; }
+				totalBudget -= budgetS;
+
+				for(int j = 0; j < budgetR; j++){
+					m_server->pollReceive(clientIds[m_thread_id], true);
+				}
+
+				// Calculate receive budget for even blocks
+				budgetR = totalBudget; 
+				if(budgetR > (int)m_max_rdma_wr_per_thread){ budgetR = m_max_rdma_wr_per_thread; }
+				else if(budgetR < 0){ budgetR = 0; }
+				totalBudget -= budgetR;
+				for(int j = 0; j < budgetR; j++){
+					// TODO REMOVE std::cout << "Send: " << (i+j) << std::endl; // TODO REMOVE
+					receiveCounter = (receiveCounter+1) % m_buffer_slots;
+					int receiveOffset = receiveCounter * m_packet_size;
+					m_server->receive(clientIds[m_thread_id], m_local_memory->pointer(receiveOffset), m_packet_size);
+				}
+
+				for(int j = 0; j < budgetS; j++){
+					// TODO REMOVE std::cout << "Send: " << (i+j) << std::endl; // TODO REMOVE
+					sendCounter = (sendCounter+1) % m_buffer_slots;
+					int sendOffset = sendCounter * m_packet_size + m_memory_size_per_thread;
+					m_server->send(clientIds[m_thread_id], m_local_memory->pointer(sendOffset), m_packet_size, (j+1)==budgetS); // signaled: (j+1)==budget
+				}
+
+				i += budgetR + budgetS;
+			}
+			break;
+
+			default: break;
 	}
 	//m_elapsedReceive = rdma::PerfTest::stopTimer(start);
 }
 
 
 
-rdma::OperationsCountPerfTest::OperationsCountPerfTest(bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, int gpu_index, int thread_count, uint64_t packet_size, int buffer_slots, uint64_t iterations) : PerfTest(){
+rdma::OperationsCountPerfTest::OperationsCountPerfTest(bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, int gpu_index, int thread_count, uint64_t packet_size, int buffer_slots, uint64_t iterations, WriteMode write_mode) : PerfTest(){
 	this->m_is_server = is_server;
 	this->m_rdma_port = rdma_port;
 	this->m_gpu_index = gpu_index;
@@ -207,6 +291,7 @@ rdma::OperationsCountPerfTest::OperationsCountPerfTest(bool is_server, std::vect
 	this->m_buffer_slots = buffer_slots;
 	this->m_memory_size = thread_count * packet_size * buffer_slots * 3; // 3x because for send + receive + write/read separat
 	this->m_iterations = iterations;
+	this->m_write_mode = (write_mode!=WRITE_MODE_AUTO ? write_mode : DEFAULT_WRITE_MODE);
 	this->m_rdma_addresses = rdma_addresses;
 }
 rdma::OperationsCountPerfTest::~OperationsCountPerfTest(){
@@ -223,17 +308,22 @@ rdma::OperationsCountPerfTest::~OperationsCountPerfTest(){
 	delete m_memory;
 }
 
-std::string rdma::OperationsCountPerfTest::getTestParameters(){
+std::string rdma::OperationsCountPerfTest::getTestParameters(bool forCSV){
 	std::ostringstream oss;
-	oss << (m_is_server ? "Server" : "Client") << ", threads=" << m_thread_count << ", bufferslots=" << m_buffer_slots << ", packetsize=" << m_packet_size << ", memory=";
-	oss << m_memory_size << " (2x " << m_thread_count << "x " << m_buffer_slots << "x " << m_packet_size << ") [";
+	oss << (m_is_server ? "Server" : "Client") << ", threads=" << m_thread_count << ", bufferslots=" << m_buffer_slots;
+	if(!forCSV){ oss << ", packetsize=" << m_packet_size; }
+	oss << ", memory=" << m_memory_size << " (2x " << m_thread_count << "x " << m_buffer_slots << "x " << m_packet_size << ") [";
 	if(m_gpu_index < 0){
 		oss << "MAIN";
 	} else {
 		oss << "GPU." << m_gpu_index; 
 	}
-	oss << " mem], iterations=" << (m_iterations*m_thread_count);
+	oss << " mem], iterations=" << (m_iterations*m_thread_count) << ", writemode=" << (m_write_mode==WRITE_MODE_NORMAL ? "Normal" : "Immediate");
 	return oss.str();
+}
+
+std::string rdma::OperationsCountPerfTest::getTestParameters(){
+	return getTestParameters(false);
 }
 
 void rdma::OperationsCountPerfTest::makeThreadsReady(TestMode testMode){
@@ -283,7 +373,7 @@ void rdma::OperationsCountPerfTest::setupTest(){
 		// Server
 		m_server = new RDMAServer<ReliableRDMA>("OperationsCountTestRDMAServer", m_rdma_port, m_memory);
 		for (int thread_id = 0; thread_id < m_thread_count; thread_id++) {
-			OperationsCountPerfServerThread* perfThread = new OperationsCountPerfServerThread(m_server, m_packet_size, m_buffer_slots, m_iterations, max_rdma_wr_per_thread, thread_id);
+			OperationsCountPerfServerThread* perfThread = new OperationsCountPerfServerThread(m_server, m_packet_size, m_buffer_slots, m_iterations, max_rdma_wr_per_thread, m_write_mode, thread_id);
 			m_server_threads.push_back(perfThread);
 		}
 		/* If server only allows to be single threaded
@@ -293,7 +383,7 @@ void rdma::OperationsCountPerfTest::setupTest(){
 	} else {
 		// Client
 		for (int i = 0; i < m_thread_count; i++) {
-			OperationsCountPerfClientThread* perfThread = new OperationsCountPerfClientThread(m_memory, m_rdma_addresses, m_packet_size, m_buffer_slots, m_iterations, max_rdma_wr_per_thread);
+			OperationsCountPerfClientThread* perfThread = new OperationsCountPerfClientThread(m_memory, m_rdma_addresses, m_packet_size, m_buffer_slots, m_iterations, max_rdma_wr_per_thread, m_write_mode);
 			m_client_threads.push_back(perfThread);
 		}
 	}
@@ -313,6 +403,11 @@ void rdma::OperationsCountPerfTest::runTest(){
 		// waiting until clients have connected
 		while(m_server->getConnectedConnIDs().size() < (size_t)m_thread_count) usleep(Config::RDMA_SLEEP_INTERVAL);
 
+		makeThreadsReady(TEST_WRITE); // receive
+		//auto startReceive = rdma::PerfTest::startTimer();
+        runThreads();
+		//m_elapsedReceive = rdma::PerfTest::stopTimer(startReceive);
+
 		makeThreadsReady(TEST_SEND_AND_RECEIVE); // receive
 		//auto startReceive = rdma::PerfTest::startTimer();
         runThreads();
@@ -327,6 +422,7 @@ void rdma::OperationsCountPerfTest::runTest(){
 
         // Measure operations/s for writing
 		makeThreadsReady(TEST_WRITE); // write
+		usleep(4 * Config::RDMA_SLEEP_INTERVAL); // let server first post the receives if writeImm
 		auto startWrite = rdma::PerfTest::startTimer();
         runThreads();
 		m_elapsedWrite = rdma::PerfTest::stopTimer(startWrite);
@@ -394,7 +490,7 @@ std::string rdma::OperationsCountPerfTest::getTestResults(std::string csvFileNam
 			std::ofstream ofs;
 			ofs.open(csvFileName, std::ofstream::out | std::ofstream::app);
 			if(csvAddHeader){
-				ofs << std::endl << "OPERATIONS PER SECOND, " << getTestParameters() << std::endl;
+				ofs << std::endl << "OPERATIONS PER SECOND, " << getTestParameters(true) << std::endl;
 				ofs << "PacketSize [Bytes], Write [megaOp/s], Read [megaOp/s], Send/Recv [megaOp/s], ";
 				ofs << "Min Write [megaOp/s], Min Read [megaOp/s], Min Send/Recv [megaOp/s], ";
 				ofs << "Max Write [megaOp/s], Max Read [megaOp/s], Max Send/Recv [megaOp/s], ";
@@ -437,7 +533,7 @@ std::string rdma::OperationsCountPerfTest::getTestResults(std::string csvFileNam
 
 		// generate result string
 		std::ostringstream oss;
-		oss << " measurement for sending is executed as alternating send/receive bursts with " << (Config::RDMA_MAX_WR/m_thread_count) << " operations per burst" << std::endl;
+		oss << " measurement for sending and writeImm is executed as alternating send/receive bursts with " << (Config::RDMA_MAX_WR/m_thread_count) << " operations per burst" << std::endl;
 		oss << " - Write:         operations = " << rdma::PerfTest::convertCountPerSec(totalItrs*tu/m_elapsedWrite); 
 		oss << "  (range = " << rdma::PerfTest::convertCountPerSec(itrs*tu/maxWrite) << " - " << rdma::PerfTest::convertCountPerSec(itrs*tu/minWrite);
 		oss << " ; avg=" << rdma::PerfTest::convertCountPerSec(itrs*tu/avgWrite) << " ; median=";
