@@ -60,7 +60,7 @@ void rdma::OperationsCountPerfClientThread::run() {
 		OperationsCountPerfTest::waitCv.wait(lck);
 	}
 	lck.unlock();
-	int sendCounter = 0, receiveCounter = 0, totalBudget = m_iterations, budgetR;
+	int sendCounter = 0, receiveCounter = 0, totalBudget = m_iterations;
 	uint32_t localBaseOffset = (uint32_t)m_local_memory->getRootOffset();
 	auto start = rdma::PerfTest::startTimer();
 	switch(OperationsCountPerfTest::testMode){
@@ -81,7 +81,7 @@ void rdma::OperationsCountPerfClientThread::run() {
 						totalBudget -= budgetS;
 
 						size_t fi = i + budgetS;
-						budgetR = totalBudget;
+						int budgetR = totalBudget;
 						if(budgetR >(int)m_max_rdma_wr_per_thread){ budgetR = m_max_rdma_wr_per_thread; }
 						totalBudget -= budgetR;
 
@@ -120,7 +120,7 @@ void rdma::OperationsCountPerfClientThread::run() {
 				totalBudget -= budgetS;
 
 				size_t fi = i + budgetS;
-				budgetR = totalBudget;
+				int budgetR = totalBudget;
 				if(budgetR >(int)m_max_rdma_wr_per_thread){ budgetR = m_max_rdma_wr_per_thread; }
 				totalBudget -= budgetR;
 
