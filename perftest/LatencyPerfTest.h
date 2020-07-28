@@ -18,7 +18,7 @@ namespace rdma {
 
 class LatencyPerfClientThread : public Thread {
 public:
-	LatencyPerfClientThread(BaseMemory *memory, std::vector<std::string>& rdma_addresses, size_t packet_size, int buffer_slots, size_t iterations);
+	LatencyPerfClientThread(BaseMemory *memory, std::vector<std::string>& rdma_addresses, size_t packet_size, int buffer_slots, size_t iterations, WriteMode write_mode);
 	~LatencyPerfClientThread();
 	void run();
 	bool ready() {
@@ -38,6 +38,7 @@ private:
 	int m_buffer_slots;
 	size_t m_memory_size_per_thread;
 	size_t m_iterations;
+	WriteMode m_write_mode;
 	std::vector<std::string> m_rdma_addresses;
 	std::vector<NodeID> m_addr;
 	size_t* m_remOffsets;
@@ -46,7 +47,7 @@ private:
 
 class LatencyPerfServerThread : public Thread {
 public:
-	LatencyPerfServerThread(RDMAServer<ReliableRDMA> *server, size_t packet_size, int buffer_slots, size_t iterations, int thread_id);
+	LatencyPerfServerThread(RDMAServer<ReliableRDMA> *server, size_t packet_size, int buffer_slots, size_t iterations, WriteMode write_mode, int thread_id);
 	~LatencyPerfServerThread();
 	void run();
 	bool ready(){
@@ -59,6 +60,7 @@ private:
 	int m_buffer_slots;
 	size_t m_memory_size_per_thread;
 	size_t m_iterations;
+	WriteMode m_write_mode;
 	int m_thread_id;
 	RDMAServer<ReliableRDMA> *m_server;
 	LocalBaseMemoryStub *m_local_memory;
@@ -67,12 +69,14 @@ private:
 
 class LatencyPerfTest : public rdma::PerfTest {
 public:
-    LatencyPerfTest(bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, int gpu_index, int thread_count, uint64_t packet_size, int buffer_slots, uint64_t iterations);
+    LatencyPerfTest(bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, int gpu_index, int thread_count, uint64_t packet_size, int buffer_slots, uint64_t iterations, WriteMode write_mode);
 	virtual ~LatencyPerfTest();
 	std::string getTestParameters();
 	void setupTest();
 	void runTest();
 	std::string getTestResults(std::string csvFileName="", bool csvAddHeader=true);
+
+	static const WriteMode DEFAULT_WRITE_MODE = WRITE_MODE_IMMEDIATE;
 
 	static mutex waitLock;
 	static condition_variable waitCv;
@@ -90,12 +94,14 @@ private:
 	int m_buffer_slots;
 	uint64_t m_memory_size;
 	uint64_t m_iterations;
+	WriteMode m_write_mode;
 	std::vector<LatencyPerfClientThread*> m_client_threads;
 	std::vector<LatencyPerfServerThread*> m_server_threads;
 
 	BaseMemory *m_memory;
 	RDMAServer<ReliableRDMA>* m_server;
 
+	std::string getTestParameters(bool forCSV);
 	void makeThreadsReady(TestMode testMode);
 	void runThreads();
 };

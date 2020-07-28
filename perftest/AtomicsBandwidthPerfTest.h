@@ -70,6 +70,7 @@ private:
 	BaseMemory *m_memory;
 	RDMAServer<ReliableRDMA>* m_server;
 
+	std::string getTestParameters(bool forCSV);
 	void makeThreadsReady(TestMode testMode);
 	void runThreads();
 };

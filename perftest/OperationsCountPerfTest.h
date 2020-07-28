@@ -14,10 +14,6 @@
 
 namespace rdma {
 
-
-static const WriteMode DEFAULT_WRITE_MODE = WRITE_MODE_NORMAL;
-
-
 class OperationsCountPerfClientThread : public Thread {
 public:
 	OperationsCountPerfClientThread(BaseMemory *memory, std::vector<std::string>& rdma_addresses, size_t packet_size, int buffer_slots, size_t iterations, size_t max_rdma_wr_per_thread, WriteMode write_mode);
@@ -78,6 +74,8 @@ public:
 	void setupTest();
 	void runTest();
 	std::string getTestResults(std::string csvFileName="", bool csvAddHeader=true);
+
+	static const WriteMode DEFAULT_WRITE_MODE = WRITE_MODE_NORMAL;
 
 	static mutex waitLock;
 	static condition_variable waitCv;

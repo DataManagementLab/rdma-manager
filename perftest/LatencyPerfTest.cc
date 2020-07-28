@@ -12,13 +12,14 @@ rdma::TestMode rdma::LatencyPerfTest::testMode;
 int rdma::LatencyPerfTest::thread_count;
 
 
-rdma::LatencyPerfClientThread::LatencyPerfClientThread(BaseMemory *memory, std::vector<std::string>& rdma_addresses, size_t packet_size, int buffer_slots, size_t iterations) {
+rdma::LatencyPerfClientThread::LatencyPerfClientThread(BaseMemory *memory, std::vector<std::string>& rdma_addresses, size_t packet_size, int buffer_slots, size_t iterations, WriteMode write_mode) {
 	this->m_client = new RDMAClient<ReliableRDMA>(memory, "LatencyPerfTestClient");
 	this->m_rdma_addresses = rdma_addresses;
 	this->m_packet_size = packet_size;
 	this->m_buffer_slots = buffer_slots;
 	this->m_memory_size_per_thread = packet_size * buffer_slots;
 	this->m_iterations = iterations;
+	this->m_write_mode = write_mode;
 	this->m_remOffsets = new size_t[m_rdma_addresses.size()];
 
 	this->m_arrWriteMs = new int64_t[iterations];
@@ -136,12 +137,13 @@ void rdma::LatencyPerfClientThread::run() {
 }
 
 
-rdma::LatencyPerfServerThread::LatencyPerfServerThread(RDMAServer<ReliableRDMA> *server, size_t packet_size, int buffer_slots, size_t iterations, int thread_id) {
+rdma::LatencyPerfServerThread::LatencyPerfServerThread(RDMAServer<ReliableRDMA> *server, size_t packet_size, int buffer_slots, size_t iterations, WriteMode write_mode, int thread_id) {
 	this->m_server = server;
 	this->m_packet_size = packet_size;
 	this->m_buffer_slots = buffer_slots;
 	this->m_memory_size_per_thread = packet_size * buffer_slots;
 	this->m_iterations = iterations;
+	this->m_write_mode = write_mode;
 	this->m_thread_id = thread_id;
 	this->m_local_memory = server->localMalloc(this->m_memory_size_per_thread);
 	this->m_local_memory->openContext();
@@ -201,7 +203,7 @@ void rdma::LatencyPerfServerThread::run() {
 
 
 
-rdma::LatencyPerfTest::LatencyPerfTest(bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, int gpu_index, int thread_count, uint64_t packet_size, int buffer_slots, uint64_t iterations) : PerfTest(){
+rdma::LatencyPerfTest::LatencyPerfTest(bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, int gpu_index, int thread_count, uint64_t packet_size, int buffer_slots, uint64_t iterations, WriteMode write_mode) : PerfTest(){
 	this->m_is_server = is_server;
 	this->m_rdma_port = rdma_port;
 	this->m_gpu_index = gpu_index;
@@ -210,6 +212,7 @@ rdma::LatencyPerfTest::LatencyPerfTest(bool is_server, std::vector<std::string> 
 	this->m_buffer_slots = buffer_slots;
 	this->m_memory_size = thread_count * packet_size * buffer_slots * 2; // two times because send & receive
 	this->m_iterations = iterations;
+	this->m_write_mode = (write_mode!=WRITE_MODE_AUTO ? write_mode : rdma::LatencyPerfTest::DEFAULT_WRITE_MODE);
 	this->m_rdma_addresses = rdma_addresses;
 }
 rdma::LatencyPerfTest::~LatencyPerfTest(){
@@ -226,17 +229,21 @@ rdma::LatencyPerfTest::~LatencyPerfTest(){
 	delete m_memory;
 }
 
-std::string rdma::LatencyPerfTest::getTestParameters(){
+std::string rdma::LatencyPerfTest::getTestParameters(bool forCSV){
 	std::ostringstream oss;
-	oss << (m_is_server ? "Server" : "Client") << ", threads=" << thread_count << ", bufferslots=" << m_buffer_slots << ", packetsize=" << m_packet_size << ", memory=";
-	oss << m_memory_size << " (2x " << thread_count << "x " << m_buffer_slots << "x " << m_packet_size << ") [";
+	oss << (m_is_server ? "Server" : "Client") << ", threads=" << thread_count << ", bufferslots=" << m_buffer_slots;
+	if(!forCSV){ oss << ", packetsize=" << m_packet_size; }
+	oss << ", memory=" << m_memory_size << " (2x " << thread_count << "x " << m_buffer_slots << "x " << m_packet_size << ") [";
 	if(m_gpu_index < 0){
 		oss << "MAIN";
 	} else {
 		oss << "GPU." << m_gpu_index; 
 	}
-	oss << " mem], iterations=" << (m_iterations*thread_count);
+	oss << " mem], iterations=" << (m_iterations*thread_count) << ", writemode=" << (m_write_mode==WRITE_MODE_NORMAL ? "Normal" : "Immediate");
 	return oss.str();
+}
+std::string rdma::LatencyPerfTest::getTestParameters(){
+	return getTestParameters(false);
 }
 
 void rdma::LatencyPerfTest::makeThreadsReady(TestMode testMode){
@@ -281,14 +288,14 @@ void rdma::LatencyPerfTest::setupTest(){
 		// Server
 		m_server = new RDMAServer<ReliableRDMA>("LatencyTestRDMAServer", m_rdma_port, m_memory);
 		for (int thread_id = 0; thread_id < thread_count; thread_id++) {
-			LatencyPerfServerThread* perfThread = new LatencyPerfServerThread(m_server, m_packet_size, m_buffer_slots, m_iterations, thread_id);
+			LatencyPerfServerThread* perfThread = new LatencyPerfServerThread(m_server, m_packet_size, m_buffer_slots, m_iterations, m_write_mode, thread_id);
 			m_server_threads.push_back(perfThread);
 		}
 
 	} else {
 		// Client
 		for (int i = 0; i < thread_count; i++) {
-			LatencyPerfClientThread* perfThread = new LatencyPerfClientThread(m_memory, m_rdma_addresses, m_packet_size, m_buffer_slots, m_iterations);
+			LatencyPerfClientThread* perfThread = new LatencyPerfClientThread(m_memory, m_rdma_addresses, m_packet_size, m_buffer_slots, m_iterations, m_write_mode);
 			m_client_threads.push_back(perfThread);
 		}
 	}
@@ -383,7 +390,7 @@ std::string rdma::LatencyPerfTest::getTestResults(std::string csvFileName, bool 
 			std::ofstream ofs;
 			ofs.open(csvFileName, std::ofstream::out | std::ofstream::app);
 			if(csvAddHeader){
-				ofs << std::endl << "LATENCY, " << getTestParameters() << std::endl;
+				ofs << std::endl << "LATENCY, " << getTestParameters(true) << std::endl;
 				ofs << "PacketSize [Bytes], Avg Write [usec], Avg Read [usec], Avg Send/Recv [usec], ";
 				ofs << "Median Write [usec], Median Read [usec], Median Send/Recv [usec], ";
 				ofs << "Min Write [usec], Min Read [usec], Min Send/Recv [usec], ";

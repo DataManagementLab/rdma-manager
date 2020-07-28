@@ -104,7 +104,7 @@ rdma::AtomicsOperationsCountPerfTest::~AtomicsOperationsCountPerfTest(){
 	delete m_memory;
 }
 
-std::string rdma::AtomicsOperationsCountPerfTest::getTestParameters(){
+std::string rdma::AtomicsOperationsCountPerfTest::getTestParameters(bool forCSV){
 	std::ostringstream oss;
 	const int packetsize = rdma::ATOMICS_SIZE*8;
 	oss << (m_is_server ? "Server" : "Client") << ", threads=" << m_thread_count << ", bufferslots=" << m_buffer_slots << ", packetsize=" << packetsize << "bit, memory=";
@@ -115,10 +115,13 @@ std::string rdma::AtomicsOperationsCountPerfTest::getTestParameters(){
 		oss << "GPU." << m_gpu_index; 
 	}
 	oss << " mem], packetsize=" << (rdma::ATOMICS_SIZE*8) << "bits";
-	if(!m_is_server){
+	if(!forCSV){
 		oss << ", iterations=" << (m_iterations*m_thread_count);
 	}
 	return oss.str();
+}
+std::string rdma::AtomicsOperationsCountPerfTest::getTestParameters(){
+	return getTestParameters(false);
 }
 
 void rdma::AtomicsOperationsCountPerfTest::makeThreadsReady(TestMode testMode){
@@ -239,7 +242,7 @@ std::string rdma::AtomicsOperationsCountPerfTest::getTestResults(std::string csv
 			std::ofstream ofs;
 			ofs.open(csvFileName, std::ofstream::out | std::ofstream::app);
 			if(csvAddHeader){
-				ofs << std::endl << "ATOMICS OPERATIONS PER SECOND, " << getTestParameters() << std::endl;
+				ofs << std::endl << "ATOMICS OPERATIONS PER SECOND, " << getTestParameters(true) << std::endl;
 				ofs << "Iterations, Fetch&Add [megaOp/s], Comp&Swap [megaOp/s], Min Fetch&Add [megaOp/s], Min Comp&Swap [megaOp/s], ";
 				ofs << "Max Fetch&Add [megaOp/s], Max Comp&Swap [megaOp/s], Avg Fetch&Add [megaOp/s], Avg Comp&Swap [megaOp/s], ";
 				ofs << "Median Fetch&Add [megaOp/s], Median Comp&Swap [megaOp/s], Fetch&Add [Sec], Comp&Swap [Sec], ";

@@ -340,12 +340,12 @@ int main(int argc, char *argv[]){
                                 if(t == BANDWIDTH_TEST){
                                     // Bandwidth Test
                                     testName = "Bandwidth";
-                                    test = new rdma::BandwidthPerfTest(FLAGS_server, addresses, FLAGS_port, gpu_index, thread_count, packet_size, buffer_slots, iterations_per_thread);
+                                    test = new rdma::BandwidthPerfTest(FLAGS_server, addresses, FLAGS_port, gpu_index, thread_count, packet_size, buffer_slots, iterations_per_thread, write_mode);
 
                                 } else if(t == LATENCY_TEST){
                                     // Latency Test
                                     testName = "Latency";
-                                    test = new rdma::LatencyPerfTest(FLAGS_server, addresses, FLAGS_port, gpu_index, thread_count, packet_size, buffer_slots, iterations_per_thread);
+                                    test = new rdma::LatencyPerfTest(FLAGS_server, addresses, FLAGS_port, gpu_index, thread_count, packet_size, buffer_slots, iterations_per_thread, write_mode);
 
                                 } else if(t == OPERATIONS_COUNT_TEST){
                                     // Operations Count Test

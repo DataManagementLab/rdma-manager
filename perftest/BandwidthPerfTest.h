@@ -16,7 +16,7 @@ namespace rdma {
 
 class BandwidthPerfClientThread : public Thread {
 public:
-	BandwidthPerfClientThread(BaseMemory *memory, std::vector<std::string>& rdma_addresses, size_t packet_size, int buffer_slots, size_t iterations, size_t max_rdma_wr_per_thread);
+	BandwidthPerfClientThread(BaseMemory *memory, std::vector<std::string>& rdma_addresses, size_t packet_size, int buffer_slots, size_t iterations, size_t max_rdma_wr_per_thread, WriteMode write_mode);
 	~BandwidthPerfClientThread();
 	void run();
 	bool ready() {
@@ -36,6 +36,7 @@ private:
 	size_t m_memory_size_per_thread;
 	size_t m_iterations;
 	size_t m_max_rdma_wr_per_thread;
+	WriteMode m_write_mode;
 	std::vector<std::string> m_rdma_addresses;
 	std::vector<NodeID> m_addr;
 	size_t* m_remOffsets;
@@ -44,7 +45,7 @@ private:
 
 class BandwidthPerfServerThread : public Thread {
 public:
-	BandwidthPerfServerThread(RDMAServer<ReliableRDMA> *server, size_t packet_size, int buffer_slots, size_t iterations, size_t max_rdma_wr_per_thread, int thread_id);
+	BandwidthPerfServerThread(RDMAServer<ReliableRDMA> *server, size_t packet_size, int buffer_slots, size_t iterations, size_t max_rdma_wr_per_thread, WriteMode write_mode, int thread_id);
 	~BandwidthPerfServerThread();
 	void run();
 	bool ready(){
@@ -58,6 +59,7 @@ private:
 	size_t m_memory_size_per_thread;
 	size_t m_iterations;
 	size_t m_max_rdma_wr_per_thread;
+	WriteMode m_write_mode;
 	int m_thread_id;
 	RDMAServer<ReliableRDMA> *m_server;
 	LocalBaseMemoryStub *m_local_memory;
@@ -66,12 +68,14 @@ private:
 
 class BandwidthPerfTest : public rdma::PerfTest {
 public:
-	BandwidthPerfTest(bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, int gpu_index, int thread_count, uint64_t packet_size, int buffer_slots, uint64_t iterations);
+	BandwidthPerfTest(bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, int gpu_index, int thread_count, uint64_t packet_size, int buffer_slots, uint64_t iterations, WriteMode write_mode);
 	virtual ~BandwidthPerfTest();
 	std::string getTestParameters();
 	void setupTest();
 	void runTest();
 	std::string getTestResults(std::string csvFileName="", bool csvAddHeader=true);
+
+	static const WriteMode DEFAULT_WRITE_MODE = WRITE_MODE_NORMAL;
 
 	static mutex waitLock;
 	static condition_variable waitCv;
@@ -89,6 +93,7 @@ private:
 	int m_buffer_slots;
 	uint64_t m_memory_size;
 	uint64_t m_iterations;
+	WriteMode m_write_mode;
 	std::vector<BandwidthPerfClientThread*> m_client_threads;
 	std::vector<BandwidthPerfServerThread*> m_server_threads;
 	int64_t m_elapsedWriteMs;
@@ -98,6 +103,7 @@ private:
 	BaseMemory *m_memory;
 	RDMAServer<ReliableRDMA>* m_server;
 
+	std::string getTestParameters(bool forCSV);
 	void makeThreadsReady(TestMode testMode);
 	void runThreads();
 };
