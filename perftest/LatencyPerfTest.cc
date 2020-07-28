@@ -119,7 +119,6 @@ void rdma::LatencyPerfClientThread::run() {
 					break;
 				default: throw invalid_argument("LatencyPerfClientThread unknown write mode"); 
 			}
-			std::cout << std::endl << "WRITE DONE" << std::endl << std::endl; // TODO REMOVE
 			break;
 
 		case TEST_READ: // Read
