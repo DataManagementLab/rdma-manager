@@ -456,7 +456,7 @@ std::string rdma::LatencyPerfTest::getTestResults(std::string csvFileName, bool 
 			ofs << (round(minWriteMs/ustu * 10)/10.0) << ", " << (round(minReadMs/ustu * 10)/10.0) << ", "; // min write, read us
 			ofs << (round(minSendMs/ustu * 10)/10.0) << ", "; // min send us
 			ofs << (round(maxWriteMs/ustu * 10)/10.0) << ", " << (round(maxReadMs/ustu * 10)/10.0) << ", "; // max write, read us
-			ofs << (round(maxSendMs/ustu * 10)/10.0) << ", " << std::endl; // max send us
+			ofs << (round(maxSendMs/ustu * 10)/10.0) << std::endl; // max send us
 			ofs.close();
 		}
 
