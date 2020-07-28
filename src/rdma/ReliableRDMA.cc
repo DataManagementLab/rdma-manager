@@ -419,7 +419,7 @@ int ReliableRDMA::pollReceive(const rdmaConnID rdmaConnID, bool doPoll,uint32_t*
     ne = ibv_poll_cq(localQP.recv_cq, 1, &wc);
 
     if (wc.status != IBV_WC_SUCCESS) {
-      throw runtime_error("RDMA completion event in CQ with error! " +
+      throw runtime_error("RDMA completion event in CQ with error in pollReceive()! " +
                           to_string(wc.status));
     }
   } while (ne == 0 && doPoll);

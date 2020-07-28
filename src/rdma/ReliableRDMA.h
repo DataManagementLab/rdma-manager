@@ -293,7 +293,7 @@ class ReliableRDMA : public BaseRDMA {
         wc.status = IBV_WC_SUCCESS;
         ne = ibv_poll_cq(localQP.send_cq, 1, &wc);
         if (wc.status != IBV_WC_SUCCESS) {
-          throw runtime_error("RDMA completion event in CQ with error! " +
+          throw runtime_error("RDMA completion event in CQ with error in remoteAccess()! " +
                              to_string(wc.status));
         }
 

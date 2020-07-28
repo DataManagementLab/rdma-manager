@@ -219,14 +219,14 @@ std::string rdma::AtomicsLatencyPerfTest::getTestResults(std::string csvFileName
 		int64_t mediansFetchAddNs[m_thread_count], mediansCompareSwapNs[m_thread_count];
 
 		for(size_t i=0; i<m_client_threads.size(); i++){
-			long double itr = (long double)m_iterations;
+			long double div = (long double)m_iterations / (long double)m_thread_count;
 			AtomicsLatencyPerfClientThread *thr = m_client_threads[i];
 			if(minFetchAddMs > thr->m_minFetchAddMs) minFetchAddMs = thr->m_minFetchAddMs;
 			if(maxFetchAddMs < thr->m_maxFetchAddMs) maxFetchAddMs = thr->m_maxFetchAddMs;
-			avgFetchAddMs += thr->m_sumFetchAddMs / itr;
+			avgFetchAddMs += thr->m_sumFetchAddMs / div;
 			if(minCompareSwapMs > thr->m_minCompareSwapMs) minCompareSwapMs = thr->m_minCompareSwapMs;
 			if(maxCompareSwapMs < thr->m_maxCompareSwapMs) maxCompareSwapMs = thr->m_maxCompareSwapMs;
-			avgCompareSwapMs += thr->m_sumCompareSwapMs / itr;
+			avgCompareSwapMs += thr->m_sumCompareSwapMs / div;
 			
 			std::sort(thr->m_arrFetchAddMs, thr->m_arrFetchAddMs + m_iterations);
 			mediansFetchAddNs[i] = thr->m_arrFetchAddMs[(int)(m_iterations/2)];
@@ -234,9 +234,14 @@ std::string rdma::AtomicsLatencyPerfTest::getTestResults(std::string csvFileName
 			mediansCompareSwapNs[i] = thr->m_arrCompareSwapMs[(int)(m_iterations/2)];
 		}
 		std::sort(mediansFetchAddNs, mediansFetchAddNs + m_thread_count);
-		medianFetchAddMs = mediansFetchAddNs[(int)(m_thread_count/2)];
+		medianFetchAddMs = mediansFetchAddNs[(int)(m_thread_count/2)] / (long double)m_thread_count;
 		std::sort(mediansCompareSwapNs, mediansCompareSwapNs + m_thread_count);
-		medianCompareSwapMs = mediansCompareSwapNs[(int)(m_thread_count/2)];
+		medianCompareSwapMs = mediansCompareSwapNs[(int)(m_thread_count/2)] / (long double)m_thread_count;
+
+		minFetchAddMs /= (long double)m_thread_count;
+		maxFetchAddMs /= (long double)m_thread_count;
+		minCompareSwapMs /= (long double)m_thread_count;
+		maxCompareSwapMs /= (long double)m_thread_count;
 
 		// write results into CSV file
 		if(!csvFileName.empty()){
