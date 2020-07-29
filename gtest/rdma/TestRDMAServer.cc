@@ -176,6 +176,41 @@ TEST_F(TestRDMAServer, testAtomics) {
 
   //remote free
   ASSERT_TRUE(m_rdmaClient->remoteFree(m_connection, memSize, remoteOffset));
+}
+
+
+TEST_F(TestRDMAServer, testAtomicsRepeatedly) {
+  size_t remoteOffset = 0;
+  size_t memSize = sizeof(int64_t);
+  int iterations = 2*Config::RDMA_MAX_WR; 
+
+  //allocate local array
+  int64_t* localValues = (int64_t*) m_rdmaClient->localAlloc(memSize);
+  ASSERT_TRUE(localValues!=nullptr);
+
+  //remote allocate array
+  ASSERT_TRUE(
+      m_rdmaClient->remoteAlloc(m_connection, memSize, remoteOffset));
+
+  //write to remote machine
+  localValues[0] = 1;
+  for(int i = 0; i < iterations; i++)
+    ASSERT_NO_THROW(m_rdmaClient->fetchAndAdd(m_nodeId,remoteOffset,localValues, sizeof(uint64_t), true));
+
+
+  int* remoteVals = (int*) m_rdmaServer->getBuffer(remoteOffset);
+
+  ASSERT_EQ(remoteVals[0], iterations);
+  
+  // Compare and swap to zero
+  for(int i = 0; i < iterations; i++){
+    int comp = iterations-i, swap = comp-1;
+    ASSERT_NO_THROW(m_rdmaClient->compareAndSwap(m_nodeId,remoteOffset,localValues,comp,swap, sizeof(uint64_t), true));
+    ASSERT_EQ(remoteVals[0], swap);
+  }
+
+  //remote free
+  ASSERT_TRUE(m_rdmaClient->remoteFree(m_connection, memSize, remoteOffset));
 } 
 
 
