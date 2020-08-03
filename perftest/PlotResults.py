@@ -55,7 +55,7 @@ def plotAtomicsOperationsCount(test_params, test_columns):
 
 
 def plotTestValues(test_name: str, test_params: [[str]], test_columns: {}):
-    test = str(test_name).strip().lower()
+    test = str(test_name).strip().replace(" ", "").lower()
     if test == "bandwidth":
         plotBandwidth(test_params, test_columns)
     elif test == "latency":

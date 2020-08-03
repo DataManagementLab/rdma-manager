@@ -242,7 +242,7 @@ std::string rdma::AtomicsOperationsCountPerfTest::getTestResults(std::string csv
 			std::ofstream ofs;
 			ofs.open(csvFileName, std::ofstream::out | std::ofstream::app);
 			if(csvAddHeader){
-				ofs << std::endl << "ATOMICS OPERATIONS PER SECOND, " << getTestParameters(true) << std::endl;
+				ofs << std::endl << "ATOMICS OPERATIONS COUNT, " << getTestParameters(true) << std::endl;
 				ofs << "Iterations, Fetch&Add [megaOp/s], Comp&Swap [megaOp/s], Min Fetch&Add [megaOp/s], Min Comp&Swap [megaOp/s], ";
 				ofs << "Max Fetch&Add [megaOp/s], Max Comp&Swap [megaOp/s], Avg Fetch&Add [megaOp/s], Avg Comp&Swap [megaOp/s], ";
 				ofs << "Median Fetch&Add [megaOp/s], Median Comp&Swap [megaOp/s], Fetch&Add [Sec], Comp&Swap [Sec], ";
