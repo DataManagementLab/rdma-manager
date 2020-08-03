@@ -41,7 +41,7 @@ private:
 
 class AtomicsOperationsCountPerfTest : public rdma::PerfTest {
 public:
-	AtomicsOperationsCountPerfTest(bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, int gpu_index, int thread_count, int buffer_slots, uint64_t iterations);
+	AtomicsOperationsCountPerfTest(bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, int local_gpu_index, int remote_gpu_index, int thread_count, int buffer_slots, uint64_t iterations);
 	virtual ~AtomicsOperationsCountPerfTest();
 	std::string getTestParameters();
 	void setupTest();
@@ -58,7 +58,8 @@ private:
 	NodeIDSequencer *m_nodeIDSequencer;
 	std::vector<std::string> m_rdma_addresses;
 	int m_rdma_port;
-	int m_gpu_index;
+	int m_local_gpu_index;
+	int m_remote_gpu_index;
 	int m_thread_count;
 	uint64_t m_memory_size;
 	int m_buffer_slots;

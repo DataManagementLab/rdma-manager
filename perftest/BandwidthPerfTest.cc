@@ -278,10 +278,11 @@ void rdma::BandwidthPerfServerThread::run() {
 
 
 
-rdma::BandwidthPerfTest::BandwidthPerfTest(bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, int gpu_index, int thread_count, uint64_t packet_size, int buffer_slots, uint64_t iterations, WriteMode write_mode) : PerfTest(){
+rdma::BandwidthPerfTest::BandwidthPerfTest(bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, int local_gpu_index, int remote_gpu_index, int thread_count, uint64_t packet_size, int buffer_slots, uint64_t iterations, WriteMode write_mode) : PerfTest(){
 	this->m_is_server = is_server;
 	this->m_rdma_port = rdma_port;
-	this->m_gpu_index = gpu_index;
+	this->m_local_gpu_index = local_gpu_index;
+	this->m_remote_gpu_index = remote_gpu_index;
 	this->m_thread_count = thread_count;
 	this->m_packet_size = packet_size;
 	this->m_buffer_slots = buffer_slots;
@@ -308,13 +309,9 @@ std::string rdma::BandwidthPerfTest::getTestParameters(bool forCSV){
 	std::ostringstream oss;
 	oss << (m_is_server ? "Server" : "Client") << ", threads=" << m_thread_count << ", bufferslots=" << m_buffer_slots;
 	if(!forCSV){ oss << ", packetsize=" << m_packet_size; }
-	oss << ", memory=" << m_memory_size << " (2x " << m_thread_count << "x " << m_buffer_slots << "x " << m_packet_size << ") [";
-	if(m_gpu_index < 0){
-		oss << "MAIN";
-	} else {
-		oss << "GPU." << m_gpu_index; 
-	}
-	oss << " mem], iterations=" << (m_iterations*m_thread_count) << ", writemode=" << (m_write_mode==WRITE_MODE_NORMAL ? "Normal" : "Immediate");
+	oss << ", memory=" << m_memory_size << " (2x " << m_thread_count << "x " << m_buffer_slots << "x " << m_packet_size << ")";
+	oss << ", memory_type=" << getMemoryName(m_local_gpu_index) << (m_remote_gpu_index!=-404 ? "->"+getMemoryName(m_remote_gpu_index) : "");
+	oss << ", iterations=" << (m_iterations*m_thread_count) << ", writemode=" << (m_write_mode==WRITE_MODE_NORMAL ? "Normal" : "Immediate");
 	return oss.str();
 }
 std::string rdma::BandwidthPerfTest::getTestParameters(){
@@ -357,7 +354,7 @@ void rdma::BandwidthPerfTest::setupTest(){
 	m_elapsedReadMs = -1;
 	m_elapsedSendMs = -1;
 	#ifdef CUDA_ENABLED /* defined in CMakeLists.txt to globally enable/disable CUDA support */
-		m_memory = (m_gpu_index<0 ? (rdma::BaseMemory*)new rdma::MainMemory(m_memory_size) : (rdma::BaseMemory*)new rdma::CudaMemory(m_memory_size, m_gpu_index));
+		m_memory = (m_local_gpu_index<=-3 ? (rdma::BaseMemory*)new rdma::MainMemory(m_memory_size) : (rdma::BaseMemory*)new rdma::CudaMemory(m_memory_size, m_local_gpu_index));
 	#else
 		m_memory = (rdma::BaseMemory*)new MainMemory(m_memory_size);
 	#endif

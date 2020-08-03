@@ -69,7 +69,7 @@ private:
 
 class LatencyPerfTest : public rdma::PerfTest {
 public:
-    LatencyPerfTest(bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, int gpu_index, int thread_count, uint64_t packet_size, int buffer_slots, uint64_t iterations, WriteMode write_mode);
+    LatencyPerfTest(bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, int local_gpu_index, int remote_gpu_index, int thread_count, uint64_t packet_size, int buffer_slots, uint64_t iterations, WriteMode write_mode);
 	virtual ~LatencyPerfTest();
 	std::string getTestParameters();
 	void setupTest();
@@ -89,7 +89,8 @@ private:
 	NodeIDSequencer *m_nodeIDSequencer;
 	std::vector<std::string> m_rdma_addresses;
 	int m_rdma_port;
-	int m_gpu_index;
+	int m_local_gpu_index;
+	int m_remote_gpu_index;
 	uint64_t m_packet_size;
 	int m_buffer_slots;
 	uint64_t m_memory_size;

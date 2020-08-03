@@ -95,10 +95,11 @@ void rdma::AtomicsLatencyPerfClientThread::run() {
 }
 
 
-rdma::AtomicsLatencyPerfTest::AtomicsLatencyPerfTest(bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, int gpu_index, int thread_count, int buffer_slots, uint64_t iterations) : PerfTest(){
+rdma::AtomicsLatencyPerfTest::AtomicsLatencyPerfTest(bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, int local_gpu_index, int remote_gpu_index, int thread_count, int buffer_slots, uint64_t iterations) : PerfTest(){
 	this->m_is_server = is_server;
 	this->m_rdma_port = rdma_port;
-	this->m_gpu_index = gpu_index;
+	this->m_local_gpu_index = local_gpu_index;
+	this->m_remote_gpu_index = remote_gpu_index;
 	this->m_thread_count = thread_count;
 	this->m_memory_size = thread_count * rdma::ATOMICS_SIZE * buffer_slots;
 	this->m_buffer_slots = buffer_slots;
@@ -119,13 +120,8 @@ std::string rdma::AtomicsLatencyPerfTest::getTestParameters(bool forCSV){
 	std::ostringstream oss;
 	const int packetsize = rdma::ATOMICS_SIZE*8;
 	oss << (m_is_server ? "Server" : "Client") << ", threads=" << m_thread_count << ", bufferslots=" << m_buffer_slots << ", packetsize=" << packetsize << "bit, memory=";
-	oss << m_memory_size << " (" << m_thread_count << "x " << m_buffer_slots << "x " << packetsize << "bit) [";
-	if(m_gpu_index < 0){
-		oss << "MAIN";
-	} else {
-		oss << "GPU." << m_gpu_index; 
-	}
-	oss << " mem]";
+	oss << m_memory_size << " (" << m_thread_count << "x " << m_buffer_slots << "x " << packetsize << "bit)";
+	oss << ", memory_type=" << getMemoryName(m_local_gpu_index) << (m_remote_gpu_index!=-404 ? "->"+getMemoryName(m_remote_gpu_index) : "");
 	if(!forCSV)
 		oss << ", iterations=" << (m_iterations*m_thread_count);
 	return oss.str();
@@ -158,7 +154,7 @@ void rdma::AtomicsLatencyPerfTest::runThreads(){
 
 void rdma::AtomicsLatencyPerfTest::setupTest(){
 	#ifdef CUDA_ENABLED /* defined in CMakeLists.txt to globally enable/disable CUDA support */
-		m_memory = (m_gpu_index<0 ? (rdma::BaseMemory*)new rdma::MainMemory(m_memory_size) : (rdma::BaseMemory*)new rdma::CudaMemory(m_memory_size, m_gpu_index));
+		m_memory = (m_local_gpu_index<=-3 ? (rdma::BaseMemory*)new rdma::MainMemory(m_memory_size) : (rdma::BaseMemory*)new rdma::CudaMemory(m_memory_size, m_local_gpu_index));
 	#else
 		m_memory = (rdma::BaseMemory*)new MainMemory(m_memory_size);
 	#endif

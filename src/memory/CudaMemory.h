@@ -30,7 +30,7 @@ public:
      * device_index:  index of the GPU device that should be used to
      *                allocate the memory. If -1 the currently 
      *                selected device will be used. If -2 a device 
-     *                will be selected base on the NUMA region
+     *                will be selected based on the preferred NUMA region
      *
      */
     CudaMemory(size_t mem_size, int device_index);

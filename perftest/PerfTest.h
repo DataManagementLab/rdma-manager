@@ -40,6 +40,14 @@ public:
         return stopTimer(start, startTimer());
     }
 
+    static std::string getMemoryName(int gpu_index){
+        if(gpu_index >= 0) return "GPU."+gpu_index;
+        if(gpu_index == -1) return "GPU.D";
+        if(gpu_index == -2) return "GPU.NUMA";
+        if(gpu_index != -404) return "MAIN";
+        return "???";
+    }
+
     static std::string convertTime(long double nanoseconds){
         return convertTime((int64_t)nanoseconds);
     }
