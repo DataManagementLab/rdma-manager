@@ -482,7 +482,7 @@ std::string rdma::OperationsCountPerfTest::getTestResults(std::string csvFileNam
 			std::ofstream ofs;
 			ofs.open(csvFileName, std::ofstream::out | std::ofstream::app);
 			if(csvAddHeader){
-				ofs << std::endl << "OPERATIONS PER SECOND, " << getTestParameters(true) << std::endl;
+				ofs << std::endl << "OPERATIONS COUNT, " << getTestParameters(true) << std::endl;
 				ofs << "PacketSize [Bytes], Write [megaOp/s], Read [megaOp/s], Send/Recv [megaOp/s], ";
 				ofs << "Min Write [megaOp/s], Min Read [megaOp/s], Min Send/Recv [megaOp/s], ";
 				ofs << "Max Write [megaOp/s], Max Read [megaOp/s], Max Send/Recv [megaOp/s], ";
