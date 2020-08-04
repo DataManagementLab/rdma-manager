@@ -43,6 +43,7 @@ const uint64_t MINIMUM_PACKET_SIZE = 256; // only GPUDirect doesn't work with sm
 
 static std::vector<int> parseIntList(std::string str){
     std::vector<int> v;
+    if(str.length()==0) return v;
     std::stringstream ss(str);
     while((std::getline(ss, str, ','))){
         if(str.length() == 0)
@@ -56,6 +57,7 @@ static std::vector<int> parseIntList(std::string str){
 }
 static std::vector<uint64_t> parseUInt64List(std::string str){
     std::vector<uint64_t> v;
+    if(str.length()==0) return v;
     std::stringstream ss(str);
     while((std::getline(ss, str, ','))){
         if(str.length() == 0)
@@ -116,7 +118,7 @@ static void runTest(size_t testNumber, size_t testIterations, std::string testNa
 int main(int argc, char *argv[]){
     std::cout << "Parsing arguments ..." << std::endl;
     gflags::ParseCommandLineFlags(&argc, &argv, true);
-    
+
     std::vector<std::string> testNames = rdma::StringHelper::split(FLAGS_test);
     std::vector<int> local_gpus = parseIntList(FLAGS_gpu);
     std::vector<int> remote_gpus = parseIntList(FLAGS_remote_gpu);
@@ -231,7 +233,7 @@ int main(int argc, char *argv[]){
 		local_gpus.clear(); local_gpus.push_back(-3);
 	#endif
 
-    if(sizeof(remote_gpus) == 0) remote_gpus.push_back(-404);
+    if(remote_gpus.size() == 0) remote_gpus.push_back(-404);
 
     // Parse write mode names
     std::vector<rdma::WriteMode> write_modes;
@@ -306,7 +308,7 @@ int main(int argc, char *argv[]){
     // EXECUTE TESTS
     auto totalStart = rdma::PerfTest::startTimer();
     for(TEST &t : tests){
-        for(size_t gpui = 0; gpui < sizeof(local_gpus); gpui++){
+        for(size_t gpui = 0; gpui < local_gpus.size(); gpui++){
             const int local_gpu_index = local_gpus[gpui];
             const int remote_gpu_index = remote_gpus[gpui % sizeof(remote_gpu_index)];
             for(int &thread_count : thread_counts){

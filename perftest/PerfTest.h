@@ -41,7 +41,7 @@ public:
     }
 
     static std::string getMemoryName(int gpu_index){
-        if(gpu_index >= 0) return "GPU."+gpu_index;
+        if(gpu_index >= 0) return "GPU."+std::to_string(gpu_index);
         if(gpu_index == -1) return "GPU.D";
         if(gpu_index == -2) return "GPU.NUMA";
         if(gpu_index != -404) return "MAIN";
