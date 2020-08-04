@@ -118,9 +118,8 @@ rdma::AtomicsLatencyPerfTest::~AtomicsLatencyPerfTest(){
 
 std::string rdma::AtomicsLatencyPerfTest::getTestParameters(bool forCSV){
 	std::ostringstream oss;
-	const int packetsize = rdma::ATOMICS_SIZE*8;
-	oss << (m_is_server ? "Server" : "Client") << ", threads=" << m_thread_count << ", bufferslots=" << m_buffer_slots << ", packetsize=" << packetsize << "bit, memory=";
-	oss << m_memory_size << " (" << m_thread_count << "x " << m_buffer_slots << "x " << packetsize << "bit)";
+	oss << (m_is_server ? "Server" : "Client") << ", threads=" << m_thread_count << ", bufferslots=" << m_buffer_slots << ", packetsize=" << rdma::ATOMICS_SIZE << ", memory=";
+	oss << m_memory_size << " (" << m_thread_count << "x " << m_buffer_slots << "x " << rdma::ATOMICS_SIZE << ")";
 	oss << ", memory_type=" << getMemoryName(m_local_gpu_index) << (m_remote_gpu_index!=-404 ? "->"+getMemoryName(m_remote_gpu_index) : "");
 	if(!forCSV)
 		oss << ", iterations=" << (m_iterations*m_thread_count);

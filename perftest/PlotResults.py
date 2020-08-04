@@ -20,6 +20,18 @@ CSV_LINEBREAK = '\n'
 CSV_COMMA = '.'
 
 
+class TestParameters:
+    is_server = False
+    thread_count = None
+    buffer_slots = None
+    packet_size = None
+    memory_size = None
+    memory_type = None
+    write_mode = None
+
+
+
+
 def findCSVFile():
     for dirpath, dirnames, filenames in walk("../"):
         for filename in filenames:
@@ -52,6 +64,13 @@ def plotAtomicsLatency(test_params, test_columns):
 
 def plotAtomicsOperationsCount(test_params, test_columns):
     print("Plotting AtomicsOperationsCount results ...")
+
+
+def parseTestParameters(test_params: [[str]]):
+    output = []
+    for params in test_params:
+        for param in params:
+            param = str(param).strip()
 
 
 def plotTestValues(test_name: str, test_params: [[str]], test_columns: {}):
