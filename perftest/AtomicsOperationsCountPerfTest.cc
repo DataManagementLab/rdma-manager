@@ -236,6 +236,7 @@ std::string rdma::AtomicsOperationsCountPerfTest::getTestResults(std::string csv
 			const uint64_t su = 1000*1000; // size unit (bytes to MegaBytes) | use 1024*1024 for MebiBytes
 			std::ofstream ofs;
 			ofs.open(csvFileName, std::ofstream::out | std::ofstream::app);
+			ofs << rdma::CSV_PRINT_NOTATION << rdma::CSV_PRINT_PRECISION;
 			if(csvAddHeader){
 				ofs << std::endl << "ATOMICS OPERATIONS COUNT, " << getTestParameters(true) << std::endl;
 				ofs << "Iterations, Fetch&Add [megaOp/s], Comp&Swap [megaOp/s], Min Fetch&Add [megaOp/s], Min Comp&Swap [megaOp/s], ";
@@ -265,6 +266,7 @@ std::string rdma::AtomicsOperationsCountPerfTest::getTestResults(std::string csv
 
 		// generate result string
 		std::ostringstream oss;
+		oss << rdma::CONSOLE_PRINT_NOTATION << rdma::CONSOLE_PRINT_PRECISION;
 		oss << std::endl << " - Fetch&Add:     operations = " << rdma::PerfTest::convertCountPerSec(totalItrs*tu/m_elapsedFetchAdd);
 		oss << "  (range = " << rdma::PerfTest::convertCountPerSec(itrs*tu/maxFetchAdd) << " - ";
 		oss << rdma::PerfTest::convertCountPerSec(itrs*tu/minFetchAdd);

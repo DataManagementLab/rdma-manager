@@ -243,6 +243,7 @@ std::string rdma::AtomicsLatencyPerfTest::getTestResults(std::string csvFileName
 			const uint64_t ustu = 1000; // nanosec to microsec
 			std::ofstream ofs;
 			ofs.open(csvFileName, std::ofstream::out | std::ofstream::app);
+			ofs << rdma::CSV_PRINT_NOTATION << rdma::CSV_PRINT_PRECISION;
 			if(csvAddHeader){
 				ofs << std::endl << "ATOMICS LATENCY, " << getTestParameters(true) << std::endl;
 				ofs << "Iterations, Avg Fetch&Add [usec], Avg Comp&Swap [usec], Median Fetch&Add [usec], Median Comp&Swap [usec], ";
@@ -257,11 +258,12 @@ std::string rdma::AtomicsLatencyPerfTest::getTestResults(std::string csvFileName
 
 		// generate result string
 		std::ostringstream oss;
-		std::cout << " Measured as 'one trip time' latencies:" << std::endl;
-		std::cout << " - Fetch&Add:       average = " << rdma::PerfTest::convertTime(avgFetchAddMs) << "    median = " << rdma::PerfTest::convertTime(medianFetchAddMs);
-		std::cout << "    range = " <<  rdma::PerfTest::convertTime(minFetchAddMs) << " - " << rdma::PerfTest::convertTime(maxFetchAddMs) << std::endl;
-		std::cout << " - Compare&Swap:    average = " << rdma::PerfTest::convertTime(avgCompareSwapMs) << "   median = " << rdma::PerfTest::convertTime(medianCompareSwapMs);
-		std::cout << "    range = " <<  rdma::PerfTest::convertTime(minCompareSwapMs) << " - " << rdma::PerfTest::convertTime(maxCompareSwapMs) << std::endl;
+		oss << rdma::CONSOLE_PRINT_NOTATION << rdma::CONSOLE_PRINT_PRECISION;
+		oss << " Measured as 'one trip time' latencies:" << std::endl;
+		oss << " - Fetch&Add:       average = " << rdma::PerfTest::convertTime(avgFetchAddMs) << "    median = " << rdma::PerfTest::convertTime(medianFetchAddMs);
+		oss << "    range = " <<  rdma::PerfTest::convertTime(minFetchAddMs) << " - " << rdma::PerfTest::convertTime(maxFetchAddMs) << std::endl;
+		oss << " - Compare&Swap:    average = " << rdma::PerfTest::convertTime(avgCompareSwapMs) << "   median = " << rdma::PerfTest::convertTime(medianCompareSwapMs);
+		oss << "    range = " <<  rdma::PerfTest::convertTime(minCompareSwapMs) << " - " << rdma::PerfTest::convertTime(maxCompareSwapMs) << std::endl;
 		return oss.str();
 
 	}
