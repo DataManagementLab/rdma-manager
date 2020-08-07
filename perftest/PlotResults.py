@@ -40,10 +40,10 @@ class TestParameters:
         return self.__dict__.__str__()
 
     def to_file_str(self) -> str:
-        return "thr=" + str(self.threads) + "-bs=" + str(self.buffer_slots) + "-ps=" + str(
-            self.packet_size) + "-ms=" + str(self.memory_size) + "-mt=" + str(
-            self.local_memory_type) + "_to_" + str(self.remote_memory_type) + "-itr=" + str(
-            self.iterations) + "-wm=" + str(self.write_mode)
+        return "thr=" + str(self.threads) + "-bs=" + str(self.buffer_slots) + "-ps=" + \
+               str(self.packet_size) + "-ms=" + str(self.memory_size) + "-mt=" + \
+               str(self.local_memory_type) + "_to_" + str(self.remote_memory_type) + "-itr=" + \
+               str(self.iterations) + "-wm=" + str(self.write_mode)
 
 
 def find_csv_file():
@@ -52,6 +52,7 @@ def find_csv_file():
             if filename.endswith(".csv"):
                 return dirpath + filename
     return None
+
 
 def get_line_style(column_name: str) -> {}:
     column_name = column_name.lower()
@@ -141,10 +142,10 @@ def plot_bandwidth(test_params, test_columns, output_file_name, output_format):
         columns = test_columns[entry]
         print(params)  # TODO REMOVE
         print(columns)  # TODO REMOVE
-        title = params.local_memory_type + "→" + params.remote_memory_type + " (thrs=" \
-            + str(params.threads) + "; bufslots=" \
-            + str(params.buffer_slots) + "; itrs=" + str(params.iterations) \
-            + "; wm=" + str(params.write_mode) + ")"
+        title = params.local_memory_type + "→" + params.remote_memory_type + " (thrs=" + \
+            str(params.threads) + "; bufslots=" + \
+            str(params.buffer_slots) + "; itrs=" + str(params.iterations) + \
+            "; wm=" + str(params.write_mode) + ")"
         y_label = "Bandwidth"
         y_label_update = True
         x_values = columns[0]["values"]
@@ -172,7 +173,7 @@ def plot_bandwidth(test_params, test_columns, output_file_name, output_format):
         if isinstance(output_file_name, PdfPages):
             output_file_name.savefig(figure=fig)
         else:
-            plt.savefig(output_file_name + "-Bandwidth-" + params.to_file_str() + "-Raw" + "." +
+            plt.savefig(output_file_name + "BANDWIDTH-" + params.to_file_str() + "-Raw" + "." +
                         output_format)
         plt.close(fig)
 
@@ -205,10 +206,10 @@ def plot_latency(test_params, test_columns, output_file_name, output_format):
         columns = test_columns[entry]
         print(params)  # TODO REMOVE
         print(columns)  # TODO REMOVE
-        title = params.local_memory_type + "→" + params.remote_memory_type + " (thrs=" \
-            + str(params.threads) + "; bufslots=" \
-            + str(params.buffer_slots) + "; itrs=" + str(params.iterations) \
-            + "; wm=" + str(params.write_mode) + ")"
+        title = params.local_memory_type + "→" + params.remote_memory_type + " (thrs=" + \
+            str(params.threads) + "; bufslots=" + \
+            str(params.buffer_slots) + "; itrs=" + str(params.iterations) + \
+            "; wm=" + str(params.write_mode) + ")"
         y_label = "Latency"
         y_label_update = True
         x_values = columns[0]["values"]
@@ -236,7 +237,7 @@ def plot_latency(test_params, test_columns, output_file_name, output_format):
         if isinstance(output_file_name, PdfPages):
             output_file_name.savefig(figure=fig)
         else:
-            plt.savefig(output_file_name + "-Latency-" + params.to_file_str() + "-Raw" + "." +
+            plt.savefig(output_file_name + "LATENCY-" + params.to_file_str() + "-Raw" + "." +
                         output_format)
         plt.close(fig)
 
@@ -269,10 +270,9 @@ def plot_operations_count(test_params, test_columns, output_file_name, output_fo
         columns = test_columns[entry]
         print(params)  # TODO REMOVE
         print(columns)  # TODO REMOVE
-        title = params.local_memory_type + "→" + params.remote_memory_type + " (thrs=" \
-                + str(params.threads) + "; bufslots=" \
-                + str(params.buffer_slots) + "; itrs=" + str(params.iterations) \
-                + "; wm=" + str(params.write_mode) + ")"
+        title = params.local_memory_type + "→" + params.remote_memory_type + " (thrs=" + \
+            str(params.threads) + "; bufslots=" + str(params.buffer_slots) + "; itrs=" + \
+            str(params.iterations) + "; wm=" + str(params.write_mode) + ")"
         y_label = "Operations/sec"
         y_label_update = True
         x_values = columns[0]["values"]
@@ -300,7 +300,7 @@ def plot_operations_count(test_params, test_columns, output_file_name, output_fo
         if isinstance(output_file_name, PdfPages):
             output_file_name.savefig(figure=fig)
         else:
-            plt.savefig(output_file_name + "-OperationsCount-" + params.to_file_str() + "-Raw" +
+            plt.savefig(output_file_name + "OPERATIONS_COUNT-" + params.to_file_str() + "-Raw" +
                         "." + output_format)
         plt.close(fig)
 
@@ -321,8 +321,14 @@ def plot_atomics_operations_count(test_params, test_columns, output_file_name, o
 
 def parse_test_parameters(test_params: [str]) -> TestParameters:
     def parse_int_value(key_value: str) -> int:
+        start_index = key_value.find("=") + 1
+        if start_index <= 0:
+            return None
+        end_index = key_value.rfind("(")
+        if end_index < 0:
+            end_index = len(key_value)
         try:
-            return int(key_value[key_value.index("=") + 1:])
+            return int(key_value[start_index:end_index].strip())
         except ValueError:
             return None
 
@@ -410,9 +416,7 @@ def plot_csv_file(csv_file_name, output_file_name, output_format):
                 os.mkdir(output_file_name)
             except OSError:
                 pass
-            last_slash = output_file_name.rfind(os.path.sep)
-            out_f_n = output_file_name if last_slash < 0 else output_file_name[(last_slash + 1):]
-            output_file_name = output_file_name + os.path.sep + out_f_n
+            output_file_name = output_file_name + "/"
         for row in reader:
             if len(row) == 0:  # prepare for next test block
                 prev_test_name = test_name.lower()
