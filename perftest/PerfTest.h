@@ -3,6 +3,7 @@
 
 #include <string>
 #include <sstream>
+#include <iomanip>
 #include <iostream>
 #include <fstream>
 #include <cmath>
@@ -14,6 +15,10 @@ enum TestMode { TEST_WRITE=0x00, TEST_READ=0x01, TEST_SEND_AND_RECEIVE=0x02, TES
 enum WriteMode { WRITE_MODE_AUTO=0x00, WRITE_MODE_NORMAL=0x01, WRITE_MODE_IMMEDIATE=0x02 };
 const int ATOMICS_SIZE = 8; // 8 bytes = 64bit
 const uint64_t NANO_SEC = 1000000000;
+const auto CONSOLE_PRINT_NOTATION = std::fixed; // prevents scientific representation of numbers
+const auto CONSOLE_PRINT_PRECISION = std::setprecision(6); // decimal precision for numbers
+const auto CSV_PRINT_NOTATION = std::fixed; // prevents scientific representation of numbers
+const auto CSV_PRINT_PRECISION = std::setprecision(6); // decimal precision for numbers
 
 class PerfTest {
 public:

@@ -481,6 +481,7 @@ std::string rdma::OperationsCountPerfTest::getTestResults(std::string csvFileNam
 			const uint64_t su = 1000*1000; // size unit (operations to megaOps)
 			std::ofstream ofs;
 			ofs.open(csvFileName, std::ofstream::out | std::ofstream::app);
+			ofs << rdma::CSV_PRINT_NOTATION << rdma::CSV_PRINT_PRECISION;
 			if(csvAddHeader){
 				ofs << std::endl << "OPERATIONS COUNT, " << getTestParameters(true) << std::endl;
 				ofs << "PacketSize [Bytes], Write [megaOp/s], Read [megaOp/s], Send/Recv [megaOp/s], ";
@@ -525,6 +526,7 @@ std::string rdma::OperationsCountPerfTest::getTestResults(std::string csvFileNam
 
 		// generate result string
 		std::ostringstream oss;
+		oss << rdma::CONSOLE_PRINT_NOTATION << rdma::CONSOLE_PRINT_PRECISION;
 		oss << " measurement for sending and writeImm is executed as alternating send/receive bursts with " << (Config::RDMA_MAX_WR/m_thread_count) << " operations per burst" << std::endl;
 		oss << " - Write:         operations = " << rdma::PerfTest::convertCountPerSec(totalItrs*tu/m_elapsedWrite); 
 		oss << "  (range = " << rdma::PerfTest::convertCountPerSec(itrs*tu/maxWriteNs) << " - " << rdma::PerfTest::convertCountPerSec(itrs*tu/minWriteNs);

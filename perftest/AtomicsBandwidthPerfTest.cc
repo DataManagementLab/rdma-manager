@@ -234,6 +234,7 @@ std::string rdma::AtomicsBandwidthPerfTest::getTestResults(std::string csvFileNa
 			const uint64_t su = 1000*1000; // size unit (bytes to MegaBytes) | use 1024*1024 for MebiBytes
 			std::ofstream ofs;
 			ofs.open(csvFileName, std::ofstream::out | std::ofstream::app);
+			ofs << rdma::CSV_PRINT_NOTATION << rdma::CSV_PRINT_PRECISION;
 			if(csvAddHeader){
 				ofs << std::endl << "ATOMICS BANDWIDTH, " << getTestParameters() << std::endl;
 				ofs << "Iterations, Fetch&Add [MB/s], Comp&Swap [MB/s], Min Fetch&Add [MB/s], Min Comp&Swap [MB/s], ";
@@ -263,6 +264,7 @@ std::string rdma::AtomicsBandwidthPerfTest::getTestResults(std::string csvFileNa
 
 		// generate result string
 		std::ostringstream oss;
+		oss << rdma::CONSOLE_PRINT_NOTATION << rdma::CONSOLE_PRINT_PRECISION;
 		oss << std::endl << " - Fetch&Add:     bandwidth = " << rdma::PerfTest::convertBandwidth(transferedBytesFetchAdd*tu/m_elapsedFetchAddMs);
 		oss << "  (range = " << rdma::PerfTest::convertBandwidth(transferedBytesFetchAdd*tu/maxFetchAddMs) << " - ";
 		oss << rdma::PerfTest::convertBandwidth(transferedBytesFetchAdd*tu/minFetchAddMs);

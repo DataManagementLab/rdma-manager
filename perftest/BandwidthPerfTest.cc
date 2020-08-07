@@ -479,6 +479,7 @@ std::string rdma::BandwidthPerfTest::getTestResults(std::string csvFileName, boo
 			const uint64_t su = 1000*1000; // size unit (bytes to MegaBytes) | use 1024*1024 for MebiBytes
 			std::ofstream ofs;
 			ofs.open(csvFileName, std::ofstream::out | std::ofstream::app);
+			ofs << rdma::CSV_PRINT_NOTATION << rdma::CSV_PRINT_PRECISION;
 			if(csvAddHeader){
 				ofs << std::endl << "BANDWIDTH, " << getTestParameters(true) << std::endl;
 				ofs << "PacketSize [Bytes], Transfered [MB], Write [MB/s], Read [MB/s], Send/Recv [MB/s], ";
@@ -523,6 +524,7 @@ std::string rdma::BandwidthPerfTest::getTestResults(std::string csvFileName, boo
 
 		// generate result string
 		std::ostringstream oss;
+		oss << rdma::CONSOLE_PRINT_NOTATION << rdma::CONSOLE_PRINT_PRECISION;
 		oss << "transfered = " << rdma::PerfTest::convertByteSize(transferedBytes) << std::endl;
 		oss << " - Write:         bandwidth = " << rdma::PerfTest::convertBandwidth(transferedBytes*tu/m_elapsedWriteMs); 
 		oss << "  (range = " << rdma::PerfTest::convertBandwidth(transferedBytes*tu/maxWriteMs) << " - " << rdma::PerfTest::convertBandwidth(transferedBytes*tu/minWriteMs);
