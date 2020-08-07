@@ -441,7 +441,7 @@ std::string rdma::OperationsCountPerfTest::getTestResults(std::string csvFileNam
 	} else {
 
 		const long double tu = (long double)NANO_SEC; // 1sec (nano to seconds as time unit)
-        const long double itrs = (long double)m_iterations, totalItrs = itrs*m_thread_count;
+        const long double itrs = (long double)m_iterations * (long double)m_thread_count;
 
 		int64_t maxWriteNs=-1, minWriteNs=std::numeric_limits<int64_t>::max();
 		int64_t maxReadNs=-1, minReadNs=std::numeric_limits<int64_t>::max();
@@ -496,9 +496,9 @@ std::string rdma::OperationsCountPerfTest::getTestResults(std::string csvFileNam
 				ofs << "Median Write [Sec], Median Read [Sec], Median Send/Recv [Sec]" << std::endl;
 			}
 			ofs << m_packet_size << ", "; // packet size Bytes
-			ofs << (round(totalItrs*tu/su/m_elapsedWrite * 100000)/100000.0) << ", "; // write Op/s
-			ofs << (round(totalItrs*tu/su/m_elapsedRead * 100000)/100000.0) << ", "; // read Op/s
-			ofs << (round(totalItrs*tu/su/m_elapsedSend * 100000)/100000.0) << ", "; // send/recv Op/s
+			ofs << (round(itrs*tu/su/m_elapsedWrite * 100000)/100000.0) << ", "; // write Op/s
+			ofs << (round(itrs*tu/su/m_elapsedRead * 100000)/100000.0) << ", "; // read Op/s
+			ofs << (round(itrs*tu/su/m_elapsedSend * 100000)/100000.0) << ", "; // send/recv Op/s
 			ofs << (round(itrs*tu/su/maxWriteNs * 100000)/100000.0) << ", "; // min write Op/s
 			ofs << (round(itrs*tu/su/maxReadNs * 100000)/100000.0) << ", "; // min read Op/s
 			ofs << (round(itrs*tu/su/maxSendNs * 100000)/100000.0) << ", "; // min send/recv Op/s
@@ -528,21 +528,21 @@ std::string rdma::OperationsCountPerfTest::getTestResults(std::string csvFileNam
 		std::ostringstream oss;
 		oss << rdma::CONSOLE_PRINT_NOTATION << rdma::CONSOLE_PRINT_PRECISION;
 		oss << " measurement for sending and writeImm is executed as alternating send/receive bursts with " << (Config::RDMA_MAX_WR/m_thread_count) << " operations per burst" << std::endl;
-		oss << " - Write:         operations = " << rdma::PerfTest::convertCountPerSec(totalItrs*tu/m_elapsedWrite); 
+		oss << " - Write:         operations = " << rdma::PerfTest::convertCountPerSec(itrs*tu/m_elapsedWrite); 
 		oss << "  (range = " << rdma::PerfTest::convertCountPerSec(itrs*tu/maxWriteNs) << " - " << rdma::PerfTest::convertCountPerSec(itrs*tu/minWriteNs);
 		oss << " ; avg=" << rdma::PerfTest::convertCountPerSec(itrs*tu/avgWriteNs) << " ; median=";
 		oss << rdma::PerfTest::convertCountPerSec(itrs*tu/minWriteNs) << ")";
 		oss << "   &   time = " << rdma::PerfTest::convertTime(m_elapsedWrite) << "  (range=";
 		oss << rdma::PerfTest::convertTime(minWriteNs) << "-" << rdma::PerfTest::convertTime(maxWriteNs);
 		oss << " ; avg=" << rdma::PerfTest::convertTime(avgWriteNs) << " ; median=" << rdma::PerfTest::convertTime(medianWriteNs) << ")" << std::endl;
-		oss << " - Read:          operations = " << rdma::PerfTest::convertCountPerSec(totalItrs*tu/m_elapsedRead);
+		oss << " - Read:          operations = " << rdma::PerfTest::convertCountPerSec(itrs*tu/m_elapsedRead);
 		oss << "  (range = " << rdma::PerfTest::convertCountPerSec(itrs*tu/maxReadNs) << " - " << rdma::PerfTest::convertCountPerSec(itrs*tu/minReadNs);
 		oss << ", avg=" << rdma::PerfTest::convertCountPerSec(itrs*tu/avgReadNs) << " ; median=";
 		oss << rdma::PerfTest::convertCountPerSec(itrs*tu/minReadNs) << ")";
 		oss << "   &   time = " << rdma::PerfTest::convertTime(m_elapsedRead) << "  (range=";
 		oss << rdma::PerfTest::convertTime(minReadNs) << "-" << rdma::PerfTest::convertTime(maxReadNs);
 		oss << " ; avg=" << rdma::PerfTest::convertTime(avgReadNs) << " ; median=" << rdma::PerfTest::convertTime(medianReadNs) << ")" << std::endl;
-		oss << " - Send:          operations = " << rdma::PerfTest::convertCountPerSec(totalItrs*tu/m_elapsedSend);
+		oss << " - Send:          operations = " << rdma::PerfTest::convertCountPerSec(itrs*tu/m_elapsedSend);
 		oss << "  (range = " << rdma::PerfTest::convertCountPerSec(itrs*tu/maxSendNs) << " - " << rdma::PerfTest::convertCountPerSec(itrs*tu/minSendNs);
 		oss << " ; avg=" << rdma::PerfTest::convertCountPerSec(itrs*tu/avgSendNs) << " ; median=";
 		oss << rdma::PerfTest::convertCountPerSec(itrs*tu/minSendNs) << ")";

@@ -169,7 +169,7 @@ int main(int argc, char *argv[]){
         thread_counts.push_back(4); thread_counts.push_back(8);
         thread_counts.push_back(16);
 
-        iteration_counts.push_back(1000); iteration_counts.push_back(500000);
+        iteration_counts.push_back(500); iteration_counts.push_back(500000);
 
     } else if(FLAGS_halftest){
         // TODO for some reason GPUDirect not working for GPU memory smaller than 128 bytes
@@ -180,7 +180,7 @@ int main(int argc, char *argv[]){
 
         thread_counts.push_back(1); thread_counts.push_back(4); thread_counts.push_back(16);
 
-        iteration_counts.push_back(1000); iteration_counts.push_back(500000);
+        iteration_counts.push_back(500); iteration_counts.push_back(500000);
 
     } else if(FLAGS_quicktest){
         //packetsizes.push_back(64);

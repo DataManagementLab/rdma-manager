@@ -205,7 +205,7 @@ std::string rdma::AtomicsOperationsCountPerfTest::getTestResults(std::string csv
 	} else {
 
 		const long double tu = (long double)NANO_SEC; // 1sec (nano to seconds as time unit)
-        const long double itrs = (long double)m_iterations, totalItrs = itrs*m_thread_count;
+        const long double itrs = (long double)m_iterations * (long double)m_thread_count;
 
 		int64_t maxFetchAdd=-1, minFetchAdd=std::numeric_limits<int64_t>::max();
 		int64_t maxCompareSwap=-1, minCompareSwap=std::numeric_limits<int64_t>::max();
@@ -246,8 +246,8 @@ std::string rdma::AtomicsOperationsCountPerfTest::getTestResults(std::string csv
 				ofs << "Avg Fetch&Add [Sec], Avg Comp&Swap [Sec], Median Fetch&Add [Sec], Median Comp&Swap [Sec]" << std::endl;
 			}
 			ofs << m_iterations << ", ";
-			ofs << (round(totalItrs*tu/su/m_elapsedFetchAdd * 100000)/100000.0) << ", "; // fetch&add Op/s
-			ofs << (round(totalItrs*tu/su/m_elapsedCompareSwap * 100000)/100000.0) << ", "; // comp&swap Op/s
+			ofs << (round(itrs*tu/su/m_elapsedFetchAdd * 100000)/100000.0) << ", "; // fetch&add Op/s
+			ofs << (round(itrs*tu/su/m_elapsedCompareSwap * 100000)/100000.0) << ", "; // comp&swap Op/s
 			ofs << (round(itrs*tu/su/maxFetchAdd * 100000)/100000.0) << ", "; // min fetch&add Op/s
 			ofs << (round(itrs*tu/su/maxCompareSwap * 100000)/100000.0) << ", "; // min comp&swap Op/s
 			ofs << (round(itrs*tu/su/minFetchAdd * 100000)/100000.0) << ", "; // max fetch&add Op/s
@@ -267,7 +267,7 @@ std::string rdma::AtomicsOperationsCountPerfTest::getTestResults(std::string csv
 		// generate result string
 		std::ostringstream oss;
 		oss << rdma::CONSOLE_PRINT_NOTATION << rdma::CONSOLE_PRINT_PRECISION;
-		oss << std::endl << " - Fetch&Add:     operations = " << rdma::PerfTest::convertCountPerSec(totalItrs*tu/m_elapsedFetchAdd);
+		oss << std::endl << " - Fetch&Add:     operations = " << rdma::PerfTest::convertCountPerSec(itrs*tu/m_elapsedFetchAdd);
 		oss << "  (range = " << rdma::PerfTest::convertCountPerSec(itrs*tu/maxFetchAdd) << " - ";
 		oss << rdma::PerfTest::convertCountPerSec(itrs*tu/minFetchAdd);
 		oss << " ; avg=" << rdma::PerfTest::convertCountPerSec(itrs*tu/avgFetchAdd) << " ; median=";
@@ -275,7 +275,7 @@ std::string rdma::AtomicsOperationsCountPerfTest::getTestResults(std::string csv
 		oss << "   &   time = " << rdma::PerfTest::convertTime(m_elapsedFetchAdd) << "  (range=";
 		oss << rdma::PerfTest::convertTime(minFetchAdd) << "-" << rdma::PerfTest::convertTime(maxFetchAdd);
 		oss << " ; avg=" << rdma::PerfTest::convertTime(avgFetchAdd) << " ; median=" << rdma::PerfTest::convertTime(medianFetchAdd) << ")" << std::endl;
-		oss << " - Compare&Swap:  operations = " << rdma::PerfTest::convertCountPerSec(totalItrs*tu/m_elapsedCompareSwap);
+		oss << " - Compare&Swap:  operations = " << rdma::PerfTest::convertCountPerSec(itrs*tu/m_elapsedCompareSwap);
 		oss << "  (range = " << rdma::PerfTest::convertCountPerSec(itrs*tu/maxCompareSwap) << " - ";
 		oss << rdma::PerfTest::convertCountPerSec(itrs*tu/minCompareSwap);
 		oss << " ; avg=" << rdma::PerfTest::convertCountPerSec(itrs*tu/avgCompareSwap) << " ; median=";
