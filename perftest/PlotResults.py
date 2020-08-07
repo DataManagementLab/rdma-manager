@@ -53,22 +53,84 @@ def find_csv_file():
                 return dirpath + filename
     return None
 
+def get_line_style(column_name: str) -> {}:
+    column_name = column_name.lower()
+    output = {
+        "color": "k",
+        "linestyle": "-",
+        "marker": "None",
+        "alpha": 0.75,
+        "linewidth": 1.5,
+    }
+    if column_name.find("write") >= 0:
+        output["color"] = "b"
+    elif column_name.find("read") >= 0:
+        output["color"] = "r"
+    elif column_name.find("send") >= 0:
+        output["color"] = "g"
+
+    if column_name.find("min") >= 0:
+        output["linestyle"] = ":"
+        output["marker"] = "^"
+        output["markersize"] = 2.0
+        output["alpha"] = 0.25
+        output["linewidth"] = 0.5
+    elif column_name.find("max") >= 0:
+        output["linestyle"] = ":"
+        output["marker"] = "v"
+        output["markersize"] = 2.0
+        output["alpha"] = 0.25
+        output["linewidth"] = 0.5
+    elif column_name.find("av") >= 0:
+        output["linestyle"] = "-."
+        output["alpha"] = 0.5
+        output["linewidth"] = 0.85
+    elif column_name.find("med") >= 0:
+        output["linestyle"] = "--"
+        output["alpha"] = 0.5
+        output["linewidth"] = 0.85
+
+    return output
+
+
+def group_columns(columns: [{}]) -> [{}]:
+    cols = []
+    cols.extend(columns)
+    tmp = []
+
+    def process_columns_by_name(search: str):
+        for column in columns:
+            if str(column["name"]).lower().find(search) >= 0:
+                cols.remove(column)
+                tmp.append(column, )
+
+    process_columns_by_name("write")
+    process_columns_by_name("read")
+    process_columns_by_name("send")
+    process_columns_by_name("fetch")
+    process_columns_by_name("comp")
+    output = []
+    output.extend(cols)
+    output.extend(tmp)
+    return output
+
 
 def plot_bandwidth(test_params, test_columns, output_file_name, output_format):
     print("Plotting Bandwidth results ...")
     entry_count = len(test_params)
 
-    # Find minimum and maximum y value
+    # Group columns and find minimum and maximum y value
     y_global_min = sys.maxsize
     y_global_max = -sys.maxsize - 1
     for entry in range(entry_count):
-        columns = test_columns[entry]
+        columns = group_columns(test_columns[entry])
+        test_columns[entry] = columns
         for column in columns:
-            if str(column["name"]).startswith("Min"):
+            if str(column["name"]).lower().startswith("min"):
                 for val in column["values"]:
                     if val < y_global_min:
                         y_global_min = val
-            elif str(column["name"]).startswith("Max"):
+            elif str(column["name"]).lower().startswith("max"):
                 for val in column["values"]:
                     if val > y_global_max:
                         y_global_max = val
@@ -79,50 +141,170 @@ def plot_bandwidth(test_params, test_columns, output_file_name, output_format):
         columns = test_columns[entry]
         print(params)  # TODO REMOVE
         print(columns)  # TODO REMOVE
-        title = "BANDWIDTH " + params.local_memory_type + "-->" + params.remote_memory_type \
-                + " (threads=" + str(params.threads) + "; buffer_slots=" \
-                + str(params.buffer_slots) + "; iterations=" + str(params.iterations) \
-                + "; write_mode=" + str(params.write_mode) + ")"
+        title = params.local_memory_type + "→" + params.remote_memory_type + " (thrs=" \
+            + str(params.threads) + "; bufslots=" \
+            + str(params.buffer_slots) + "; itrs=" + str(params.iterations) \
+            + "; wm=" + str(params.write_mode) + ")"
         y_label = "Bandwidth"
         y_label_update = True
         x_values = columns[0]["values"]
         for i in range(len(x_values)):
             x_values[i] = str(x_values[i])
+        x_values = np.array(x_values)
         fig, ax = plt.subplots()
         for column in columns:
             col_label = column["name"]
-            if col_label.rfind("/s"):
+            if col_label.rfind("/s") >= 0:
                 unit_off = col_label.rfind("[")
                 if unit_off > 0:
                     if y_label_update:
                         y_label = "Bandwidth " + col_label[unit_off:]
                         y_label_update = False
                     col_label = col_label[0:unit_off].strip()
-                lines = ax.plot(x_values, column["values"], label=col_label)
+                lines = ax.plot(x_values, np.array(column["values"]), label=col_label,
+                                **get_line_style(col_label))
                 lines[0].set_antialiased(False)
 
-        ax.set(ylim=[y_global_min, y_global_max], xlabel="Packet Size [Bytes]", ylabel=y_label,
-               title=title)
+        # ylim=[y_global_min, y_global_max]
+        ax.set(xlabel="Packet Size [Bytes]", ylabel=y_label, title=title)
         ax.legend()
 
         if isinstance(output_file_name, PdfPages):
             output_file_name.savefig(figure=fig)
         else:
-            plt.savefig(output_file_name + "-Bandwidth-" + params.to_file_str() + "." +
+            plt.savefig(output_file_name + "-Bandwidth-" + params.to_file_str() + "-Raw" + "." +
                         output_format)
-
-    output_file_name.close()  # TODO REMOVE
-    exit(0)  # TODO REMOVE
+        plt.close(fig)
 
     # x-axis = Packet Size | y-axis = Medians compared to thread counts
 
 
 def plot_latency(test_params, test_columns, output_file_name, output_format):
     print("Plotting Latency results ...")
+    entry_count = len(test_params)
+
+    # Group columns and find minimum and maximum y value
+    y_global_min = sys.maxsize
+    y_global_max = -sys.maxsize - 1
+    for entry in range(entry_count):
+        columns = group_columns(test_columns[entry])
+        test_columns[entry] = columns
+        for column in columns:
+            if str(column["name"]).lower().startswith("min"):
+                for val in column["values"]:
+                    if val < y_global_min:
+                        y_global_min = val
+            elif str(column["name"]).lower().startswith("max"):
+                for val in column["values"]:
+                    if val > y_global_max:
+                        y_global_max = val
+
+    # x-axis = Packet Size | y-axis =
+    for entry in range(entry_count):
+        params = test_params[entry]
+        columns = test_columns[entry]
+        print(params)  # TODO REMOVE
+        print(columns)  # TODO REMOVE
+        title = params.local_memory_type + "→" + params.remote_memory_type + " (thrs=" \
+            + str(params.threads) + "; bufslots=" \
+            + str(params.buffer_slots) + "; itrs=" + str(params.iterations) \
+            + "; wm=" + str(params.write_mode) + ")"
+        y_label = "Latency"
+        y_label_update = True
+        x_values = columns[0]["values"]
+        for i in range(len(x_values)):
+            x_values[i] = str(x_values[i])
+        x_values = np.array(x_values)
+        fig, ax = plt.subplots()
+        for column in columns:
+            col_label = column["name"]
+            if col_label.rfind("sec") >= 0:
+                unit_off = col_label.rfind("[")
+                if unit_off > 0:
+                    if y_label_update:
+                        y_label = "Latency " + col_label[unit_off:]
+                        y_label_update = False
+                    col_label = col_label[0:unit_off].strip()
+                lines = ax.plot(x_values, np.array(column["values"]), label=col_label,
+                                **get_line_style(col_label))
+                lines[0].set_antialiased(False)
+
+        # ylim=[y_global_min, y_global_max]
+        ax.set(xlabel="Packet Size [Bytes]", ylabel=y_label, title=title)
+        ax.legend()
+
+        if isinstance(output_file_name, PdfPages):
+            output_file_name.savefig(figure=fig)
+        else:
+            plt.savefig(output_file_name + "-Latency-" + params.to_file_str() + "-Raw" + "." +
+                        output_format)
+        plt.close(fig)
+
+    # x-axis = Packet Size | y-axis = Medians compared to thread counts
 
 
 def plot_operations_count(test_params, test_columns, output_file_name, output_format):
     print("Plotting OperationsCount results ...")
+    entry_count = len(test_params)
+
+    # Group columns and find minimum and maximum y value
+    y_global_min = sys.maxsize
+    y_global_max = -sys.maxsize - 1
+    for entry in range(entry_count):
+        columns = group_columns(test_columns[entry])
+        test_columns[entry] = columns
+        for column in columns:
+            if str(column["name"]).lower().startswith("min"):
+                for val in column["values"]:
+                    if val < y_global_min:
+                        y_global_min = val
+            elif str(column["name"]).lower().startswith("max"):
+                for val in column["values"]:
+                    if val > y_global_max:
+                        y_global_max = val
+
+    # x-axis = Packet Size | y-axis =
+    for entry in range(entry_count):
+        params = test_params[entry]
+        columns = test_columns[entry]
+        print(params)  # TODO REMOVE
+        print(columns)  # TODO REMOVE
+        title = params.local_memory_type + "→" + params.remote_memory_type + " (thrs=" \
+                + str(params.threads) + "; bufslots=" \
+                + str(params.buffer_slots) + "; itrs=" + str(params.iterations) \
+                + "; wm=" + str(params.write_mode) + ")"
+        y_label = "Operations/sec"
+        y_label_update = True
+        x_values = columns[0]["values"]
+        for i in range(len(x_values)):
+            x_values[i] = str(x_values[i])
+        x_values = np.array(x_values)
+        fig, ax = plt.subplots()
+        for column in columns:
+            col_label = column["name"]
+            if col_label.rfind("/s") >= 0:
+                unit_off = col_label.rfind("[")
+                if unit_off > 0:
+                    if y_label_update:
+                        y_label = "Operations/sec " + col_label[unit_off:]
+                        y_label_update = False
+                    col_label = col_label[0:unit_off].strip()
+                lines = ax.plot(x_values, np.array(column["values"]), label=col_label,
+                                **get_line_style(col_label))
+                lines[0].set_antialiased(False)
+
+        # ylim=[y_global_min, y_global_max]
+        ax.set(xlabel="Packet Size [Bytes]", ylabel=y_label, title=title)
+        ax.legend()
+
+        if isinstance(output_file_name, PdfPages):
+            output_file_name.savefig(figure=fig)
+        else:
+            plt.savefig(output_file_name + "-OperationsCount-" + params.to_file_str() + "-Raw" +
+                        "." + output_format)
+        plt.close(fig)
+
+    # x-axis = Packet Size | y-axis = Medians compared to thread counts
 
 
 def plot_atomics_bandwidth(test_params, test_columns, output_file_name, output_format):
@@ -175,6 +357,8 @@ def parse_test_parameters(test_params: [str]) -> TestParameters:
                     p.local_memory_type = s[0].strip()
                     if len(s) > 1:
                         p.remote_memory_type = s[1].strip()
+                elif param.startswith("w"):
+                    p.write_mode = s
             elif param.startswith("cli"):
                 p.is_server = False
             elif param.startswith("serv"):
