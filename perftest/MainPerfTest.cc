@@ -39,7 +39,7 @@ DEFINE_string(writemode, "auto", "Which RDMA write mode should be used. Possible
 DEFINE_bool(ignoreerrors, false, "If an error occurs test will be skiped and execution continues");
 
 enum TEST { BANDWIDTH_TEST, LATENCY_TEST, OPERATIONS_COUNT_TEST, ATOMICS_BANDWIDTH_TEST, ATOMICS_LATENCY_TEST, ATOMICS_OPERATIONS_COUNT_TEST };
-const uint64_t MINIMUM_PACKET_SIZE = 256; // only GPUDirect doesn't work with smaller sizes
+const uint64_t MINIMUM_PACKET_SIZE = 1; // only GPUDirect doesn't work with smaller sizes
 
 static std::vector<int> parseIntList(std::string str){
     std::vector<int> v;
