@@ -103,15 +103,18 @@ void Config::unload() {
 void Config::load(const string& prog_name) {
   string conf_file;
   if (prog_name.empty() || prog_name.find("/") == string::npos) {
-    conf_file = ".";
+    //conf_file = "."
+    conf_file = "./conf/RDMA.conf";
   } else {
-    conf_file = prog_name.substr(0, prog_name.find_last_of("/"));
+    //conf_file = prog_name.substr(0, prog_name.find_last_of("/"));
+    conf_file = prog_name;
   }
-  conf_file += "/conf/RDMA.conf";
+  //conf_file += "/conf/RDMA.conf";
 
   ifstream file(conf_file.c_str());
 
   if (file.fail()) {
+    std::cerr << "Could not load config from file '" << prog_name << "'" << std::endl;
     Logging::error(__FILE__, __LINE__,
                     "Failed to load config file at " + conf_file + ". "
                     "The default values are used.");
@@ -126,9 +129,7 @@ void Config::load(const string& prog_name) {
     if (line.length() == 0)
       continue;
 
-    if (line[0] == '#')
-      continue;
-    if (line[0] == ';')
+    if (line[0] == '#' || line[0] == ';')
       continue;
 
     posEqual = line.find('=');
@@ -154,6 +155,10 @@ void Config::set(string key, string value) {
     Config::MLX5_SINGLE_THREADED = stoi(value);
   }else if (key.compare("RDMA_INTERFACE") == 0) {
     Config::RDMA_INTERFACE = value;
+  }else if (key.compare("NODE_SEQUENCER_IP") == 0) {
+    Config::SEQUENCER_IP = value;
+  }else if (key.compare("NODE_SEQUENCER_PORT") == 0) {
+    Config::SEQUENCER_PORT = stoi(value);
   }
 }
 

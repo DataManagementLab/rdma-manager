@@ -62,7 +62,17 @@ namespace rdma
 class Config
 {
   public:
-    Config(const std::string& prog_name);
+
+    /* Function: load
+     * ---------------
+     * Loads values from a config file.
+     * Default file is './conf/RDMA.conf'.
+     * CMake copies it into './bin/conf/RDMA.conf' inside
+     * the build folder.
+     *
+     * prog_name:  path to 
+     */
+    Config(const std::string& config_file_path);
     ~Config();
 
     //RDMA

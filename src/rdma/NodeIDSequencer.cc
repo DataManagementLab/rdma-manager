@@ -2,7 +2,11 @@
 
 using namespace rdma;
 
-NodeIDSequencer::NodeIDSequencer(/* args */) : ProtoServer("NodeIDSequencer", Config::SEQUENCER_PORT)
+NodeIDSequencer::NodeIDSequencer() : NodeIDSequencer("NodeIDSequencer"){}
+NodeIDSequencer::NodeIDSequencer(std::string name) : NodeIDSequencer(name, "*", Config::SEQUENCER_PORT){}
+NodeIDSequencer::NodeIDSequencer(int port) : NodeIDSequencer("*", port){}
+NodeIDSequencer::NodeIDSequencer(std::string ip, int port) : NodeIDSequencer("NodeIDSequencer", ip, port){}
+NodeIDSequencer::NodeIDSequencer(std::string name, std::string ip, int port) : ProtoServer(name, port, ip)
 {
   // std::cout << "Starting NodeIDSequencer" << std::endl;
   if (!ProtoServer::isRunning())

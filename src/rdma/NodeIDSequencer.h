@@ -34,6 +34,10 @@ protected:
     NodeID getNextNodeID();
 public:
     NodeIDSequencer(/* args */);
+    NodeIDSequencer(std::string name);
+    NodeIDSequencer(int port);
+    NodeIDSequencer(std::string ip, int port);
+    NodeIDSequencer(std::string name, std::string ip, int port);
     ~NodeIDSequencer();
 
 };

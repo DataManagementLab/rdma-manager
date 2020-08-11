@@ -33,10 +33,13 @@ DEFINE_string(threads, "1", "How many individual clients connect to the server. 
 DEFINE_string(iterations, "500000", "Amount of test repeats (multiples separated by comma without space)");
 DEFINE_bool(csv, false, "Results will be written into an automatically generated CSV file");
 DEFINE_string(csvfile, "", "Results will be written into a given CSV file");
-DEFINE_string(addr, "172.18.94.20", "Addresses of NodeIDSequencer to connect/bind to");
-DEFINE_int32(port, rdma::Config::RDMA_PORT, "RDMA port");
+DEFINE_string(seqaddr, "", "Address of the NodeIDSequencer to connect/bind to. Starts NodeIDSequencer if value is '*' or local IP is same as given one and only if -server flag is set. Empty to use config value");
+DEFINE_int32(seqport, -1, "Port of the NodeIDSequencer to connect/bind to. Negative to use config value");
+DEFINE_string(addr, "", "Addresses of the RDMAServer(s) to connect/bind to. Empty to use config value");
+DEFINE_int32(port, -1, "Port of the RDMAServer to connect/bind to. Negative to use config value");
 DEFINE_string(writemode, "auto", "Which RDMA write mode should be used. Possible values are 'immediate' where remote receives and completion entry after a write, 'normal' where remote possibly has to pull the memory constantly to detect changes, 'auto' which uses preferred (ignored by atomics tests | multiples separated by comma without space)");
 DEFINE_bool(ignoreerrors, false, "If an error occurs test will be skiped and execution continues");
+DEFINE_string(config, "./bin/conf/RDMA.conf", "Path to the config file");
 
 enum TEST { BANDWIDTH_TEST, LATENCY_TEST, OPERATIONS_COUNT_TEST, ATOMICS_BANDWIDTH_TEST, ATOMICS_LATENCY_TEST, ATOMICS_OPERATIONS_COUNT_TEST };
 const uint64_t MINIMUM_PACKET_SIZE = 1; // only GPUDirect doesn't work with smaller sizes
@@ -118,6 +121,14 @@ static void runTest(size_t testNumber, size_t testIterations, std::string testNa
 int main(int argc, char *argv[]){
     std::cout << "Parsing arguments ..." << std::endl;
     gflags::ParseCommandLineFlags(&argc, &argv, true);
+    std::cout << "Arguments parsed" << std::endl << "Loading config ..." << std::endl;
+    rdma::Config *config = new rdma::Config(FLAGS_config);
+    delete config;
+    if(FLAGS_seqaddr.empty()) FLAGS_seqaddr=rdma::Config::SEQUENCER_IP;
+    if(FLAGS_seqport<=0) FLAGS_seqport=rdma::Config::SEQUENCER_PORT;
+    if(FLAGS_addr.empty()) FLAGS_addr=rdma::Config::RDMA_INTERFACE;
+    if(FLAGS_port<=0) FLAGS_port=rdma::Config::RDMA_PORT;
+    std::cout << "Config loaded" << std::endl;
 
     std::vector<std::string> testNames = rdma::StringHelper::split(FLAGS_test);
     std::vector<int> local_gpus = parseIntList(FLAGS_gpu);
@@ -294,16 +305,13 @@ int main(int argc, char *argv[]){
         testIt++;
     }
 
-
     // start NodeIDSequencer
     if(FLAGS_server){
-        // NodeIDSequencer (Server)
-		if (rdma::Config::getIP(rdma::Config::RDMA_INTERFACE) == rdma::Network::getAddressOfConnection(addresses[0])){
-			std::cout << "Starting NodeIDSequencer on " << rdma::Config::getIP(rdma::Config::RDMA_INTERFACE) << ":" << rdma::Config::SEQUENCER_PORT << std::endl;
-			new rdma::NodeIDSequencer();
-		}
+        if(FLAGS_seqaddr == "*" || FLAGS_seqaddr == rdma::Network::getLocalAddress()){
+            std::cout << "Starting NodeIDSequencer on " << FLAGS_seqaddr << ":" << FLAGS_seqport << std::endl;
+            new rdma::NodeIDSequencer(FLAGS_seqaddr, FLAGS_seqport);
+        }
     }
-
 
     // EXECUTE TESTS
     auto totalStart = rdma::PerfTest::startTimer();
