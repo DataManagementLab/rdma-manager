@@ -30,19 +30,22 @@ class RDMAClient : public RDMA_API_T, public ProtoClient {
   }
  public:
   RDMAClient() : RDMAClient(Config::RDMA_MEMSIZE) {}
-  RDMAClient(size_t mem_size) : RDMAClient(mem_size, "RDMAClient", Config::SEQUENCER_IP, Config::SEQUENCER_PORT) {}
-  RDMAClient(size_t mem_size, std::string name) : RDMAClient(mem_size, name, Config::SEQUENCER_IP, Config::SEQUENCER_PORT) {}
-  RDMAClient(size_t mem_size, std::string sequencerAddr, int sequencerPort) : RDMAClient(mem_size, "RDMAClient", sequencerAddr, sequencerPort) {}
-  RDMAClient(size_t mem_size, std::string name, std::string sequencerAddr, int sequencerPort) : RDMAClient(mem_size, name, Config::getIP(Config::RDMA_INTERFACE), sequencerAddr+":"+to_string(sequencerPort), NodeType::Enum::CLIENT){}
-  RDMAClient(size_t mem_size, std::string name, std::string sequencerIpPort) : RDMAClient(mem_size, name, Config::getIP(Config::RDMA_INTERFACE), sequencerIpPort, NodeType::Enum::CLIENT)
-  {
+  RDMAClient(size_t mem_size) : RDMAClient(mem_size, "RDMAClient") {}
+  RDMAClient(size_t mem_size, string name) : RDMAClient(mem_size, name, Config::SEQUENCER_IP, Config::SEQUENCER_PORT){}
+  RDMAClient(size_t mem_size, string name, string sequencerAddr, int sequencerPort) : RDMAClient(mem_size, name, Config::getIP(Config::RDMA_INTERFACE), sequencerAddr, sequencerPort){}
+  RDMAClient(size_t mem_size, string name, string sequencerIpPort) : RDMAClient(mem_size, name, Config::getIP(Config::RDMA_INTERFACE), sequencerIpPort){}
+  RDMAClient(size_t mem_size, string name, string ownIpPort, string sequencerAddr, int sequencerPort) : RDMAClient(mem_size, name, ownIpPort, sequencerAddr+":"+to_string(sequencerPort)){}
+  RDMAClient(size_t mem_size, string name, string ownIpPort, string sequencerIpPort) : RDMAClient(mem_size, name, ownIpPort, sequencerIpPort, NodeType::Enum::CLIENT){
+
   }
+
   RDMAClient(BaseMemory *memory) : RDMAClient(memory, "RDMAClient") {}
-  RDMAClient(BaseMemory *memory, std::string name) : RDMAClient(memory, name, Config::SEQUENCER_IP, Config::SEQUENCER_PORT) {}
-  RDMAClient(BaseMemory *memory, std::string sequencerAddr, int sequencerPort) : RDMAClient(memory, "RDMAClient", sequencerAddr, sequencerPort) {}
-  RDMAClient(BaseMemory *memory, std::string name, std::string sequencerAddr, int sequencerPort) : RDMAClient(memory, name, Config::getIP(Config::RDMA_INTERFACE), sequencerAddr+":"+to_string(sequencerPort), NodeType::Enum::CLIENT){}
-  RDMAClient(BaseMemory *memory, std::string name, std::string sequencerIpPort) : RDMAClient(memory, name, Config::getIP(Config::RDMA_INTERFACE), sequencerIpPort, NodeType::Enum::CLIENT)
-  {
+  RDMAClient(BaseMemory *memory, string name) : RDMAClient(memory, name, Config::SEQUENCER_IP, Config::SEQUENCER_PORT){}
+  RDMAClient(BaseMemory *memory, string name, string sequencerAddr, int sequencerPort) : RDMAClient(memory, name, Config::getIP(Config::RDMA_INTERFACE), sequencerAddr, sequencerPort){}
+  RDMAClient(BaseMemory *memory, string name, string sequencerIpPort) : RDMAClient(memory, name, Config::getIP(Config::RDMA_INTERFACE), sequencerIpPort){}
+  RDMAClient(BaseMemory *memory, string name, string ownIpPort, string sequencerAddr, int sequencerPort) : RDMAClient(memory, name, ownIpPort, sequencerAddr+":"+to_string(sequencerPort)){}
+  RDMAClient(BaseMemory *memory, string name, string ownIpPort, string sequencerIpPort) : RDMAClient(memory, name, ownIpPort, sequencerIpPort, NodeType::Enum::CLIENT){
+
   }
   
   ~RDMAClient() {
@@ -127,7 +130,8 @@ class RDMAClient : public RDMA_API_T, public ProtoClient {
    */
   bool connect(const string& ipPort, NodeID &retServerNodeID) {
 
-    std::cout << std::endl << "NodeIDSequencer: " << m_sequencerIpPort << std::endl; // TODO REMOVE
+    // TODO REMOVE
+    std::cout << std::endl << "RDMAClient.connect( " << ipPort << ", " << retServerNodeID << ") with OwnIp=" << m_ownIpPort << " and NodeIDSequencer=" << m_sequencerIpPort << std::endl; // TODO REMOVE
 
     if (!ProtoClient::isConnected(m_sequencerIpPort)) {
       m_ownNodeID = requestNodeID(m_sequencerIpPort, m_ownIpPort, m_nodeType);
@@ -319,17 +323,28 @@ class RDMAClient : public RDMA_API_T, public ProtoClient {
   //Can be overwritten for special use-cases where NodeIDSequencer is insufficient
   virtual NodeID requestNodeID(std::string sequencerIpPort, std::string ownIpPort, NodeType::Enum nodeType)
   {
+    // TODO REMOVE ownIpPort = Network::getAddressOfConnection(ownIpPort); // just ip is needed
+    
     // std::cout << "Requesting IP. sequencerIpPort" << sequencerIpPort << " ownIpPort " << ownIpPort << std::endl;
     // check if client is connected to sequencer
+
+    std::cout << "RDMAClient.requestNodeID(" << sequencerIpPort << ", " << ownIpPort << ", " << nodeType << ")" << std::endl; // TODO REMOVE
+
     if (ProtoClient::isConnected(sequencerIpPort)) {
       return m_ownNodeID;
     }
+    std::cout << "RDMAClient.requestNodeID():  CONNECTING to NodeIDSequencer at " << sequencerIpPort << std::endl; // TODO REMOVE
     ProtoClient::connectProto(sequencerIpPort);
+    std::cout << "RDMAClient.requestNodeID():  CONNECTED to NodeIDSequencer" << std::endl; // TODO REMOVE
 
     Any nodeIDRequest = ProtoMessageFactory::createNodeIDRequest(ownIpPort, m_name, nodeType);
+    std::cout << "CHECK DONE" << std::endl; // TODO REMOVE
     Any rcvAny;
     // std::cout << "Sending nodeid request to NodeIDSequencer" << std::endl;
+    std::cout << "RDMAClient.requestNodeID():  SENDING REQUEST " << std::endl; // TODO REMOVE
     ProtoClient::exchangeProtoMsg(sequencerIpPort, &nodeIDRequest, &rcvAny);
+
+    std::cout << "RDMAClient.requestNodeID():  REQUEST SENT" << std::endl; // TODO REMOVE
 
     if (rcvAny.Is<NodeIDResponse>()) {
       NodeIDResponse connResponse;

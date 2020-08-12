@@ -35,8 +35,8 @@ DEFINE_bool(csv, false, "Results will be written into an automatically generated
 DEFINE_string(csvfile, "", "Results will be written into a given CSV file");
 DEFINE_string(seqaddr, "", "Address of the NodeIDSequencer to connect/bind to. Starts NodeIDSequencer if value is '*' or local IP is same as given one and only if -server flag is set. Empty to use config value");
 DEFINE_int32(seqport, -1, "Port of the NodeIDSequencer to connect/bind to. Negative to use config value");
-DEFINE_string(addr, "", "Addresses of the RDMAServer(s) to connect/bind to. Empty to use config value");
-DEFINE_int32(port, -1, "Port of the RDMAServer to connect/bind to. Negative to use config value");
+DEFINE_string(addr, "", "RDMA Addresses of the RDMAServer(s) to connect/bind to. Empty to use config value");
+DEFINE_int32(port, -1, "RDMA Port of the RDMAServer to connect/bind to. Negative to use config value");
 DEFINE_string(writemode, "auto", "Which RDMA write mode should be used. Possible values are 'immediate' where remote receives and completion entry after a write, 'normal' where remote possibly has to pull the memory constantly to detect changes, 'auto' which uses preferred (ignored by atomics tests | multiples separated by comma without space)");
 DEFINE_bool(ignoreerrors, false, "If an error occurs test will be skiped and execution continues");
 DEFINE_string(config, "./bin/conf/RDMA.conf", "Path to the config file");
@@ -140,8 +140,8 @@ int main(int argc, char *argv[]){
     std::vector<std::string> writeModeNames = rdma::StringHelper::split(FLAGS_writemode);
     std::vector<std::string> addresses = rdma::StringHelper::split(FLAGS_addr);
 	for (std::string &addr : addresses){
-        std::cout << "Convert: " << addr << " -> " << rdma::Config::getIP(addr) << std::endl; // TODO REMOVE
-		addr += ":" + to_string(FLAGS_port);
+		addr = rdma::Config::getIP(addr) + ":" + to_string(FLAGS_port);
+        std::cout << "RDMA-Address:  " << addr << std::endl; // TODO REMOVE
 	}
     
     if(FLAGS_fulltest || FLAGS_halftest || FLAGS_quicktest){
@@ -306,15 +306,16 @@ int main(int argc, char *argv[]){
         testIt++;
     }
 
+
     // start NodeIDSequencer
     if(FLAGS_server){
         if(FLAGS_seqaddr=="*" || FLAGS_seqaddr=="localhost" || FLAGS_seqaddr=="127.0.0.1" || FLAGS_seqaddr == rdma::Network::getLocalAddress()){
-            std::cout << "Starting NodeIDSequencer on *:" << FLAGS_seqport << std::endl;
-            new rdma::NodeIDSequencer("*", FLAGS_seqport);
+            std::cout << "Starting NodeIDSequencer on port " << FLAGS_seqport << std::endl;
+            new rdma::NodeIDSequencer(FLAGS_seqport, "*");
         }
     }
-    FLAGS_seqaddr = rdma::Config::getIP(rdma::Config::RDMA_INTERFACE); // TODO REMOVE
     std::string sequencerIpAddr = FLAGS_seqaddr+":"+to_string(FLAGS_seqport);
+
 
     // EXECUTE TESTS
     auto totalStart = rdma::PerfTest::startTimer();

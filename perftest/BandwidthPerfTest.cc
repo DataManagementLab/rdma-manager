@@ -364,7 +364,8 @@ void rdma::BandwidthPerfTest::setupTest(){
 
 	if(m_is_server){
 		// Server
-		m_server = new RDMAServer<ReliableRDMA>("BandwidthTestRDMAServer", m_rdma_port, m_memory);
+		std::cout << "Start RDMAServer with NodeIDSequencer at " << m_sequencerIpPort << std::endl; // TODO REMOVE
+		m_server = new RDMAServer<ReliableRDMA>("BandwidthTestRDMAServer", m_rdma_port, Network::getAddressOfConnection(m_rdma_addresses[0]), m_memory, m_sequencerIpPort);
 		for (int thread_id = 0; thread_id < m_thread_count; thread_id++) {
 			BandwidthPerfServerThread* perfThread = new BandwidthPerfServerThread(m_server, m_packet_size, m_buffer_slots, m_iterations, max_rdma_wr_per_thread, m_write_mode, thread_id);
 			m_server_threads.push_back(perfThread);

@@ -3,16 +3,16 @@
 using namespace rdma;
 
 NodeIDSequencer::NodeIDSequencer() : NodeIDSequencer("NodeIDSequencer"){}
-NodeIDSequencer::NodeIDSequencer(std::string name) : NodeIDSequencer(name, "*", Config::SEQUENCER_PORT){}
-NodeIDSequencer::NodeIDSequencer(int port) : NodeIDSequencer("*", port){}
-NodeIDSequencer::NodeIDSequencer(std::string ip, int port) : NodeIDSequencer("NodeIDSequencer", ip, port){}
-NodeIDSequencer::NodeIDSequencer(std::string name, std::string ip, int port) : ProtoServer(name, port, ip)
+NodeIDSequencer::NodeIDSequencer(std::string name) : NodeIDSequencer(name, Config::SEQUENCER_PORT){}
+NodeIDSequencer::NodeIDSequencer(std::string name, int port) : NodeIDSequencer(name, port, "*"){}
+NodeIDSequencer::NodeIDSequencer(int port) : NodeIDSequencer(port, "*"){}
+NodeIDSequencer::NodeIDSequencer(int port, std::string ip) : NodeIDSequencer("NodeIDSequencer", port, ip){}
+NodeIDSequencer::NodeIDSequencer(std::string name, int port, std::string ip) : ProtoServer(name, port, ip)
 {
   // std::cout << "Starting NodeIDSequencer" << std::endl;
   if (!ProtoServer::isRunning())
   {
     ProtoServer::startServer();
-    std::cout << "Starting NodeIDSequencer: " << ProtoServer::isRunning() << " | " << ip << ":" << port << std::endl; // TODO REMOVE 
   }
 }
 
@@ -27,6 +27,7 @@ NodeID NodeIDSequencer::getNextNodeID()
 
 void NodeIDSequencer::handle(Any *anyReq, Any *anyResp)
 {
+  std::cout << "NodeIDSequencer.handle()  << REQUEST" << std::endl; // TODO REMOVE
   if (anyReq->Is<NodeIDRequest>())
   {
     NodeIDResponse connResp;
