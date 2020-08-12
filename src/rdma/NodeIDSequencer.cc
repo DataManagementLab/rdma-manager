@@ -12,6 +12,7 @@ NodeIDSequencer::NodeIDSequencer(std::string name, std::string ip, int port) : P
   if (!ProtoServer::isRunning())
   {
     ProtoServer::startServer();
+    std::cout << "Starting NodeIDSequencer: " << ProtoServer::isRunning() << " | " << ip << ":" << port << std::endl; // TODO REMOVE 
   }
 }
 

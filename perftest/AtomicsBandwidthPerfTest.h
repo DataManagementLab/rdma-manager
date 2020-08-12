@@ -16,7 +16,7 @@ namespace rdma {
 
 class AtomicsBandwidthPerfClientThread : public Thread {
 public:
-	AtomicsBandwidthPerfClientThread(BaseMemory *memory, std::vector<std::string>& rdma_addresses, int buffer_slots, size_t iterations);
+	AtomicsBandwidthPerfClientThread(BaseMemory *memory, std::vector<std::string>& rdma_addresses, std::string sequencerIpPort, int buffer_slots, size_t iterations);
 	~AtomicsBandwidthPerfClientThread();
 	void run();
 	bool ready() {
@@ -41,7 +41,7 @@ private:
 
 class AtomicsBandwidthPerfTest : public rdma::PerfTest {
 public:
-	AtomicsBandwidthPerfTest(bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, int local_gpu_index, int remote_gpu_index, int thread_count, int buffer_slots, uint64_t iterations);
+	AtomicsBandwidthPerfTest(bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, std::string sequencerIpPort, int local_gpu_index, int remote_gpu_index, int thread_count, int buffer_slots, uint64_t iterations);
 	virtual ~AtomicsBandwidthPerfTest();
 	std::string getTestParameters();
 	void setupTest();
@@ -55,6 +55,7 @@ public:
 
 private:
 	bool m_is_server;
+	std::string m_sequencerIpPort;
 	NodeIDSequencer *m_nodeIDSequencer;
 	std::vector<std::string> m_rdma_addresses;
 	int m_rdma_port;

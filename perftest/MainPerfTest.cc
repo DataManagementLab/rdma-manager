@@ -139,7 +139,8 @@ int main(int argc, char *argv[]){
     std::vector<uint64_t> iteration_counts = parseUInt64List(FLAGS_iterations);
     std::vector<std::string> writeModeNames = rdma::StringHelper::split(FLAGS_writemode);
     std::vector<std::string> addresses = rdma::StringHelper::split(FLAGS_addr);
-	for (auto &addr : addresses){
+	for (std::string &addr : addresses){
+        std::cout << "Convert: " << addr << " -> " << rdma::Config::getIP(addr) << std::endl; // TODO REMOVE
 		addr += ":" + to_string(FLAGS_port);
 	}
     
@@ -307,11 +308,13 @@ int main(int argc, char *argv[]){
 
     // start NodeIDSequencer
     if(FLAGS_server){
-        if(FLAGS_seqaddr == "*" || FLAGS_seqaddr == rdma::Network::getLocalAddress()){
-            std::cout << "Starting NodeIDSequencer on " << FLAGS_seqaddr << ":" << FLAGS_seqport << std::endl;
-            new rdma::NodeIDSequencer(FLAGS_seqaddr, FLAGS_seqport);
+        if(FLAGS_seqaddr=="*" || FLAGS_seqaddr=="localhost" || FLAGS_seqaddr=="127.0.0.1" || FLAGS_seqaddr == rdma::Network::getLocalAddress()){
+            std::cout << "Starting NodeIDSequencer on *:" << FLAGS_seqport << std::endl;
+            new rdma::NodeIDSequencer("*", FLAGS_seqport);
         }
     }
+    FLAGS_seqaddr = rdma::Config::getIP(rdma::Config::RDMA_INTERFACE); // TODO REMOVE
+    std::string sequencerIpAddr = FLAGS_seqaddr+":"+to_string(FLAGS_seqport);
 
     // EXECUTE TESTS
     auto totalStart = rdma::PerfTest::startTimer();
@@ -332,17 +335,17 @@ int main(int argc, char *argv[]){
                         if(t == ATOMICS_BANDWIDTH_TEST){
                             // Atomics Bandwidth Test
                             testName = "Atomics Bandwidth";
-                            test = new rdma::AtomicsBandwidthPerfTest(FLAGS_server, addresses, FLAGS_port, local_gpu_index, remote_gpu_index, thread_count, buffer_slots, iterations_per_thread);
+                            test = new rdma::AtomicsBandwidthPerfTest(FLAGS_server, addresses, FLAGS_port, sequencerIpAddr, local_gpu_index, remote_gpu_index, thread_count, buffer_slots, iterations_per_thread);
 
                         } else if(t == ATOMICS_LATENCY_TEST){
                             // Atomics Latency Test
                             testName = "Atomics Latency";
-                            test = new rdma::AtomicsLatencyPerfTest(FLAGS_server, addresses, FLAGS_port, local_gpu_index, remote_gpu_index, thread_count, buffer_slots, iterations_per_thread);
+                            test = new rdma::AtomicsLatencyPerfTest(FLAGS_server, addresses, FLAGS_port, sequencerIpAddr, local_gpu_index, remote_gpu_index, thread_count, buffer_slots, iterations_per_thread);
 
                         } else if(t == ATOMICS_OPERATIONS_COUNT_TEST){
                             // Atomics Operations Count Test
                             testName = "Atomics Operations Count";
-                            test = new rdma::AtomicsOperationsCountPerfTest(FLAGS_server, addresses, FLAGS_port, local_gpu_index, remote_gpu_index, thread_count, buffer_slots, iterations_per_thread);
+                            test = new rdma::AtomicsOperationsCountPerfTest(FLAGS_server, addresses, FLAGS_port, sequencerIpAddr, local_gpu_index, remote_gpu_index, thread_count, buffer_slots, iterations_per_thread);
                         }
 
                         if(test != nullptr){
@@ -358,17 +361,17 @@ int main(int argc, char *argv[]){
                                 if(t == BANDWIDTH_TEST){
                                     // Bandwidth Test
                                     testName = "Bandwidth";
-                                    test = new rdma::BandwidthPerfTest(FLAGS_server, addresses, FLAGS_port, local_gpu_index, remote_gpu_index, thread_count, packet_size, buffer_slots, iterations_per_thread, write_mode);
+                                    test = new rdma::BandwidthPerfTest(FLAGS_server, addresses, FLAGS_port, sequencerIpAddr, local_gpu_index, remote_gpu_index, thread_count, packet_size, buffer_slots, iterations_per_thread, write_mode);
 
                                 } else if(t == LATENCY_TEST){
                                     // Latency Test
                                     testName = "Latency";
-                                    test = new rdma::LatencyPerfTest(FLAGS_server, addresses, FLAGS_port, local_gpu_index, remote_gpu_index, thread_count, packet_size, buffer_slots, iterations_per_thread, write_mode);
+                                    test = new rdma::LatencyPerfTest(FLAGS_server, addresses, FLAGS_port, sequencerIpAddr, local_gpu_index, remote_gpu_index, thread_count, packet_size, buffer_slots, iterations_per_thread, write_mode);
 
                                 } else if(t == OPERATIONS_COUNT_TEST){
                                     // Operations Count Test
                                     testName = "Operations Count";
-                                    test = new rdma::OperationsCountPerfTest(FLAGS_server, addresses, FLAGS_port, local_gpu_index, remote_gpu_index, thread_count, packet_size, buffer_slots, iterations_per_thread, write_mode);
+                                    test = new rdma::OperationsCountPerfTest(FLAGS_server, addresses, FLAGS_port, sequencerIpAddr, local_gpu_index, remote_gpu_index, thread_count, packet_size, buffer_slots, iterations_per_thread, write_mode);
                                 }
 
                                 testCounter++;
