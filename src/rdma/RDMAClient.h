@@ -138,6 +138,8 @@ class RDMAClient : public RDMA_API_T, public ProtoClient {
     // check if client is connected to data node
     if (!ProtoClient::isConnected(ipPort)) {
       
+      std::cout << "RDMAClient.connect(" << ipPort << ")" << std::endl; // TODO REMOVE
+
       ProtoClient::connectProto(ipPort);
 
       {
@@ -328,7 +330,7 @@ class RDMAClient : public RDMA_API_T, public ProtoClient {
     }
     ProtoClient::connectProto(sequencerIpPort);
 
-    std::cout << "THIS SHOULD ALSO HAVE A PORT: " << ownIpPort << std::endl; // TODO REMOVE
+    std::cout << "RequestNodeID: " << sequencerIpPort << ", " << ownIpPort << std::endl; // TODO REMOVE
 
     Any nodeIDRequest = ProtoMessageFactory::createNodeIDRequest(ownIpPort, m_name, nodeType);
     Any rcvAny;
