@@ -33,8 +33,10 @@ DEFINE_string(threads, "1", "How many individual clients connect to the server. 
 DEFINE_string(iterations, "500000", "Amount of test repeats (multiples separated by comma without space)");
 DEFINE_bool(csv, false, "Results will be written into an automatically generated CSV file");
 DEFINE_string(csvfile, "", "Results will be written into a given CSV file");
-DEFINE_string(addr, "172.18.94.20", "Addresses of NodeIDSequencer to connect/bind to");
-DEFINE_int32(port, rdma::Config::RDMA_PORT, "RDMA port");
+DEFINE_string(seqaddr, "", "Address of NodeIDSequencer to connect/bind to. If empty then config value will be used");
+DEFINE_int32(seqport, -1, "Port of NodeIDSequencer to connect/bind to. If empty then config value will be used");
+DEFINE_string(addr, "", "RDMA address of interface to connect/bind to. If empty then config value will be used");
+DEFINE_int32(port, -1, "RDMA port. If negative then config value will be used");
 DEFINE_string(writemode, "auto", "Which RDMA write mode should be used. Possible values are 'immediate' where remote receives and completion entry after a write, 'normal' where remote possibly has to pull the memory constantly to detect changes, 'auto' which uses preferred (ignored by atomics tests | multiples separated by comma without space)");
 DEFINE_bool(ignoreerrors, false, "If an error occurs test will be skiped and execution continues");
 DEFINE_string(config, "./bin/conf/RDMA.conf", "Path to the config file");
@@ -121,6 +123,8 @@ int main(int argc, char *argv[]){
     gflags::ParseCommandLineFlags(&argc, &argv, true);
     std::cout << "Arguments parsed" << std::endl << "Loading config ..." << std::endl;
     rdma::Config *config = new rdma::Config(FLAGS_config, false);
+    if(FLAGS_seqaddr.empty()) FLAGS_seqaddr=rdma::Config::SEQUENCER_IP;
+    if(FLAGS_seqport<=0) FLAGS_seqport=rdma::Config::SEQUENCER_PORT;
     if(FLAGS_addr.empty()) FLAGS_addr=rdma::Config::RDMA_INTERFACE;
     if(FLAGS_port<=0) FLAGS_port=rdma::Config::RDMA_PORT;
     std::cout << "Config loaded" << std::endl;
