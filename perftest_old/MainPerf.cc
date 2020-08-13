@@ -20,7 +20,8 @@ static void printUsage() {
     cout << "104: \t MulticastLatServer" << endl;
     cout << "201: \t RPCPerfClient" << endl;
     cout << "202: \t RPCPerfServer" << endl;
-
+    cout << "301: \t FetchAndAddPerfClient" << endl;
+    cout << "302: \t FetchAndAddPerfServer" << endl;
 }
 
 
@@ -57,6 +58,12 @@ rdma::PerfTest* createTest(config_t& config) {
         case 202:
             test = new RPCPerf(config,false);
             break;
+        case 301:
+            test = new FetchAndAddPerf(config,true);
+            break;
+        case 302:
+            test = new FetchAndAddPerf(config,false);
+            break;
     }
 
     return test;
@@ -65,12 +72,12 @@ rdma::PerfTest* createTest(config_t& config) {
 
 int main(int argc, char *argv[])
 {
-
-    // load configuration
-    //static Config conf;
-
     // parse parameters
     struct config_t config = rdma::PerfTest::parseParameters(argc, argv);
+    
+    // load configuration
+    static Config conf(argv[0]);
+    conf.RDMA_NUMAREGION = config.numa;
 
     // check if test number is defined
     if (config.number <= 0) {

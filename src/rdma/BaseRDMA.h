@@ -83,8 +83,11 @@ class BaseRDMA {
   // constructors and destructor
   BaseRDMA(BaseMemory *buffer);
   BaseRDMA(BaseMemory *buffer, bool pass_buffer_ownership);
-  BaseRDMA(size_t mem_size);
+
+  BaseRDMA(size_t mem_size=Config::RDMA_MEMSIZE);
   BaseRDMA(size_t mem_size, bool huge);
+  BaseRDMA(size_t mem_size, int numaNode);
+  BaseRDMA(size_t mem_size, bool huge, int numaNode);
 
   virtual ~BaseRDMA();
 

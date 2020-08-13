@@ -46,6 +46,11 @@ class ProtoServer : private Thread {
   ProtoSocket* m_pSocket;
   mutex m_handleLock;
 
+  using Thread::start;
+  using Thread::stop;
+  using Thread::join;
+  using Thread::running;
+  using Thread::killed;
 };
 
 }  // end namespace rdma

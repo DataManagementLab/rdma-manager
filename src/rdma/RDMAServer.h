@@ -30,7 +30,9 @@ class RDMAServer : public ProtoServer, public RDMAClient<RDMA_API_T> {
   RDMAServer() : RDMAServer("RDMAserver"){}
   RDMAServer(string name) : RDMAServer(name, Config::RDMA_PORT){}
   RDMAServer(string name, int port) : RDMAServer(name, port, Config::RDMA_MEMSIZE){}
-  RDMAServer(string name, int port, uint64_t memsize) : ProtoServer(name, port, Config::getIP(Config::RDMA_INTERFACE)), RDMAClient<RDMA_API_T>(memsize, name, Config::getIP(Config::RDMA_INTERFACE) + ":" + to_string(port), NodeType::Enum::SERVER)
+  RDMAServer(string name, int port, uint64_t memsize) : RDMAServer(name, port, memsize, (int)Config::RDMA_NUMAREGION) {}
+  RDMAServer(string name, int port, uint64_t memsize, int numaNode) 
+    : ProtoServer(name, port, Config::getIP(Config::RDMA_INTERFACE)), RDMAClient<RDMA_API_T>(memsize, name, Config::getIP(Config::RDMA_INTERFACE) + ":" + to_string(port), NodeType::Enum::SERVER, numaNode)
   {
     // if (!ProtoServer::isRunning())
     // {

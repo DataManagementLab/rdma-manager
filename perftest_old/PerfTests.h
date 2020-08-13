@@ -15,5 +15,6 @@
 #include "MulticastPerf.h"
 #include "MulticastPerfLat.h"
 // #include "SwMulticastPerf.h"
+#include "FetchAndAddPerf.h"
 
 #endif /* PERFTESTS_H_ */
