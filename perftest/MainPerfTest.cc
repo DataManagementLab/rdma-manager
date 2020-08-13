@@ -36,7 +36,7 @@ DEFINE_string(csvfile, "", "Results will be written into a given CSV file");
 DEFINE_string(seqaddr, "", "Address of NodeIDSequencer to connect/bind to. If empty then config value will be used");
 DEFINE_int32(seqport, -1, "Port of NodeIDSequencer to connect/bind to. If empty then config value will be used");
 DEFINE_string(ownaddr, "", "Address of own RDMA interface. If empty then config value 'RDMA_INTERFACE' will be used");
-DEFINE_string(addr, "", "RDMA address of RDMAServer to connect/bind to. If empty then config value 'RDMA_INTERFACE' will be used");
+DEFINE_string(addr, "", "RDMA address of RDMAServer to connect/bind to. If empty then config value 'RDMA_SERVER_ADDRESSES' will be used");
 DEFINE_int32(port, -1, "RDMA port. If negative then config value will be used");
 DEFINE_string(writemode, "auto", "Which RDMA write mode should be used. Possible values are 'immediate' where remote receives and completion entry after a write, 'normal' where remote possibly has to pull the memory constantly to detect changes, 'auto' which uses preferred (ignored by atomics tests | multiples separated by comma without space)");
 DEFINE_bool(ignoreerrors, false, "If an error occurs test will be skiped and execution continues");
@@ -129,8 +129,7 @@ int main(int argc, char *argv[]){
     if(FLAGS_ownaddr.empty()) FLAGS_ownaddr=rdma::Config::RDMA_INTERFACE;
         if(auto find = FLAGS_ownaddr.find(":")) if(find != std::string::npos) FLAGS_ownaddr=FLAGS_ownaddr.substr(0, find);
         if(!rdma::Network::isValidIP(FLAGS_ownaddr)) FLAGS_ownaddr=rdma::Config::getIP(FLAGS_ownaddr);
-    std::cout << "OWN-ADDR: " << FLAGS_ownaddr << std::endl; // TODO REMOVE
-    if(FLAGS_addr.empty()) FLAGS_addr=rdma::Config::RDMA_INTERFACE;
+    if(FLAGS_addr.empty()) FLAGS_addr=rdma::Config::RDMA_SERVER_ADDRESSES;
     if(FLAGS_port<=0) FLAGS_port=rdma::Config::RDMA_PORT;
     std::cout << "Config loaded" << std::endl;
 

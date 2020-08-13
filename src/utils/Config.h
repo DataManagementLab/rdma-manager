@@ -68,6 +68,7 @@ class Config
 
     //RDMA
     static size_t RDMA_MEMSIZE;
+    static string RDMA_SERVER_ADDRESSES; // if localhost should be same as IP behind CONFIG::RDMA_INTERFACE
     static uint32_t RDMA_PORT;
     static uint32_t RDMA_NUMAREGION;
     static std::string RDMA_DEVICE_FILE_PATH;

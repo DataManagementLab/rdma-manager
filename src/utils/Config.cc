@@ -32,6 +32,7 @@ size_t Config::RDMA_MEMSIZE = 1024ul * 1024 * 1024 * 5;  //1GB
 uint32_t Config::RDMA_NUMAREGION = 0;
 std::string Config::RDMA_DEVICE_FILE_PATH;
 uint32_t Config::RDMA_IBPORT = 1;
+std::string Config::RDMA_SERVER_ADDRESSES = "172.18.94.20"; // ip node02 RDMA_INTERFACEs
 uint32_t Config::RDMA_PORT = 5200;
 uint32_t Config::RDMA_MAX_WR = 4096;
 
@@ -145,7 +146,9 @@ void Config::load(const string &file_path, bool is_exec_path) {
 
 void Config::set(string key, string value) {
   //config
-  if (key.compare("RDMA_PORT") == 0) {
+  if(key.compare("RDMA_SERVER_ADDRESSES") == 0){
+    Config::RDMA_SERVER_ADDRESSES = value;
+  } else if(key.compare("RDMA_PORT") == 0) {
     Config::RDMA_PORT = stoi(value);
   } else if (key.compare("RDMA_MEMSIZE") == 0) {
     Config::RDMA_MEMSIZE = strtoul(value.c_str(), nullptr, 0);

@@ -39,8 +39,6 @@ void NodeIDSequencer::handle(Any *anyReq, Any *anyResp)
     NodeEntry_t entry{IP, name, newNodeID, nodeType};
     m_entries.emplace_back(entry);
 
-    std::cout << "NodeIDSequencer.NodeIDRequest(" << IP << ", " << name << ", " << nodeType << "==" << NodeType::Enum::SERVER << ")" << std::endl; // TODO REMOVE
-
     if (nodeType == NodeType::Enum::SERVER)
     {
       m_ipPortToNodeIDMapping[IP] = newNodeID;
@@ -63,7 +61,6 @@ void NodeIDSequencer::handle(Any *anyReq, Any *anyResp)
 
     for (auto &entry : m_entries)
     {
-      std::cout << " - " << entry.IP << ", " << entry.name << ", " << entry.nodeID << ", " << entry.nodeType << std::endl; // TODO REMOVE
       auto nodeidEntry = connResp.add_nodeid_entries();
       nodeidEntry->set_name(entry.name);
       nodeidEntry->set_ip(entry.IP);
@@ -82,12 +79,6 @@ void NodeIDSequencer::handle(Any *anyReq, Any *anyResp)
 
     std::string ipPort = connReq.ipport();
     // std::cout << "NodeID request - IP: " << ipPort << std::endl;
-
-    std::cout << "NodeIDSequencer.GetNodeIDForIpPortRequest(" << ipPort << ")" << std::endl; // TODO REMOVE
-    for(auto &mapentry : m_ipPortToNodeIDMapping){ // TODO REMOVE
-      std::cout << " - " << mapentry.first << " = " << mapentry.second << std::endl; // TODO REMOVE
-    } // TODO REMOVE
-
 
     if (m_ipPortToNodeIDMapping.find(ipPort) != m_ipPortToNodeIDMapping.end())
     {
