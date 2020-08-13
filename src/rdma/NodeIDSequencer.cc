@@ -76,6 +76,7 @@ void NodeIDSequencer::handle(Any *anyReq, Any *anyResp)
     anyReq->UnpackTo(&connReq);
 
     std::string ipPort = connReq.ipport();
+
     // std::cout << "NodeID request - IP: " << ipPort << std::endl;
 
     if (m_ipPortToNodeIDMapping.find(ipPort) != m_ipPortToNodeIDMapping.end())

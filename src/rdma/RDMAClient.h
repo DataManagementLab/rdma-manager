@@ -173,7 +173,7 @@ class RDMAClient : public RDMA_API_T, public ProtoClient {
 
           if (connResponse.ip() != ipPort)
           {
-            std::cout << "name: " << m_name << " returned nodeid: " << retServerNodeID << std::endl;
+            std::cerr << m_name << ": fetched IP '" << connResponse.ip() << "' from Sequencer did not match requested IP '" << ipPort << "'" << std::endl;
             throw runtime_error("Fetched IP (" + connResponse.ip() + ") from Sequencer did not match requested IP ("+ipPort+")");
           }
         }
@@ -327,6 +327,8 @@ class RDMAClient : public RDMA_API_T, public ProtoClient {
       return m_ownNodeID;
     }
     ProtoClient::connectProto(sequencerIpPort);
+
+    std::cout << "THIS SHOULD ALSO HAVE A PORT: " << ownIpPort << std::endl; // TODO REMOVE
 
     Any nodeIDRequest = ProtoMessageFactory::createNodeIDRequest(ownIpPort, m_name, nodeType);
     Any rcvAny;

@@ -127,8 +127,9 @@ int main(int argc, char *argv[]){
     if(FLAGS_seqaddr.empty()) FLAGS_seqaddr=rdma::Config::SEQUENCER_IP;
     if(FLAGS_seqport<=0) FLAGS_seqport=rdma::Config::SEQUENCER_PORT;
     if(FLAGS_ownaddr.empty()) FLAGS_ownaddr=rdma::Config::RDMA_INTERFACE;
-        if(int find = FLAGS_ownaddr.find(":") != std::string::npos) FLAGS_ownaddr=FLAGS_ownaddr.substr(0, find); 
+        if(auto find = FLAGS_ownaddr.find(":")) if(find != std::string::npos) FLAGS_ownaddr=FLAGS_ownaddr.substr(0, find);
         if(!rdma::Network::isValidIP(FLAGS_ownaddr)) FLAGS_ownaddr=rdma::Config::getIP(FLAGS_ownaddr);
+    std::cout << "OWN-ADDR: " << FLAGS_ownaddr << std::endl; // TODO REMOVE
     if(FLAGS_addr.empty()) FLAGS_addr=rdma::Config::RDMA_INTERFACE;
     if(FLAGS_port<=0) FLAGS_port=rdma::Config::RDMA_PORT;
     std::cout << "Config loaded" << std::endl;
