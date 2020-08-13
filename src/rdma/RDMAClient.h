@@ -22,22 +22,31 @@ namespace rdma {
 template <typename RDMA_API_T>
 class RDMAClient : public RDMA_API_T, public ProtoClient {
  protected:
-  RDMAClient(size_t mem_size, std::string name, std::string ownIpPort, NodeType::Enum nodeType, int numaNode) : RDMA_API_T(mem_size, numaNode), m_name(name), m_ownIpPort(ownIpPort), m_nodeType(nodeType)
-  {
+  RDMAClient(size_t mem_size, std::string name, std::string ownIpPort, NodeType::Enum nodeType, int numaNode) : RDMAClient(mem_size, name, ownIpPort, nodeType, m_sequencerIpPort, numaNode){}
+  RDMAClient(size_t mem_size, std::string name, std::string ownIpPort, NodeType::Enum nodeType, std::string sequencerIpPort, int numaNode) : RDMA_API_T(mem_size, numaNode), m_name(name), m_ownIpPort(ownIpPort), m_nodeType(nodeType), m_sequencerIpPort(sequencerIpPort){
+
   }
-  RDMAClient(BaseMemory *memory, std::string name, std::string ownIpPort, NodeType::Enum nodeType) : RDMA_API_T(memory), m_name(name), m_ownIpPort(ownIpPort), m_nodeType(nodeType)
-  {
-  }
+  
+  RDMAClient(BaseMemory *memory, std::string name, std::string ownIpPort, NodeType::Enum nodeType, std::string sequencerIpPort) : RDMA_API_T(memory), m_name(name), m_ownIpPort(ownIpPort), m_nodeType(nodeType), m_sequencerIpPort(sequencerIpPort){}
  public:
-  RDMAClient() : RDMAClient(Config::RDMA_MEMSIZE) {}
-  RDMAClient(size_t mem_size) : RDMAClient(mem_size, "RDMAClient") {}
-  RDMAClient(size_t mem_size, std::string name) : RDMAClient(mem_size, name, (int)Config::RDMA_NUMAREGION) {}  
-  RDMAClient(size_t mem_size, std::string name, int numaNode) : RDMAClient(mem_size, name, Config::getIP(Config::RDMA_INTERFACE), NodeType::Enum::CLIENT, numaNode)
-  {
+
+  RDMAClient() : RDMAClient(Config::RDMA_MEMSIZE){}
+  RDMAClient(size_t mem_size) : RDMAClient(mem_size, "RDMAClient"){}
+  RDMAClient(size_t mem_size, int numaNode) : RDMAClient(mem_size, "RDMAClient", numaNode){}
+  RDMAClient(size_t mem_size, std::string name, int numaNode) : RDMAClient(mem_size, name, Config::getIP(Config::RDMA_INTERFACE)){}
+  RDMAClient(size_t mem_size, std::string name, std::string ownIpPort, int numaNode) : RDMAClient(mem_size, name, ownIpPort, Config::SEQUENCER_IP+":"+to_string(Config::SEQUENCER_PORT), numaNode){}
+  RDMAClient(size_t mem_size, std::string name) : RDMAClient(mem_size, name, Config::getIP(Config::RDMA_INTERFACE)){}
+  RDMAClient(size_t mem_size, std::string name, std::string ownIpPort) : RDMAClient(mem_size, name, ownIpPort, Config::SEQUENCER_IP+":"+to_string(Config::SEQUENCER_PORT)){}
+  RDMAClient(size_t mem_size, std::string name, std::string ownIpPort, std::string sequencerIpPort) : RDMAClient(mem_size, name, ownIpPort, sequencerIpPort, Config::RDMA_NUMAREGION){}
+  RDMAClient(size_t mem_size, std::string name, std::string ownIpPort, std::string sequencerIpPort, int numaNode) : RDMAClient(mem_size, name, ownIpPort, NodeType::Enum::CLIENT, sequencerIpPort, numaNode){
+    
   }
+
   RDMAClient(BaseMemory *memory) : RDMAClient(memory, "RDMAClient") {}
-  RDMAClient(BaseMemory *memory, std::string name) : RDMAClient(memory, name, Config::getIP(Config::RDMA_INTERFACE), NodeType::Enum::CLIENT)
-  {
+  RDMAClient(BaseMemory *memory, std::string name) : RDMAClient(memory, name, Config::getIP(Config::RDMA_INTERFACE)){}
+  RDMAClient(BaseMemory *memory, std::string name, std::string ownIpPort) : RDMAClient(memory, name, ownIpPort, Config::SEQUENCER_IP+":"+to_string(Config::SEQUENCER_PORT)){}
+  RDMAClient(BaseMemory *memory, std::string name, std::string ownIpPort, std::string sequencerIpPort) : RDMAClient(memory, name, ownIpPort, NodeType::Enum::CLIENT, sequencerIpPort){
+    
   }
   
   ~RDMAClient() {
@@ -305,9 +314,9 @@ class RDMAClient : public RDMA_API_T, public ProtoClient {
   unordered_map<string, NodeID> m_connections;
   
   std::string m_name;
-  std::string m_sequencerIpPort = Config::SEQUENCER_IP + ":" + to_string(Config::SEQUENCER_PORT);
   std::string m_ownIpPort;
   NodeType::Enum m_nodeType;
+  std::string m_sequencerIpPort;
 
   //Can be overwritten for special use-cases where NodeIDSequencer is insufficient
   virtual NodeID requestNodeID(std::string sequencerIpPort, std::string ownIpPort, NodeType::Enum nodeType)
