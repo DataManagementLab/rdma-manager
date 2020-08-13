@@ -13,8 +13,8 @@ condition_variable rdma::AtomicsOperationsCountPerfTest::waitCv;
 bool rdma::AtomicsOperationsCountPerfTest::signaled;
 rdma::TestMode rdma::AtomicsOperationsCountPerfTest::testMode;
 
-rdma::AtomicsOperationsCountPerfClientThread::AtomicsOperationsCountPerfClientThread(BaseMemory *memory, std::vector<std::string>& rdma_addresses, std::string sequencerIpPort, int buffer_slots, size_t iterations) {
-	this->m_client = new RDMAClient<ReliableRDMA>(memory, "AtomicsOperationsCountPerfTestClient", sequencerIpPort);
+rdma::AtomicsOperationsCountPerfClientThread::AtomicsOperationsCountPerfClientThread(BaseMemory *memory, std::vector<std::string>& rdma_addresses, int buffer_slots, size_t iterations) {
+	this->m_client = new RDMAClient<ReliableRDMA>(memory, "AtomicsOperationsCountPerfTestClient");
 	this->m_rdma_addresses = rdma_addresses;
 	this->m_memory_per_thread = buffer_slots * rdma::ATOMICS_SIZE;
 	this->m_buffer_slots = buffer_slots;
@@ -84,10 +84,9 @@ void rdma::AtomicsOperationsCountPerfClientThread::run() {
 
 
 
-rdma::AtomicsOperationsCountPerfTest::AtomicsOperationsCountPerfTest(bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, std::string sequencerIpPort, int local_gpu_index, int remote_gpu_index, int thread_count, int buffer_slots, uint64_t iterations) : PerfTest(){
+rdma::AtomicsOperationsCountPerfTest::AtomicsOperationsCountPerfTest(bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, int local_gpu_index, int remote_gpu_index, int thread_count, int buffer_slots, uint64_t iterations) : PerfTest(){
 	this->m_is_server = is_server;
 	this->m_rdma_port = rdma_port;
-	this->m_sequencerIpPort = sequencerIpPort;
 	this->m_local_gpu_index = local_gpu_index;
 	this->m_remote_gpu_index = remote_gpu_index;
 	this->m_thread_count = thread_count;
@@ -158,7 +157,7 @@ void rdma::AtomicsOperationsCountPerfTest::setupTest(){
 	} else {
 		// Client
 		for (int i = 0; i < m_thread_count; i++) {
-			AtomicsOperationsCountPerfClientThread* perfThread = new AtomicsOperationsCountPerfClientThread(m_memory, m_rdma_addresses, m_sequencerIpPort, m_buffer_slots, m_iterations);
+			AtomicsOperationsCountPerfClientThread* perfThread = new AtomicsOperationsCountPerfClientThread(m_memory, m_rdma_addresses, m_buffer_slots, m_iterations);
 			m_client_threads.push_back(perfThread);
 		}
 	}

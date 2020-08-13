@@ -13,8 +13,8 @@ condition_variable rdma::AtomicsBandwidthPerfTest::waitCv;
 bool rdma::AtomicsBandwidthPerfTest::signaled;
 rdma::TestMode rdma::AtomicsBandwidthPerfTest::testMode;
 
-rdma::AtomicsBandwidthPerfClientThread::AtomicsBandwidthPerfClientThread(BaseMemory *memory, std::vector<std::string>& rdma_addresses, std::string sequencerIpPort, int buffer_slots, size_t iterations) {
-	this->m_client = new RDMAClient<ReliableRDMA>(memory, "AtomicsBandwidthPerfTestClient", sequencerIpPort);
+rdma::AtomicsBandwidthPerfClientThread::AtomicsBandwidthPerfClientThread(BaseMemory *memory, std::vector<std::string>& rdma_addresses, int buffer_slots, size_t iterations) {
+	this->m_client = new RDMAClient<ReliableRDMA>(memory, "AtomicsBandwidthPerfTestClient");
 	this->m_rdma_addresses = rdma_addresses;
 	this->m_memory_per_thread = buffer_slots * rdma::ATOMICS_SIZE;
 	this->m_buffer_slots = buffer_slots;
@@ -84,10 +84,9 @@ void rdma::AtomicsBandwidthPerfClientThread::run() {
 
 
 
-rdma::AtomicsBandwidthPerfTest::AtomicsBandwidthPerfTest(bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, std::string sequencerIpPort, int local_gpu_index, int remote_gpu_index, int thread_count, int buffer_slots, uint64_t iterations) : PerfTest(){
+rdma::AtomicsBandwidthPerfTest::AtomicsBandwidthPerfTest(bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, int local_gpu_index, int remote_gpu_index, int thread_count, int buffer_slots, uint64_t iterations) : PerfTest(){
 	this->m_is_server = is_server;
 	this->m_rdma_port = rdma_port;
-	this->m_sequencerIpPort = sequencerIpPort;
 	this->m_local_gpu_index = local_gpu_index;
 	this->m_remote_gpu_index = remote_gpu_index;
 	this->m_thread_count = thread_count;
@@ -155,7 +154,7 @@ void rdma::AtomicsBandwidthPerfTest::setupTest(){
 	} else {
 		// Client
 		for (int i = 0; i < m_thread_count; i++) {
-			AtomicsBandwidthPerfClientThread* perfThread = new AtomicsBandwidthPerfClientThread(m_memory, m_rdma_addresses, m_sequencerIpPort, m_buffer_slots, m_iterations);
+			AtomicsBandwidthPerfClientThread* perfThread = new AtomicsBandwidthPerfClientThread(m_memory, m_rdma_addresses, m_buffer_slots, m_iterations);
 			m_client_threads.push_back(perfThread);
 		}
 	}

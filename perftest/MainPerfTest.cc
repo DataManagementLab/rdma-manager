@@ -33,10 +33,8 @@ DEFINE_string(threads, "1", "How many individual clients connect to the server. 
 DEFINE_string(iterations, "500000", "Amount of test repeats (multiples separated by comma without space)");
 DEFINE_bool(csv, false, "Results will be written into an automatically generated CSV file");
 DEFINE_string(csvfile, "", "Results will be written into a given CSV file");
-DEFINE_string(seqaddr, "", "Address of the NodeIDSequencer to connect/bind to. Starts NodeIDSequencer if value is '*' or local IP is same as given one and only if -server flag is set. Empty to use config value");
-DEFINE_int32(seqport, -1, "Port of the NodeIDSequencer to connect/bind to. Negative to use config value");
-DEFINE_string(addr, "", "RDMA Addresses of the RDMAServer(s) to connect/bind to. Empty to use config value");
-DEFINE_int32(port, -1, "RDMA Port of the RDMAServer to connect/bind to. Negative to use config value");
+DEFINE_string(addr, "172.18.94.20", "Addresses of NodeIDSequencer to connect/bind to");
+DEFINE_int32(port, rdma::Config::RDMA_PORT, "RDMA port");
 DEFINE_string(writemode, "auto", "Which RDMA write mode should be used. Possible values are 'immediate' where remote receives and completion entry after a write, 'normal' where remote possibly has to pull the memory constantly to detect changes, 'auto' which uses preferred (ignored by atomics tests | multiples separated by comma without space)");
 DEFINE_bool(ignoreerrors, false, "If an error occurs test will be skiped and execution continues");
 DEFINE_string(config, "./bin/conf/RDMA.conf", "Path to the config file");
@@ -122,13 +120,11 @@ int main(int argc, char *argv[]){
     std::cout << "Parsing arguments ..." << std::endl;
     gflags::ParseCommandLineFlags(&argc, &argv, true);
     std::cout << "Arguments parsed" << std::endl << "Loading config ..." << std::endl;
-    rdma::Config *config = new rdma::Config(FLAGS_config);
-    delete config;
-    if(FLAGS_seqaddr.empty()) FLAGS_seqaddr=rdma::Config::SEQUENCER_IP;
-    if(FLAGS_seqport<=0) FLAGS_seqport=rdma::Config::SEQUENCER_PORT;
+    rdma::Config *config = new rdma::Config(FLAGS_config, false);
     if(FLAGS_addr.empty()) FLAGS_addr=rdma::Config::RDMA_INTERFACE;
     if(FLAGS_port<=0) FLAGS_port=rdma::Config::RDMA_PORT;
     std::cout << "Config loaded" << std::endl;
+
 
     std::vector<std::string> testNames = rdma::StringHelper::split(FLAGS_test);
     std::vector<int> local_gpus = parseIntList(FLAGS_gpu);
@@ -139,9 +135,9 @@ int main(int argc, char *argv[]){
     std::vector<uint64_t> iteration_counts = parseUInt64List(FLAGS_iterations);
     std::vector<std::string> writeModeNames = rdma::StringHelper::split(FLAGS_writemode);
     std::vector<std::string> addresses = rdma::StringHelper::split(FLAGS_addr);
-	for (std::string &addr : addresses){
-		addr = rdma::Config::getIP(addr) + ":" + to_string(FLAGS_port);
-        std::cout << "RDMA-Address:  " << addr << std::endl; // TODO REMOVE
+	for (auto &addr : addresses){
+        if(!rdma::Network::isValidIP(addr)) addr = rdma::Config::getIP(addr);
+		addr += ":" + to_string(FLAGS_port);
 	}
     
     if(FLAGS_fulltest || FLAGS_halftest || FLAGS_quicktest){
@@ -309,12 +305,12 @@ int main(int argc, char *argv[]){
 
     // start NodeIDSequencer
     if(FLAGS_server){
-        if(FLAGS_seqaddr=="*" || FLAGS_seqaddr=="localhost" || FLAGS_seqaddr=="127.0.0.1" || FLAGS_seqaddr == rdma::Network::getLocalAddress()){
-            std::cout << "Starting NodeIDSequencer on port " << FLAGS_seqport << std::endl;
-            new rdma::NodeIDSequencer(FLAGS_seqport, "*");
-        }
+        // NodeIDSequencer (Server)
+		if (rdma::Config::getIP(rdma::Config::RDMA_INTERFACE) == rdma::Network::getAddressOfConnection(addresses[0])){
+			std::cout << "Starting NodeIDSequencer on " << rdma::Config::getIP(rdma::Config::RDMA_INTERFACE) << ":" << rdma::Config::SEQUENCER_PORT << std::endl;
+			new rdma::NodeIDSequencer();
+		}
     }
-    std::string sequencerIpAddr = FLAGS_seqaddr+":"+to_string(FLAGS_seqport);
 
 
     // EXECUTE TESTS
@@ -336,17 +332,17 @@ int main(int argc, char *argv[]){
                         if(t == ATOMICS_BANDWIDTH_TEST){
                             // Atomics Bandwidth Test
                             testName = "Atomics Bandwidth";
-                            test = new rdma::AtomicsBandwidthPerfTest(FLAGS_server, addresses, FLAGS_port, sequencerIpAddr, local_gpu_index, remote_gpu_index, thread_count, buffer_slots, iterations_per_thread);
+                            test = new rdma::AtomicsBandwidthPerfTest(FLAGS_server, addresses, FLAGS_port, local_gpu_index, remote_gpu_index, thread_count, buffer_slots, iterations_per_thread);
 
                         } else if(t == ATOMICS_LATENCY_TEST){
                             // Atomics Latency Test
                             testName = "Atomics Latency";
-                            test = new rdma::AtomicsLatencyPerfTest(FLAGS_server, addresses, FLAGS_port, sequencerIpAddr, local_gpu_index, remote_gpu_index, thread_count, buffer_slots, iterations_per_thread);
+                            test = new rdma::AtomicsLatencyPerfTest(FLAGS_server, addresses, FLAGS_port, local_gpu_index, remote_gpu_index, thread_count, buffer_slots, iterations_per_thread);
 
                         } else if(t == ATOMICS_OPERATIONS_COUNT_TEST){
                             // Atomics Operations Count Test
                             testName = "Atomics Operations Count";
-                            test = new rdma::AtomicsOperationsCountPerfTest(FLAGS_server, addresses, FLAGS_port, sequencerIpAddr, local_gpu_index, remote_gpu_index, thread_count, buffer_slots, iterations_per_thread);
+                            test = new rdma::AtomicsOperationsCountPerfTest(FLAGS_server, addresses, FLAGS_port, local_gpu_index, remote_gpu_index, thread_count, buffer_slots, iterations_per_thread);
                         }
 
                         if(test != nullptr){
@@ -362,17 +358,17 @@ int main(int argc, char *argv[]){
                                 if(t == BANDWIDTH_TEST){
                                     // Bandwidth Test
                                     testName = "Bandwidth";
-                                    test = new rdma::BandwidthPerfTest(FLAGS_server, addresses, FLAGS_port, sequencerIpAddr, local_gpu_index, remote_gpu_index, thread_count, packet_size, buffer_slots, iterations_per_thread, write_mode);
+                                    test = new rdma::BandwidthPerfTest(FLAGS_server, addresses, FLAGS_port, local_gpu_index, remote_gpu_index, thread_count, packet_size, buffer_slots, iterations_per_thread, write_mode);
 
                                 } else if(t == LATENCY_TEST){
                                     // Latency Test
                                     testName = "Latency";
-                                    test = new rdma::LatencyPerfTest(FLAGS_server, addresses, FLAGS_port, sequencerIpAddr, local_gpu_index, remote_gpu_index, thread_count, packet_size, buffer_slots, iterations_per_thread, write_mode);
+                                    test = new rdma::LatencyPerfTest(FLAGS_server, addresses, FLAGS_port, local_gpu_index, remote_gpu_index, thread_count, packet_size, buffer_slots, iterations_per_thread, write_mode);
 
                                 } else if(t == OPERATIONS_COUNT_TEST){
                                     // Operations Count Test
                                     testName = "Operations Count";
-                                    test = new rdma::OperationsCountPerfTest(FLAGS_server, addresses, FLAGS_port, sequencerIpAddr, local_gpu_index, remote_gpu_index, thread_count, packet_size, buffer_slots, iterations_per_thread, write_mode);
+                                    test = new rdma::OperationsCountPerfTest(FLAGS_server, addresses, FLAGS_port, local_gpu_index, remote_gpu_index, thread_count, packet_size, buffer_slots, iterations_per_thread, write_mode);
                                 }
 
                                 testCounter++;
@@ -389,5 +385,6 @@ int main(int argc, char *argv[]){
 
     int64_t totalDuration = rdma::PerfTest::stopTimer(totalStart);
     std::cout << std::endl << "TOTAL EXECUTION TIME " << rdma::PerfTest::convertTime(totalDuration) << std::endl;
+    delete config;
     return 0;
 }

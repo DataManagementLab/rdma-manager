@@ -97,19 +97,12 @@ public:
 
   static Any createNodeIDRequest(std::string ip, std::string name, int nodeTypeEnum)
   {
-    std::cout << "CHECK A" << std::endl; // TODO REMOVE
     NodeIDRequest resReq;
-    std::cout << "CHECK B: " << ip << std::endl; // TODO REMOVE
     resReq.set_ip(ip);
-    std::cout << "CHECK C: " << name << std::endl; // TODO REMOVE
     resReq.set_name(name);
-    std::cout << "CHECK D: " << nodeTypeEnum << std::endl; // TODO REMOVE
     resReq.set_node_type_enum(nodeTypeEnum);
-    std::cout << "CHECK E" << std::endl; // TODO REMOVE
     Any anyMessage;
-    std::cout << "CHECK F" << std::endl; // TODO REMOVE
     anyMessage.PackFrom(resReq);
-    std::cout << "CHECK G" << std::endl; // TODO REMOVE
     return anyMessage;
   }
 };

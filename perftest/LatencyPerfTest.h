@@ -18,7 +18,7 @@ namespace rdma {
 
 class LatencyPerfClientThread : public Thread {
 public:
-	LatencyPerfClientThread(BaseMemory *memory, std::vector<std::string>& rdma_addresses, std::string sequencerIpPort, size_t packet_size, int buffer_slots, size_t iterations, WriteMode write_mode);
+	LatencyPerfClientThread(BaseMemory *memory, std::vector<std::string>& rdma_addresses, size_t packet_size, int buffer_slots, size_t iterations, WriteMode write_mode);
 	~LatencyPerfClientThread();
 	void run();
 	bool ready() {
@@ -69,7 +69,7 @@ private:
 
 class LatencyPerfTest : public rdma::PerfTest {
 public:
-    LatencyPerfTest(bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, std::string sequencerIpPort, int local_gpu_index, int remote_gpu_index, int thread_count, uint64_t packet_size, int buffer_slots, uint64_t iterations, WriteMode write_mode);
+    LatencyPerfTest(bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, int local_gpu_index, int remote_gpu_index, int thread_count, uint64_t packet_size, int buffer_slots, uint64_t iterations, WriteMode write_mode);
 	virtual ~LatencyPerfTest();
 	std::string getTestParameters();
 	void setupTest();
@@ -86,7 +86,6 @@ public:
 
 private:
 	bool m_is_server;
-	std::string m_sequencerIpPort;
 	NodeIDSequencer *m_nodeIDSequencer;
 	std::vector<std::string> m_rdma_addresses;
 	int m_rdma_port;

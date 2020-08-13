@@ -62,17 +62,8 @@ namespace rdma
 class Config
 {
   public:
-
-    /* Function: load
-     * ---------------
-     * Loads values from a config file.
-     * Default file is './conf/RDMA.conf'.
-     * CMake copies it into './bin/conf/RDMA.conf' inside
-     * the build folder.
-     *
-     * prog_name:  path to 
-     */
-    Config(const std::string& config_file_path);
+    Config(const std::string &exec_path);
+    Config(const std::string &file_path, bool is_exec_path);
     ~Config();
 
     //RDMA
@@ -121,7 +112,8 @@ class Config
     static string getIP(std::string &interface);
 
   private:
-    static void load(const string& exec_path);
+    static void load(const string &exec_path);
+    static void load(const string &file_path, bool is_exec_path);
     static void unload();
 
     static void set(string key, string value);

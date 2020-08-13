@@ -2,12 +2,7 @@
 
 using namespace rdma;
 
-NodeIDSequencer::NodeIDSequencer() : NodeIDSequencer("NodeIDSequencer"){}
-NodeIDSequencer::NodeIDSequencer(std::string name) : NodeIDSequencer(name, Config::SEQUENCER_PORT){}
-NodeIDSequencer::NodeIDSequencer(std::string name, int port) : NodeIDSequencer(name, port, "*"){}
-NodeIDSequencer::NodeIDSequencer(int port) : NodeIDSequencer(port, "*"){}
-NodeIDSequencer::NodeIDSequencer(int port, std::string ip) : NodeIDSequencer("NodeIDSequencer", port, ip){}
-NodeIDSequencer::NodeIDSequencer(std::string name, int port, std::string ip) : ProtoServer(name, port, ip)
+NodeIDSequencer::NodeIDSequencer(/* args */) : ProtoServer("NodeIDSequencer", Config::SEQUENCER_PORT)
 {
   // std::cout << "Starting NodeIDSequencer" << std::endl;
   if (!ProtoServer::isRunning())
@@ -27,7 +22,6 @@ NodeID NodeIDSequencer::getNextNodeID()
 
 void NodeIDSequencer::handle(Any *anyReq, Any *anyResp)
 {
-  std::cout << "NodeIDSequencer.handle()  << REQUEST" << std::endl; // TODO REMOVE
   if (anyReq->Is<NodeIDRequest>())
   {
     NodeIDResponse connResp;

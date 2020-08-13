@@ -30,12 +30,8 @@ class RDMAServer : public ProtoServer, public RDMAClient<RDMA_API_T> {
   RDMAServer() : RDMAServer("RDMAserver"){}
   RDMAServer(string name) : RDMAServer(name, Config::RDMA_PORT){}
   RDMAServer(string name, int port) : RDMAServer(name, port, Config::RDMA_MEMSIZE){}
-  RDMAServer(string name, int port, uint64_t memsize) : RDMAServer(name, port, memsize, Config::SEQUENCER_IP, Config::SEQUENCER_PORT){}
-  RDMAServer(string name, int port, uint64_t memsize, string sequencerAddr, int sequencerPort) : RDMAServer(name, port, memsize, sequencerAddr+":"+to_string(sequencerPort)){}
-  RDMAServer(string name, int port, uint64_t memsize, string sequencerIpPort) : RDMAServer(name, port, Config::getIP(Config::RDMA_INTERFACE), memsize, sequencerIpPort){}
-  RDMAServer(string name, int port, string addr, uint64_t memsize) : RDMAServer(name, port, addr, memsize, Config::SEQUENCER_IP, Config::SEQUENCER_PORT){}
-  RDMAServer(string name, int port, string addr, uint64_t memsize, string sequencerAddr, int sequencerPort) : RDMAServer(name, port, memsize, sequencerAddr+":"+to_string(sequencerPort)){}
-  RDMAServer(string name, int port, string addr, uint64_t memsize, string sequencerIpPort) : ProtoServer(name, port, addr), RDMAClient<RDMA_API_T>(memsize, name, addr+":"+to_string(port), sequencerIpPort, NodeType::Enum::SERVER), m_sequencerIpPort(sequencerIpPort){
+  RDMAServer(string name, int port, uint64_t memsize) : ProtoServer(name, port, Config::getIP(Config::RDMA_INTERFACE)), RDMAClient<RDMA_API_T>(memsize, name, Config::getIP(Config::RDMA_INTERFACE) + ":" + to_string(port), NodeType::Enum::SERVER)
+  {
     // if (!ProtoServer::isRunning())
     // {
     //   ProtoServer::startServer();
@@ -43,12 +39,8 @@ class RDMAServer : public ProtoServer, public RDMAClient<RDMA_API_T> {
   }
   RDMAServer(BaseMemory *memory) : RDMAServer("RDMAserver", memory){}
   RDMAServer(string name, BaseMemory *memory) : RDMAServer(name, Config::RDMA_PORT, memory){}
-  RDMAServer(string name, int port, BaseMemory *memory) : RDMAServer(name, port, memory, Config::SEQUENCER_IP, Config::SEQUENCER_PORT){}
-  RDMAServer(string name, int port, BaseMemory *memory, string sequencerAddr, int sequencerPort) : RDMAServer(name, port, memory, sequencerAddr+":"+to_string(sequencerPort)){}
-  RDMAServer(string name, int port, BaseMemory *memory, string sequencerIpPort) : RDMAServer(name, port, Config::getIP(Config::RDMA_INTERFACE), memory, sequencerIpPort){}
-  RDMAServer(string name, int port, string addr, BaseMemory *memory) : RDMAServer(name, port, addr, memory, Config::SEQUENCER_IP, Config::SEQUENCER_PORT){}
-  RDMAServer(string name, int port, string addr, BaseMemory *memory, string sequencerAddr, int sequencerPort) : RDMAServer(name, port, memory, sequencerAddr+":"+to_string(sequencerPort)){}
-  RDMAServer(string name, int port, string addr, BaseMemory *memory, string sequencerIpPort) : ProtoServer(name, port, addr), RDMAClient<RDMA_API_T>(memory, name, addr+":"+to_string(port), sequencerIpPort, NodeType::Enum::SERVER), m_sequencerIpPort(sequencerIpPort){
+  RDMAServer(string name, int port, BaseMemory *memory) : ProtoServer(name, port, Config::getIP(Config::RDMA_INTERFACE)), RDMAClient<RDMA_API_T>(memory, name, Config::getIP(Config::RDMA_INTERFACE) + ":" + to_string(port), NodeType::Enum::SERVER)
+  {
     // if (!ProtoServer::isRunning())
     // {
     //   ProtoServer::startServer();
@@ -61,9 +53,7 @@ class RDMAServer : public ProtoServer, public RDMAClient<RDMA_API_T> {
   bool startServer() override{
     if (!ProtoClient::isConnected(m_sequencerIpPort)) {
       // std::cout << "RDMAServer requesting nodeid!" << std::endl;
-      std::cout << "RDMAServer.start(): requestNodeID(" << RDMAClient<RDMA_API_T>::m_sequencerIpPort << ", " << RDMAClient<RDMA_API_T>::m_ownIpPort << ", " << RDMAClient<RDMA_API_T>::m_nodeType << ")" << std::endl; // TODO REMOVE
       RDMAClient<RDMA_API_T>::m_ownNodeID = RDMAClient<RDMA_API_T>::requestNodeID(RDMAClient<RDMA_API_T>::m_sequencerIpPort, RDMAClient<RDMA_API_T>::m_ownIpPort, RDMAClient<RDMA_API_T>::m_nodeType);
-      std::cout << "RECEIVED: " << RDMAClient<RDMA_API_T>::m_ownNodeID << std::endl; // TODO REMOVE
     }
     if (ProtoServer::isRunning()) { 
     // std::cout << "RDMAServer is running!!!" << std::endl;
@@ -99,7 +89,6 @@ class RDMAServer : public ProtoServer, public RDMAClient<RDMA_API_T> {
  protected:
 
   void handle(Any *anyReq, Any *anyResp) override {
-    std::cout << "RDMAServer.handle() << REQUEST" << std::endl; // TODO REMOVE
     if (anyReq->Is<RDMAConnRequest>()) {
       RDMAConnResponse connResp;
       RDMAConnRequest connReq;
@@ -304,7 +293,8 @@ class RDMAServer : public ProtoServer, public RDMAClient<RDMA_API_T> {
   mutex m_memLock;
 
   size_t m_currentSRQ = SIZE_MAX;
-  std::string m_sequencerIpPort;
+
+  std::string m_sequencerIpPort = Config::SEQUENCER_IP + ":" + to_string(Config::SEQUENCER_PORT);
   // NodeID m_ownNodeID;
 
 private:
