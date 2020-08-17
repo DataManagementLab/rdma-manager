@@ -537,7 +537,7 @@ std::string rdma::BandwidthPerfTest::getTestResults(std::string csvFileName, boo
 		oss << " ; avg=" << rdma::PerfTest::convertTime(avgWriteMs) << " ; median=" << rdma::PerfTest::convertTime(medianWriteMs) << ")" << std::endl;
 		oss << " - Read:          bandwidth = " << rdma::PerfTest::convertBandwidth(transferedBytes*tu/m_elapsedReadMs);
 		oss << "  (range = " << rdma::PerfTest::convertBandwidth(transferedBytes*tu/maxReadMs) << " - " << rdma::PerfTest::convertBandwidth(transferedBytes*tu/minReadMs);
-		oss << ", avg=" << rdma::PerfTest::convertBandwidth(transferedBytes*tu/avgReadMs) << " ; median=";
+		oss << " ; avg=" << rdma::PerfTest::convertBandwidth(transferedBytes*tu/avgReadMs) << " ; median=";
 		oss << rdma::PerfTest::convertBandwidth(transferedBytes*tu/minReadMs) << ")";
 		oss << "   &   time = " << rdma::PerfTest::convertTime(m_elapsedReadMs) << "  (range=";
 		oss << rdma::PerfTest::convertTime(minReadMs) << "-" << rdma::PerfTest::convertTime(maxReadMs);

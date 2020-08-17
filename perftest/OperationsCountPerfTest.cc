@@ -539,7 +539,7 @@ std::string rdma::OperationsCountPerfTest::getTestResults(std::string csvFileNam
 		oss << " ; avg=" << rdma::PerfTest::convertTime(avgWriteNs) << " ; median=" << rdma::PerfTest::convertTime(medianWriteNs) << ")" << std::endl;
 		oss << " - Read:          operations = " << rdma::PerfTest::convertCountPerSec(itrs*tu/m_elapsedRead);
 		oss << "  (range = " << rdma::PerfTest::convertCountPerSec(itrs*tu/maxReadNs) << " - " << rdma::PerfTest::convertCountPerSec(itrs*tu/minReadNs);
-		oss << ", avg=" << rdma::PerfTest::convertCountPerSec(itrs*tu/avgReadNs) << " ; median=";
+		oss << " ; avg=" << rdma::PerfTest::convertCountPerSec(itrs*tu/avgReadNs) << " ; median=";
 		oss << rdma::PerfTest::convertCountPerSec(itrs*tu/minReadNs) << ")";
 		oss << "   &   time = " << rdma::PerfTest::convertTime(m_elapsedRead) << "  (range=";
 		oss << rdma::PerfTest::convertTime(minReadNs) << "-" << rdma::PerfTest::convertTime(maxReadNs);
