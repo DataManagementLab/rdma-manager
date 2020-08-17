@@ -233,29 +233,29 @@ std::string rdma::AtomicsBandwidthPerfTest::getTestResults(std::string csvFileNa
 
 		// write results into CSV file
 		if(!csvFileName.empty()){
-			const uint64_t su = 1000*1000; // size unit (bytes to MegaBytes) | use 1024*1024 for MebiBytes
+			const uint64_t su = 1000*1000*1000; // size unit (bytes to GigaBytes) | use 1024*1024 for MebiBytes
 			std::ofstream ofs;
 			ofs.open(csvFileName, std::ofstream::out | std::ofstream::app);
 			ofs << rdma::CSV_PRINT_NOTATION << rdma::CSV_PRINT_PRECISION;
 			if(csvAddHeader){
 				ofs << std::endl << "ATOMICS BANDWIDTH, " << getTestParameters() << std::endl;
-				ofs << "Iterations, Fetch&Add [MB/s], Comp&Swap [MB/s], Min Fetch&Add [MB/s], Min Comp&Swap [MB/s], ";
-				ofs << "Max Fetch&Add [MB/s], Max Comp&Swap [MB/s], Avg Fetch&Add [MB/s], Avg Comp&Swap [MB/s], ";
-				ofs << "Median Fetch&Add [MB/s], Median Comp&Swap [MB/s], Fetch&Add [Sec], Comp&Swap [Sec], ";
+				ofs << "Iterations, Fetch&Add [GB/s], Comp&Swap [GB/s], Min Fetch&Add [GB/s], Min Comp&Swap [GB/s], ";
+				ofs << "Max Fetch&Add [GB/s], Max Comp&Swap [GB/s], Avg Fetch&Add [GB/s], Avg Comp&Swap [GB/s], ";
+				ofs << "Median Fetch&Add [GB/s], Median Comp&Swap [GB/s], Fetch&Add [Sec], Comp&Swap [Sec], ";
 				ofs << "Min Fetch&Add [Sec], Min Comp&Swap [Sec], Max Fetch&Add [Sec], Max Comp&Swap [Sec], ";
 				ofs << "Avg Fetch&Add [Sec], Avg Comp&Swap [Sec], Median Fetch&Add [Sec], Median Comp&Swap [Sec]" << std::endl;
 			}
 			ofs << m_iterations << ", ";
-			ofs << (round(transferedBytesFetchAdd*tu/su/m_elapsedFetchAddMs * 100000)/100000.0) << ", "; // fetch&add MB/s
-			ofs << (round(transferedBytesCompSwap*tu/su/m_elapsedCompareSwapMs * 100000)/100000.0) << ", "; // comp&swap MB/s
-			ofs << (round(transferedBytesFetchAdd*tu/su/maxFetchAddMs * 100000)/100000.0) << ", "; // min fetch&add MB/s
-			ofs << (round(transferedBytesCompSwap*tu/su/maxCompareSwapMs * 100000)/100000.0) << ", "; // min comp&swap MB/s
-			ofs << (round(transferedBytesFetchAdd*tu/su/minFetchAddMs * 100000)/100000.0) << ", "; // max fetch&add MB/s
-			ofs << (round(transferedBytesCompSwap*tu/su/minCompareSwapMs * 100000)/100000.0) << ", "; // max comp&swap MB/s
-			ofs << (round(transferedBytesFetchAdd*tu/su/avgFetchAddMs * 100000)/100000.0) << ", "; // avg fetch&add MB/s
-			ofs << (round(transferedBytesCompSwap*tu/su/avgCompareSwapMs * 100000)/100000.0) << ", "; // avg comp&swap MB/s
-			ofs << (round(transferedBytesFetchAdd*tu/su/medianFetchAddMs * 100000)/100000.0) << ", "; // median fetch&add MB/s
-			ofs << (round(transferedBytesCompSwap*tu/su/medianCompareSwapMs * 100000)/100000.0) << ", "; // median comp&swap MB/s
+			ofs << (round(transferedBytesFetchAdd*tu/su/m_elapsedFetchAddMs * 100000)/100000.0) << ", "; // fetch&add GB/s
+			ofs << (round(transferedBytesCompSwap*tu/su/m_elapsedCompareSwapMs * 100000)/100000.0) << ", "; // comp&swap GB/s
+			ofs << (round(transferedBytesFetchAdd*tu/su/maxFetchAddMs * 100000)/100000.0) << ", "; // min fetch&add GB/s
+			ofs << (round(transferedBytesCompSwap*tu/su/maxCompareSwapMs * 100000)/100000.0) << ", "; // min comp&swap GB/s
+			ofs << (round(transferedBytesFetchAdd*tu/su/minFetchAddMs * 100000)/100000.0) << ", "; // max fetch&add GB/s
+			ofs << (round(transferedBytesCompSwap*tu/su/minCompareSwapMs * 100000)/100000.0) << ", "; // max comp&swap GB/s
+			ofs << (round(transferedBytesFetchAdd*tu/su/avgFetchAddMs * 100000)/100000.0) << ", "; // avg fetch&add GB/s
+			ofs << (round(transferedBytesCompSwap*tu/su/avgCompareSwapMs * 100000)/100000.0) << ", "; // avg comp&swap GB/s
+			ofs << (round(transferedBytesFetchAdd*tu/su/medianFetchAddMs * 100000)/100000.0) << ", "; // median fetch&add GB/s
+			ofs << (round(transferedBytesCompSwap*tu/su/medianCompareSwapMs * 100000)/100000.0) << ", "; // median comp&swap GB/s
 			ofs << (round(m_elapsedFetchAddMs/tu * 100000)/100000.0) << ", " << (round(m_elapsedCompareSwapMs/tu * 100000)/100000.0) << ", "; // fetch&add, comp&swap Sec
 			ofs << (round(minFetchAddMs/tu * 100000)/100000.0) << ", " << (round(minCompareSwapMs/tu * 100000)/100000.0) << ", "; // min fetch&add, comp&swap Sec
 			ofs << (round(maxFetchAddMs/tu * 100000)/100000.0) << ", " << (round(maxCompareSwapMs/tu * 100000)/100000.0) << ", "; // max fetch&add, comp&swap Sec

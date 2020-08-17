@@ -478,17 +478,17 @@ std::string rdma::BandwidthPerfTest::getTestResults(std::string csvFileName, boo
 
 		// write results into CSV file
 		if(!csvFileName.empty()){
-			const uint64_t su = 1000*1000; // size unit (bytes to MegaBytes) | use 1024*1024 for MebiBytes
+			const uint64_t su = 1000*1000*1000; // size unit (bytes to GigaBytes) | use 1024*1024 for MebiBytes
 			std::ofstream ofs;
 			ofs.open(csvFileName, std::ofstream::out | std::ofstream::app);
 			ofs << rdma::CSV_PRINT_NOTATION << rdma::CSV_PRINT_PRECISION;
 			if(csvAddHeader){
 				ofs << std::endl << "BANDWIDTH, " << getTestParameters(true) << std::endl;
-				ofs << "PacketSize [Bytes], Transfered [MB], Write [MB/s], Read [MB/s], Send/Recv [MB/s], ";
-				ofs << "Min Write [MB/s], Min Read [MB/s], Min Send/Recv [MB/s], ";
-				ofs << "Max Write [MB/s], Max Read [MB/s], Max Send/Recv [MB/s], ";
-				ofs << "Avg Write [MB/s], Avg Read [MB/s], Avg Send/Recv [MB/s], ";
-				ofs << "Median Write [MB/s], Median Read [MB/s], Median Send/Recv [MB/s], ";
+				ofs << "PacketSize [Bytes], Transfered [GB], Write [GB/s], Read [GB/s], Send/Recv [GB/s], ";
+				ofs << "Min Write [GB/s], Min Read [GB/s], Min Send/Recv [GB/s], ";
+				ofs << "Max Write [GB/s], Max Read [GB/s], Max Send/Recv [GB/s], ";
+				ofs << "Avg Write [GB/s], Avg Read [GB/s], Avg Send/Recv [GB/s], ";
+				ofs << "Median Write [GB/s], Median Read [GB/s], Median Send/Recv [GB/s], ";
 				ofs << "Write [Sec], Read [Sec], Send/Recv [Sec], ";
 				ofs << "Min Write [Sec], Min Read [Sec], Min Send/Recv [Sec], ";
 				ofs << "Max Write [Sec], Max Read [Sec], Max Send/Recv [Sec], ";
@@ -496,21 +496,21 @@ std::string rdma::BandwidthPerfTest::getTestResults(std::string csvFileName, boo
 				ofs << "Median Write [Sec], Median Read [Sec], Median Send/Recv [Sec]" << std::endl;
 			}
 			ofs << m_packet_size << ", " << (round(transferedBytes/su * 100000)/100000.0) << ", "; // packet size Bytes
-			ofs << (round(transferedBytes*tu/su/m_elapsedWriteMs * 100000)/100000.0) << ", "; // write MB/s
-			ofs << (round(transferedBytes*tu/su/m_elapsedReadMs * 100000)/100000.0) << ", "; // read MB/s
-			ofs << (round(transferedBytes*tu/su/m_elapsedSendMs * 100000)/100000.0) << ", "; // send/recv MB/s
-			ofs << (round(transferedBytes*tu/su/maxWriteMs * 100000)/100000.0) << ", "; // min write MB/s
-			ofs << (round(transferedBytes*tu/su/maxReadMs * 100000)/100000.0) << ", "; // min read MB/s
-			ofs << (round(transferedBytes*tu/su/maxSendMs * 100000)/100000.0) << ", "; // min send/recv MB/s
-			ofs << (round(transferedBytes*tu/su/minWriteMs * 100000)/100000.0) << ", "; // max write MB/s
-			ofs << (round(transferedBytes*tu/su/minReadMs * 100000)/100000.0) << ", "; // max read MB/s
-			ofs << (round(transferedBytes*tu/su/minSendMs * 100000)/100000.0) << ", "; // max send/recv MB/s
-			ofs << (round(transferedBytes*tu/su/avgWriteMs * 100000)/100000.0) << ", "; // avg write MB/s
-			ofs << (round(transferedBytes*tu/su/avgReadMs * 100000)/100000.0) << ", "; // avg read MB/s
-			ofs << (round(transferedBytes*tu/su/avgSendMs * 100000)/100000.0) << ", "; // avg send/recv MB/s
-			ofs << (round(transferedBytes*tu/su/medianWriteMs * 100000)/100000.0) << ", "; // median write MB/s
-			ofs << (round(transferedBytes*tu/su/medianReadMs * 100000)/100000.0) << ", "; // median read MB/s
-			ofs << (round(transferedBytes*tu/su/medianSendMs * 100000)/100000.0) << ", "; // median send/recv MB/s
+			ofs << (round(transferedBytes*tu/su/m_elapsedWriteMs * 100000)/100000.0) << ", "; // write GB/s
+			ofs << (round(transferedBytes*tu/su/m_elapsedReadMs * 100000)/100000.0) << ", "; // read GB/s
+			ofs << (round(transferedBytes*tu/su/m_elapsedSendMs * 100000)/100000.0) << ", "; // send/recv GB/s
+			ofs << (round(transferedBytes*tu/su/maxWriteMs * 100000)/100000.0) << ", "; // min write GB/s
+			ofs << (round(transferedBytes*tu/su/maxReadMs * 100000)/100000.0) << ", "; // min read GB/s
+			ofs << (round(transferedBytes*tu/su/maxSendMs * 100000)/100000.0) << ", "; // min send/recv GB/s
+			ofs << (round(transferedBytes*tu/su/minWriteMs * 100000)/100000.0) << ", "; // max write GB/s
+			ofs << (round(transferedBytes*tu/su/minReadMs * 100000)/100000.0) << ", "; // max read GB/s
+			ofs << (round(transferedBytes*tu/su/minSendMs * 100000)/100000.0) << ", "; // max send/recv GB/s
+			ofs << (round(transferedBytes*tu/su/avgWriteMs * 100000)/100000.0) << ", "; // avg write GB/s
+			ofs << (round(transferedBytes*tu/su/avgReadMs * 100000)/100000.0) << ", "; // avg read GB/s
+			ofs << (round(transferedBytes*tu/su/avgSendMs * 100000)/100000.0) << ", "; // avg send/recv GB/s
+			ofs << (round(transferedBytes*tu/su/medianWriteMs * 100000)/100000.0) << ", "; // median write GB/s
+			ofs << (round(transferedBytes*tu/su/medianReadMs * 100000)/100000.0) << ", "; // median read GB/s
+			ofs << (round(transferedBytes*tu/su/medianSendMs * 100000)/100000.0) << ", "; // median send/recv GB/s
 			ofs << (round(m_elapsedWriteMs/tu * 100000)/100000.0) << ", " << (round(m_elapsedReadMs/tu * 100000)/100000.0) << ", "; // write, read Sec
 			ofs << (round(m_elapsedSendMs/tu * 100000)/100000.0) << ", "; // send Sec
 			ofs << (round(minWriteMs/tu * 100000)/100000.0) << ", " << (round(minReadMs/tu * 100000)/100000.0) << ", "; // min write, read Sec
