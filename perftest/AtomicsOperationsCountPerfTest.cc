@@ -112,9 +112,7 @@ std::string rdma::AtomicsOperationsCountPerfTest::getTestParameters(bool forCSV)
 	oss << (m_is_server ? "Server" : "Client") << ", threads=" << m_thread_count << ", bufferslots=" << m_buffer_slots << ", packetsize=" << rdma::ATOMICS_SIZE << ", memory=";
 	oss << m_memory_size << " (" << m_thread_count << "x " << m_buffer_slots << "x " << rdma::ATOMICS_SIZE << ")";
 	oss << ", memory_type=" << getMemoryName(m_local_gpu_index) << (m_remote_gpu_index!=-404 ? "->"+getMemoryName(m_remote_gpu_index) : "");
-	if(!forCSV){
-		oss << ", iterations=" << (m_iterations*m_thread_count);
-	}
+	if(!forCSV){ oss << ", iterations=" << (m_iterations*m_thread_count); }
 	return oss.str();
 }
 std::string rdma::AtomicsOperationsCountPerfTest::getTestParameters(){

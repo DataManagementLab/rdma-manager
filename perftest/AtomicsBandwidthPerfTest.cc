@@ -107,15 +107,16 @@ rdma::AtomicsBandwidthPerfTest::~AtomicsBandwidthPerfTest(){
 	delete m_memory;
 }
 
-std::string rdma::AtomicsBandwidthPerfTest::getTestParameters(){
+std::string rdma::AtomicsBandwidthPerfTest::getTestParameters(bool forCSV){
 	std::ostringstream oss;
 	oss << (m_is_server ? "Server" : "Client") << ", threads=" << m_thread_count << ", bufferslots=" << m_buffer_slots << ", packetsize=" << rdma::ATOMICS_SIZE << ", memory=";
 	oss << m_memory_size << " (" << m_thread_count << "x " << m_buffer_slots << "x " << rdma::ATOMICS_SIZE << ")";
 	oss << ", memory_type=" << getMemoryName(m_local_gpu_index) << (m_remote_gpu_index!=-404 ? "->"+getMemoryName(m_remote_gpu_index) : "");
-	if(!m_is_server){
-		oss << ", iterations=" << (m_iterations*m_thread_count);
-	}
+	if(!forCSV){ oss << ", iterations=" << (m_iterations*m_thread_count); }
 	return oss.str();
+}
+std::string rdma::AtomicsBandwidthPerfTest::getTestParameters(){
+	return getTestParameters(false);
 }
 
 void rdma::AtomicsBandwidthPerfTest::makeThreadsReady(TestMode testMode){
@@ -238,7 +239,7 @@ std::string rdma::AtomicsBandwidthPerfTest::getTestResults(std::string csvFileNa
 			ofs.open(csvFileName, std::ofstream::out | std::ofstream::app);
 			ofs << rdma::CSV_PRINT_NOTATION << rdma::CSV_PRINT_PRECISION;
 			if(csvAddHeader){
-				ofs << std::endl << "ATOMICS BANDWIDTH, " << getTestParameters() << std::endl;
+				ofs << std::endl << "ATOMICS BANDWIDTH, " << getTestParameters(true) << std::endl;
 				ofs << "Iterations, Fetch&Add [GB/s], Comp&Swap [GB/s], Min Fetch&Add [GB/s], Min Comp&Swap [GB/s], ";
 				ofs << "Max Fetch&Add [GB/s], Max Comp&Swap [GB/s], Avg Fetch&Add [GB/s], Avg Comp&Swap [GB/s], ";
 				ofs << "Median Fetch&Add [GB/s], Median Comp&Swap [GB/s], Fetch&Add [Sec], Comp&Swap [Sec], ";

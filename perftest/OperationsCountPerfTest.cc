@@ -452,31 +452,28 @@ std::string rdma::OperationsCountPerfTest::getTestResults(std::string csvFileNam
 		int64_t arrReadNs[m_thread_count];
 		int64_t arrSendNs[m_thread_count];
 		long double avgWriteNs=0, medianWriteNs, avgReadNs=0, medianReadNs, avgSendNs=0, medianSendNs;
-
+		const long double div = m_thread_count;
 		for(size_t i=0; i<m_client_threads.size(); i++){
 			OperationsCountPerfClientThread *thr = m_client_threads[i];
 			if(thr->m_elapsedWrite < minWriteNs) minWriteNs = thr->m_elapsedWrite;
 			if(thr->m_elapsedWrite > maxWriteNs) maxWriteNs = thr->m_elapsedWrite;
-			avgWriteNs += (long double) thr->m_elapsedWrite;
+			avgWriteNs += (long double) thr->m_elapsedWrite / div;
 			arrWriteNs[i] = thr->m_elapsedWrite;
 			if(thr->m_elapsedRead < minReadNs) minReadNs = thr->m_elapsedRead;
 			if(thr->m_elapsedRead > maxReadNs) maxReadNs = thr->m_elapsedRead;
-			avgReadNs += (long double) thr->m_elapsedRead;
+			avgReadNs += (long double) thr->m_elapsedRead / div;
 			arrReadNs[i] = thr->m_elapsedRead;
 			if(thr->m_elapsedSend < minSendNs) minSendNs = thr->m_elapsedSend;
 			if(thr->m_elapsedSend > maxSendNs) maxSendNs = thr->m_elapsedSend;
-			avgSendNs += (long double) thr->m_elapsedSend;
+			avgSendNs += (long double) thr->m_elapsedSend / div;
 			arrSendNs[i] = thr->m_elapsedSend;
 		}
-		avgWriteNs /= (long double) m_thread_count;
-		avgReadNs /= (long double) m_thread_count;
-		avgSendNs /= (long double) m_thread_count;
 		std::sort(arrWriteNs, arrWriteNs + m_thread_count);
 		std::sort(arrReadNs, arrReadNs + m_thread_count);
 		std::sort(arrSendNs, arrSendNs + m_thread_count);
-		medianWriteNs = arrWriteNs[(int)(m_thread_count/2)];
-		medianReadNs = arrReadNs[(int)(m_thread_count/2)];
-		medianSendNs = arrSendNs[(int)(m_thread_count/2)];
+		medianWriteNs = arrWriteNs[(int)(m_thread_count/2)] / (long double) m_thread_count;
+		medianReadNs = arrReadNs[(int)(m_thread_count/2)] / (long double) m_thread_count;
+		medianSendNs = arrSendNs[(int)(m_thread_count/2)] / (long double) m_thread_count;
 
 		// write results into CSV file
 		if(!csvFileName.empty()){
