@@ -29,7 +29,7 @@ DEFINE_string(gpu, "-3", "Index of GPU for memory allocation (-3=Main memory, -2
 DEFINE_string(remote_gpu, "", "Just for prettier result printing and therefore not required. Same as gpu flag but for remote side (should be empty or same length as gpu flag)");
 DEFINE_string(packetsize, "4096", "Packet size in bytes (multiples separated by comma without space)");
 DEFINE_string(bufferslots, "16", "How many packets the buffer can hold (round-robin distribution of packets inside buffer | multiples separated by comma without space)");
-DEFINE_string(threads, "1", "How many individual clients connect to the server. Server has to run same number of threads (multiples separated by comma without space)");
+DEFINE_string(threads, "1", "How many individual clients connect to the server. Server has to run same number of threads as all connecting clients together (multiples separated by comma without space)");
 DEFINE_string(iterations, "500000", "Amount of test repeats (multiples separated by comma without space)");
 DEFINE_bool(csv, false, "Results will be written into an automatically generated CSV file");
 DEFINE_string(csvfile, "", "Results will be written into a given CSV file");
