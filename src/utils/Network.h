@@ -11,16 +11,21 @@
 
 #include "./Config.h"
 #include <endian.h>
-#include <stdio.h>
-#include <string.h>
+#include <arpa/inet.h>
 
 namespace rdma {
 
 class Network {
-public:
+ public:
 
   static inline uint64_t bigEndianToHost(uint64_t be) {
     return be64toh(be);
+  }
+
+  static bool isValidIP(const string &ip){
+    struct sockaddr_in sa;
+    int result = inet_pton(AF_INET, ip.c_str(), &(sa.sin_addr));
+    return result != 0;
   }
 
   static bool isConnection(const string& region) {
@@ -58,7 +63,7 @@ public:
     throw invalid_argument("Connection has bad format");
   }
 
-  static string getLocalAddress(){
+  static string getOwnAddress(){
     int sock = socket(PF_INET, SOCK_DGRAM, 0);
     sockaddr_in loopback;
 
@@ -94,6 +99,7 @@ public:
     }
     return string(buf);
   }
+
 };
 
 }

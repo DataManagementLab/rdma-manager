@@ -33,11 +33,12 @@ protected:
     void handle(Any *anyReq, Any *anyResp) override;
     NodeID getNextNodeID();
 public:
-    NodeIDSequencer(/* args */);
-    NodeIDSequencer(std::string name);
+    NodeIDSequencer();
     NodeIDSequencer(int port);
-    NodeIDSequencer(std::string ip, int port);
-    NodeIDSequencer(std::string name, std::string ip, int port);
+    NodeIDSequencer(int port, std::string addr);
+    NodeIDSequencer(std::string name);
+    NodeIDSequencer(std::string name, int port);
+    NodeIDSequencer(std::string name, int port, std::string addr);
     ~NodeIDSequencer();
 
 };

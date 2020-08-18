@@ -22,6 +22,7 @@ struct config_t {
 	size_t iter = 10000000;
 	size_t threads = 1;
 	size_t data = 2048;
+	size_t numa = 0;
 	string logfile;
 	std::size_t returnMethod = 0;
 	bool old = false;
@@ -44,11 +45,12 @@ public:
 			        { "logfile", optional_argument, nullptr, 'f' },
 					{ "iterations", optional_argument, nullptr, 'i' },
                     { "return", optional_argument, nullptr, 'r' },
+					{ "numa_region", optional_argument, 0, 'q' },
                     { "old", no_argument, nullptr, 'o' },
-                    { "signaled", no_argument, nullptr, 'g' },
+                    { "signaled", no_argument, nullptr, 'g' }
 			};
 
-			int c = getopt_long(argc, argv, "n:d:s:t:p:f:i:r:og", long_options, nullptr);
+			int c = getopt_long(argc, argv, "n:d:s:t:p:f:i:r:q:og", long_options, nullptr);
 			if (c == -1)
 				break;
 
@@ -77,6 +79,9 @@ public:
             case 'r':
                 config.returnMethod = strtoul(optarg, nullptr,0);
                 break;
+			case 'q':
+				config.numa = strtoul(optarg, NULL, 0);
+				break;
             case 'o':
                 config.old = true;
                 break;

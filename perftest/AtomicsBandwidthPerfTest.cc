@@ -13,8 +13,8 @@ condition_variable rdma::AtomicsBandwidthPerfTest::waitCv;
 bool rdma::AtomicsBandwidthPerfTest::signaled;
 rdma::TestMode rdma::AtomicsBandwidthPerfTest::testMode;
 
-rdma::AtomicsBandwidthPerfClientThread::AtomicsBandwidthPerfClientThread(BaseMemory *memory, std::vector<std::string>& rdma_addresses, int buffer_slots, size_t iterations) {
-	this->m_client = new RDMAClient<ReliableRDMA>(memory, "AtomicsBandwidthPerfTestClient");
+rdma::AtomicsBandwidthPerfClientThread::AtomicsBandwidthPerfClientThread(BaseMemory *memory, std::vector<std::string>& rdma_addresses, std::string ownIpPort, std::string sequencerIpPort, int buffer_slots, size_t iterations) {
+	this->m_client = new RDMAClient<ReliableRDMA>(memory, "AtomicsBandwidthPerfTestClient", ownIpPort, sequencerIpPort);
 	this->m_rdma_addresses = rdma_addresses;
 	this->m_memory_per_thread = buffer_slots * rdma::ATOMICS_SIZE;
 	this->m_buffer_slots = buffer_slots;
@@ -84,9 +84,11 @@ void rdma::AtomicsBandwidthPerfClientThread::run() {
 
 
 
-rdma::AtomicsBandwidthPerfTest::AtomicsBandwidthPerfTest(bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, int local_gpu_index, int remote_gpu_index, int thread_count, int buffer_slots, uint64_t iterations) : PerfTest(){
+rdma::AtomicsBandwidthPerfTest::AtomicsBandwidthPerfTest(bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, std::string ownIpPort, std::string sequencerIpPort, int local_gpu_index, int remote_gpu_index, int thread_count, int buffer_slots, uint64_t iterations) : PerfTest(){
 	this->m_is_server = is_server;
 	this->m_rdma_port = rdma_port;
+	this->m_ownIpPort = ownIpPort;
+	this->m_sequencerIpPort = sequencerIpPort;
 	this->m_local_gpu_index = local_gpu_index;
 	this->m_remote_gpu_index = remote_gpu_index;
 	this->m_thread_count = thread_count;
@@ -149,12 +151,12 @@ void rdma::AtomicsBandwidthPerfTest::setupTest(){
 
 	if(m_is_server){
 		// Server
-		m_server = new RDMAServer<ReliableRDMA>("AtomicsBandwidthTestRDMAServer", m_rdma_port, m_memory);
+		m_server = new RDMAServer<ReliableRDMA>("AtomicsBandwidthTestRDMAServer", m_rdma_port, Network::getAddressOfConnection(m_ownIpPort), m_memory, m_sequencerIpPort);
 
 	} else {
 		// Client
 		for (int i = 0; i < m_thread_count; i++) {
-			AtomicsBandwidthPerfClientThread* perfThread = new AtomicsBandwidthPerfClientThread(m_memory, m_rdma_addresses, m_buffer_slots, m_iterations);
+			AtomicsBandwidthPerfClientThread* perfThread = new AtomicsBandwidthPerfClientThread(m_memory, m_rdma_addresses, m_ownIpPort, m_sequencerIpPort, m_buffer_slots, m_iterations);
 			m_client_threads.push_back(perfThread);
 		}
 	}
@@ -231,29 +233,29 @@ std::string rdma::AtomicsBandwidthPerfTest::getTestResults(std::string csvFileNa
 
 		// write results into CSV file
 		if(!csvFileName.empty()){
-			const uint64_t su = 1000*1000; // size unit (bytes to MegaBytes) | use 1024*1024 for MebiBytes
+			const uint64_t su = 1000*1000*1000; // size unit (bytes to GigaBytes) | use 1024*1024 for MebiBytes
 			std::ofstream ofs;
 			ofs.open(csvFileName, std::ofstream::out | std::ofstream::app);
 			ofs << rdma::CSV_PRINT_NOTATION << rdma::CSV_PRINT_PRECISION;
 			if(csvAddHeader){
 				ofs << std::endl << "ATOMICS BANDWIDTH, " << getTestParameters() << std::endl;
-				ofs << "Iterations, Fetch&Add [MB/s], Comp&Swap [MB/s], Min Fetch&Add [MB/s], Min Comp&Swap [MB/s], ";
-				ofs << "Max Fetch&Add [MB/s], Max Comp&Swap [MB/s], Avg Fetch&Add [MB/s], Avg Comp&Swap [MB/s], ";
-				ofs << "Median Fetch&Add [MB/s], Median Comp&Swap [MB/s], Fetch&Add [Sec], Comp&Swap [Sec], ";
+				ofs << "Iterations, Fetch&Add [GB/s], Comp&Swap [GB/s], Min Fetch&Add [GB/s], Min Comp&Swap [GB/s], ";
+				ofs << "Max Fetch&Add [GB/s], Max Comp&Swap [GB/s], Avg Fetch&Add [GB/s], Avg Comp&Swap [GB/s], ";
+				ofs << "Median Fetch&Add [GB/s], Median Comp&Swap [GB/s], Fetch&Add [Sec], Comp&Swap [Sec], ";
 				ofs << "Min Fetch&Add [Sec], Min Comp&Swap [Sec], Max Fetch&Add [Sec], Max Comp&Swap [Sec], ";
 				ofs << "Avg Fetch&Add [Sec], Avg Comp&Swap [Sec], Median Fetch&Add [Sec], Median Comp&Swap [Sec]" << std::endl;
 			}
 			ofs << m_iterations << ", ";
-			ofs << (round(transferedBytesFetchAdd*tu/su/m_elapsedFetchAddMs * 100000)/100000.0) << ", "; // fetch&add MB/s
-			ofs << (round(transferedBytesCompSwap*tu/su/m_elapsedCompareSwapMs * 100000)/100000.0) << ", "; // comp&swap MB/s
-			ofs << (round(transferedBytesFetchAdd*tu/su/maxFetchAddMs * 100000)/100000.0) << ", "; // min fetch&add MB/s
-			ofs << (round(transferedBytesCompSwap*tu/su/maxCompareSwapMs * 100000)/100000.0) << ", "; // min comp&swap MB/s
-			ofs << (round(transferedBytesFetchAdd*tu/su/minFetchAddMs * 100000)/100000.0) << ", "; // max fetch&add MB/s
-			ofs << (round(transferedBytesCompSwap*tu/su/minCompareSwapMs * 100000)/100000.0) << ", "; // max comp&swap MB/s
-			ofs << (round(transferedBytesFetchAdd*tu/su/avgFetchAddMs * 100000)/100000.0) << ", "; // avg fetch&add MB/s
-			ofs << (round(transferedBytesCompSwap*tu/su/avgCompareSwapMs * 100000)/100000.0) << ", "; // avg comp&swap MB/s
-			ofs << (round(transferedBytesFetchAdd*tu/su/medianFetchAddMs * 100000)/100000.0) << ", "; // median fetch&add MB/s
-			ofs << (round(transferedBytesCompSwap*tu/su/medianCompareSwapMs * 100000)/100000.0) << ", "; // median comp&swap MB/s
+			ofs << (round(transferedBytesFetchAdd*tu/su/m_elapsedFetchAddMs * 100000)/100000.0) << ", "; // fetch&add GB/s
+			ofs << (round(transferedBytesCompSwap*tu/su/m_elapsedCompareSwapMs * 100000)/100000.0) << ", "; // comp&swap GB/s
+			ofs << (round(transferedBytesFetchAdd*tu/su/maxFetchAddMs * 100000)/100000.0) << ", "; // min fetch&add GB/s
+			ofs << (round(transferedBytesCompSwap*tu/su/maxCompareSwapMs * 100000)/100000.0) << ", "; // min comp&swap GB/s
+			ofs << (round(transferedBytesFetchAdd*tu/su/minFetchAddMs * 100000)/100000.0) << ", "; // max fetch&add GB/s
+			ofs << (round(transferedBytesCompSwap*tu/su/minCompareSwapMs * 100000)/100000.0) << ", "; // max comp&swap GB/s
+			ofs << (round(transferedBytesFetchAdd*tu/su/avgFetchAddMs * 100000)/100000.0) << ", "; // avg fetch&add GB/s
+			ofs << (round(transferedBytesCompSwap*tu/su/avgCompareSwapMs * 100000)/100000.0) << ", "; // avg comp&swap GB/s
+			ofs << (round(transferedBytesFetchAdd*tu/su/medianFetchAddMs * 100000)/100000.0) << ", "; // median fetch&add GB/s
+			ofs << (round(transferedBytesCompSwap*tu/su/medianCompareSwapMs * 100000)/100000.0) << ", "; // median comp&swap GB/s
 			ofs << (round(m_elapsedFetchAddMs/tu * 100000)/100000.0) << ", " << (round(m_elapsedCompareSwapMs/tu * 100000)/100000.0) << ", "; // fetch&add, comp&swap Sec
 			ofs << (round(minFetchAddMs/tu * 100000)/100000.0) << ", " << (round(minCompareSwapMs/tu * 100000)/100000.0) << ", "; // min fetch&add, comp&swap Sec
 			ofs << (round(maxFetchAddMs/tu * 100000)/100000.0) << ", " << (round(maxCompareSwapMs/tu * 100000)/100000.0) << ", "; // max fetch&add, comp&swap Sec

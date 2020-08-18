@@ -27,24 +27,49 @@ namespace rdma {
 template <typename RDMA_API_T>
 class RDMAServer : public ProtoServer, public RDMAClient<RDMA_API_T> {
  public:
+  
   RDMAServer() : RDMAServer("RDMAserver"){}
+  RDMAServer(int port) : RDMAServer(port, Config::getIP(Config::RDMA_INTERFACE)){}
+  RDMAServer(int port, uint64_t mem_size) : RDMAServer(port, mem_size, Config::SEQUENCER_IP+":"+to_string(Config::SEQUENCER_PORT)){}
+  RDMAServer(int port, uint64_t mem_size, std::string sequencerIpPort) : RDMAServer(port, mem_size, sequencerIpPort, Config::RDMA_NUMAREGION){}
+  RDMAServer(int port, uint64_t mem_size, std::string sequencerIpPort, int numaNode) : RDMAServer(port, Config::getIP(Config::RDMA_INTERFACE), mem_size, sequencerIpPort, numaNode){}
+  RDMAServer(int port, std::string addr) : RDMAServer(port, addr, Config::RDMA_MEMSIZE){}
+  RDMAServer(int port, std::string addr, uint64_t mem_size) : RDMAServer(port, addr, mem_size, Config::SEQUENCER_IP+":"+to_string(Config::SEQUENCER_PORT)){}
+  RDMAServer(int port, std::string addr, uint64_t mem_size, std::string sequencerIpPort) : RDMAServer(port, addr, mem_size, sequencerIpPort, Config::RDMA_NUMAREGION){}
+  RDMAServer(int port, std::string addr, uint64_t mem_size, std::string sequencerIpPort, int numaNode) : RDMAServer("RDMAServer", port, addr, mem_size, sequencerIpPort, numaNode){}
   RDMAServer(string name) : RDMAServer(name, Config::RDMA_PORT){}
-  RDMAServer(string name, int port) : RDMAServer(name, port, Config::RDMA_MEMSIZE){}
-  RDMAServer(string name, int port, uint64_t memsize) : ProtoServer(name, port, Config::getIP(Config::RDMA_INTERFACE)), RDMAClient<RDMA_API_T>(memsize, name, Config::getIP(Config::RDMA_INTERFACE) + ":" + to_string(port), NodeType::Enum::SERVER)
-  {
-    // if (!ProtoServer::isRunning())
-    // {
-    //   ProtoServer::startServer();
-    // }
+  RDMAServer(string name, int port) : RDMAServer(name, port, Config::getIP(Config::RDMA_INTERFACE)){}
+  RDMAServer(string name, int port, int numaNode) : RDMAServer(name, port, Config::getIP(Config::RDMA_INTERFACE), numaNode){}
+  RDMAServer(string name, int port, uint64_t mem_size) : RDMAServer(name, port, mem_size, Config::SEQUENCER_IP+":"+to_string(Config::SEQUENCER_PORT)){}
+  RDMAServer(string name, int port, uint64_t mem_size, std::string sequencerIpPort) : RDMAServer(name, port, mem_size, sequencerIpPort, Config::RDMA_NUMAREGION){}
+  RDMAServer(string name, int port, uint64_t mem_size, std::string sequencerIpPort, int numaNode) : RDMAServer(name, port, Config::getIP(Config::RDMA_INTERFACE), mem_size, sequencerIpPort, numaNode){}
+  RDMAServer(string name, int port, uint64_t mem_size, int numaNode) : RDMAServer(name, port, Config::getIP(Config::RDMA_INTERFACE), mem_size, numaNode){}
+  RDMAServer(string name, int port, std::string addr) : RDMAServer(name, port, addr, Config::RDMA_MEMSIZE){}
+  RDMAServer(string name, int port, std::string addr, uint64_t mem_size) : RDMAServer(name, port, addr, mem_size, Config::SEQUENCER_IP+":"+to_string(Config::SEQUENCER_PORT)){}
+  RDMAServer(string name, int port, std::string addr, uint64_t mem_size, std::string sequencerIpPort) : RDMAServer(name, port, addr, mem_size, sequencerIpPort, Config::RDMA_NUMAREGION){}
+  RDMAServer(string name, int port, std::string addr, uint64_t mem_size, int numaNode) : RDMAServer(name, port, addr, mem_size, Config::SEQUENCER_IP+":"+to_string(Config::SEQUENCER_PORT), numaNode){}
+  RDMAServer(string name, int port, std::string addr, int numaNode) : RDMAServer(name, port, addr, Config::SEQUENCER_IP+":"+to_string(Config::SEQUENCER_PORT), numaNode){}
+  RDMAServer(string name, int port, std::string addr, std::string sequencerIpPort, int numaNode) : RDMAServer(name, port, addr, Config::RDMA_MEMSIZE, sequencerIpPort, numaNode){}
+  RDMAServer(string name, int port, std::string addr, uint64_t mem_size, std::string sequencerIpPort, int numaNode) : ProtoServer(name, port, addr), RDMAClient<RDMA_API_T>(mem_size, name, addr+":"+to_string(port), NodeType::Enum::SERVER, sequencerIpPort, numaNode){
+    /*if (!ProtoServer::isRunning()){
+      ProtoServer::startServer();
+    } */
   }
+
   RDMAServer(BaseMemory *memory) : RDMAServer("RDMAserver", memory){}
+  RDMAServer(int port, BaseMemory *memory) : RDMAServer(port, memory, Config::SEQUENCER_IP+":"+to_string(Config::SEQUENCER_PORT)){}
+  RDMAServer(int port, BaseMemory *memory, std::string sequencerIpPort) : RDMAServer("RDMAServer", port, memory, sequencerIpPort){}
+  RDMAServer(int port, std::string addr, BaseMemory *memory) : RDMAServer(port, addr, memory, Config::SEQUENCER_IP+":"+to_string(Config::SEQUENCER_PORT)){}
+  RDMAServer(int port, std::string addr, BaseMemory *memory, std::string sequencerIpPort) : RDMAServer("RDMAServer", port, addr, memory, sequencerIpPort){}
   RDMAServer(string name, BaseMemory *memory) : RDMAServer(name, Config::RDMA_PORT, memory){}
-  RDMAServer(string name, int port, BaseMemory *memory) : ProtoServer(name, port, Config::getIP(Config::RDMA_INTERFACE)), RDMAClient<RDMA_API_T>(memory, name, Config::getIP(Config::RDMA_INTERFACE) + ":" + to_string(port), NodeType::Enum::SERVER)
-  {
-    // if (!ProtoServer::isRunning())
-    // {
-    //   ProtoServer::startServer();
-    // }
+  RDMAServer(string name, BaseMemory *memory, std::string sequencerIpPort) : RDMAServer(name, Config::RDMA_PORT, memory, sequencerIpPort){}
+  RDMAServer(string name, int port, BaseMemory *memory) : RDMAServer(name, port, memory, Config::SEQUENCER_IP+":"+to_string(Config::SEQUENCER_PORT)){}
+  RDMAServer(string name, int port, BaseMemory *memory, std::string sequencerIpPort) : RDMAServer(name, port, Config::getIP(Config::RDMA_INTERFACE), memory, sequencerIpPort){}
+  RDMAServer(string name, int port, std::string addr, BaseMemory *memory) : RDMAServer(name, port, addr, memory, Config::SEQUENCER_IP+":"+to_string(Config::SEQUENCER_PORT)){}
+  RDMAServer(string name, int port, std::string addr, BaseMemory *memory, std::string sequencerIpPort) : ProtoServer(name, port, addr), RDMAClient<RDMA_API_T>(memory, name, addr+":"+to_string(port), NodeType::Enum::SERVER, sequencerIpPort){
+    /*if (!ProtoServer::isRunning()){
+      ProtoServer::startServer();
+    } */
   }
 
   ~RDMAServer() = default;
@@ -294,7 +319,7 @@ class RDMAServer : public ProtoServer, public RDMAClient<RDMA_API_T> {
 
   size_t m_currentSRQ = SIZE_MAX;
 
-  std::string m_sequencerIpPort = Config::SEQUENCER_IP + ":" + to_string(Config::SEQUENCER_PORT);
+  std::string m_sequencerIpPort;
   // NodeID m_ownNodeID;
 
 private:

@@ -7,6 +7,7 @@ using namespace rdma;
 
 ProtoServer::ProtoServer(string name, int port, std::string ip)
     : m_name(name), m_port(port), m_ip(ip), m_running(false), m_pSocket(nullptr) {
+      
 }
 
 ProtoServer::~ProtoServer() {

@@ -20,9 +20,10 @@ struct sharedrq_t {
 
 class ReliableRDMA : public BaseRDMA {
  public:
-  ReliableRDMA();
-  ReliableRDMA(size_t mem_size);
+  ReliableRDMA(size_t mem_size=Config::RDMA_MEMSIZE);
   ReliableRDMA(size_t mem_size, bool huge);
+  ReliableRDMA(size_t mem_size, int numaNode);
+  ReliableRDMA(size_t mem_size, bool huge, int numaNode);
   ReliableRDMA(BaseMemory *buffer);
   ~ReliableRDMA();
 

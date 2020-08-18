@@ -15,16 +15,17 @@
 using namespace rdma;
 
 //------------------------------------------------------------------------------------//
+
 BaseRDMA::BaseRDMA(BaseMemory *buffer) : BaseRDMA(buffer, false){}
 BaseRDMA::BaseRDMA(BaseMemory *buffer, bool pass_buffer_ownership) {
   m_buffer = buffer;
   m_buffer_owner = pass_buffer_ownership;
-  m_gidIdx = -1;
 }
 
-BaseRDMA::BaseRDMA(size_t mem_size) : BaseRDMA(new MainMemory(mem_size), true) {}
-
-BaseRDMA::BaseRDMA(size_t mem_size, bool huge) : BaseRDMA(new MainMemory(mem_size, huge), true) {}
+BaseRDMA::BaseRDMA(size_t mem_size) : BaseRDMA(mem_size, true){}
+BaseRDMA::BaseRDMA(size_t mem_size, bool huge) : BaseRDMA(mem_size, huge, (int)Config::RDMA_NUMAREGION){}
+BaseRDMA::BaseRDMA(size_t mem_size, int numaNode) : BaseRDMA(mem_size, true, numaNode){}
+BaseRDMA::BaseRDMA(size_t mem_size, bool huge, int numaNode) : BaseRDMA(new MainMemory(mem_size, huge, numaNode), true){}
 
 //------------------------------------------------------------------------------------//
 

@@ -2,14 +2,10 @@
 
 using namespace rdma;
 
-/********** constructor and destructor **********/
-UnreliableRDMA::UnreliableRDMA(size_t mem_size) : BaseRDMA(mem_size) {
-  m_qpType = IBV_QPT_UD;
-  m_lastMCastConnKey = 0;
-
-  initQPWithSuppliedID(0);
-}
-UnreliableRDMA::UnreliableRDMA(size_t mem_size, bool huge) : BaseRDMA(mem_size, huge) {
+UnreliableRDMA::UnreliableRDMA(size_t mem_size) : BaseRDMA(mem_size, true){}
+UnreliableRDMA::UnreliableRDMA(size_t mem_size, bool huge) : BaseRDMA(mem_size, huge, Config::RDMA_NUMAREGION){}
+UnreliableRDMA::UnreliableRDMA(size_t mem_size, int numaNode) : BaseRDMA(mem_size, true, numaNode){}
+UnreliableRDMA::UnreliableRDMA(size_t mem_size, bool huge, int numaNode) : BaseRDMA(mem_size, huge, numaNode) {
   m_qpType = IBV_QPT_UD;
   m_lastMCastConnKey = 0;
 
@@ -21,6 +17,7 @@ UnreliableRDMA::UnreliableRDMA(BaseMemory *buffer) : BaseRDMA(buffer) {
 
   initQPWithSuppliedID(0);
 }
+
 
 UnreliableRDMA::~UnreliableRDMA() {
   rdmaConnID mcastID = 0;

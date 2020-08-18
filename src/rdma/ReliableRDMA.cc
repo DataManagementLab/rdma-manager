@@ -4,15 +4,12 @@
 
 using namespace rdma;
 
-/********** constructor and destructor **********/
-ReliableRDMA::ReliableRDMA() : ReliableRDMA(Config::RDMA_MEMSIZE) {}
-
 //------------------------------------------------------------------------------------//
 
-ReliableRDMA::ReliableRDMA(size_t mem_size) : BaseRDMA(mem_size) {
-  m_qpType = IBV_QPT_RC;
-}
-ReliableRDMA::ReliableRDMA(size_t mem_size, bool huge) : BaseRDMA(mem_size, huge) {
+ReliableRDMA::ReliableRDMA(size_t mem_size) : ReliableRDMA(mem_size, true){}
+ReliableRDMA::ReliableRDMA(size_t mem_size, int numaNode) : ReliableRDMA(mem_size, true, numaNode){}
+ReliableRDMA::ReliableRDMA(size_t mem_size, bool huge) : ReliableRDMA(mem_size, huge, (int)Config::RDMA_NUMAREGION){}
+ReliableRDMA::ReliableRDMA(size_t mem_size, bool huge, int numaNode) : BaseRDMA(mem_size, huge, numaNode){
   m_qpType = IBV_QPT_RC;
 }
 ReliableRDMA::ReliableRDMA(BaseMemory *buffer) : BaseRDMA(buffer) {

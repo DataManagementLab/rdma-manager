@@ -6,9 +6,9 @@
 
 using namespace rdma;
 
-Config::Config(const std::string& prog_name)
-{
-    Config::load(prog_name);
+Config::Config(const std::string &exec_path) : Config(exec_path, true){}
+Config::Config(const std::string &file_path, bool is_exec_path){
+    Config::load(file_path, is_exec_path);
     auto num_cpu_cores = 0;
     auto num_numa_nodes = 0;
     
@@ -32,6 +32,7 @@ size_t Config::RDMA_MEMSIZE = 1024ul * 1024 * 1024 * 5;  //1GB
 uint32_t Config::RDMA_NUMAREGION = 0;
 std::string Config::RDMA_DEVICE_FILE_PATH;
 uint32_t Config::RDMA_IBPORT = 1;
+std::string Config::RDMA_SERVER_ADDRESSES = "172.18.94.20"; // ip node02 RDMA_INTERFACEs
 uint32_t Config::RDMA_PORT = 5200;
 uint32_t Config::RDMA_MAX_WR = 4096;
 
@@ -100,21 +101,23 @@ void Config::unload() {
   google::protobuf::ShutdownProtobufLibrary();
 }
 
-void Config::load(const string& prog_name) {
-  string conf_file;
-  if (prog_name.empty() || prog_name.find("/") == string::npos) {
-    //conf_file = "."
-    conf_file = "./conf/RDMA.conf";
-  } else {
-    //conf_file = prog_name.substr(0, prog_name.find_last_of("/"));
-    conf_file = prog_name;
+void Config::load(const string &exec_path) {
+  load(exec_path, true);
+}
+void Config::load(const string &file_path, bool is_exec_path) {
+  string conf_file = file_path;
+  if(is_exec_path){
+    if (file_path.empty() || file_path.find("/") == string::npos) {
+      conf_file = ".";
+    } else {
+      conf_file = file_path.substr(0, file_path.find_last_of("/"));
+    }
+    conf_file += "/conf/RDMA.conf";
   }
-  //conf_file += "/conf/RDMA.conf";
 
   ifstream file(conf_file.c_str());
 
   if (file.fail()) {
-    std::cerr << "Could not load config from file '" << prog_name << "'" << std::endl;
     Logging::error(__FILE__, __LINE__,
                     "Failed to load config file at " + conf_file + ". "
                     "The default values are used.");
@@ -129,7 +132,9 @@ void Config::load(const string& prog_name) {
     if (line.length() == 0)
       continue;
 
-    if (line[0] == '#' || line[0] == ';')
+    if (line[0] == '#')
+      continue;
+    if (line[0] == ';')
       continue;
 
     posEqual = line.find('=');
@@ -141,7 +146,9 @@ void Config::load(const string& prog_name) {
 
 void Config::set(string key, string value) {
   //config
-  if (key.compare("RDMA_PORT") == 0) {
+  if(key.compare("RDMA_SERVER_ADDRESSES") == 0){
+    Config::RDMA_SERVER_ADDRESSES = value;
+  } else if(key.compare("RDMA_PORT") == 0) {
     Config::RDMA_PORT = stoi(value);
   } else if (key.compare("RDMA_MEMSIZE") == 0) {
     Config::RDMA_MEMSIZE = strtoul(value.c_str(), nullptr, 0);
@@ -159,6 +166,8 @@ void Config::set(string key, string value) {
     Config::SEQUENCER_IP = value;
   }else if (key.compare("NODE_SEQUENCER_PORT") == 0) {
     Config::SEQUENCER_PORT = stoi(value);
+  } else {
+    std::cerr << "Config: UNKNOWN key '" << key << "' = '" << value << "'" << std::endl;
   }
 }
 

@@ -11,9 +11,11 @@ set(PERFTEST_OLD_SRC
   MulticastPerfLat.cc
   #SwMulticastPerf.h
   #SwMulticastPerf.cc
-  RPCPerf.cc
-  RPCPerf.h
-) # Adding headers required for portability reasons http://voices.canonical.com/jussi.pakkanen/2013/03/26/a-list-of-common-cmake-antipatterns/
+  FetchAndAddPerf.h
+  FetchAndAddPerf.cc
+    RPCPerf.cc
+    RPCPerf.h
+    ) # Adding headers required for portability reasons http://voices.canonical.com/jussi.pakkanen/2013/03/26/a-list-of-common-cmake-antipatterns/
 
 add_library(perftest_old ${PERFTEST_OLD_SRC})
 
@@ -26,5 +28,5 @@ target_link_libraries(
 add_executable(perf_test_old MainPerf.cc)
 target_link_libraries(perf_test_old perftest_old)
 	
-add_executable(multicast_order_test_old MulticastOrderTest.cc)
-target_link_libraries(multicast_order_test_old rdma_lib)
+add_executable(multicast_order_test MulticastOrderTest.cc)
+target_link_libraries(multicast_order_test rdma_lib)

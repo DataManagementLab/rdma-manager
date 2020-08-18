@@ -34,8 +34,10 @@ struct rdma_mcast_conn_t {
 
 class UnreliableRDMA : public BaseRDMA {
  public:
-  UnreliableRDMA(size_t mem_size = Config::RDMA_MEMSIZE);
+  UnreliableRDMA(size_t mem_size=Config::RDMA_MEMSIZE);
   UnreliableRDMA(size_t mem_size, bool huge);
+  UnreliableRDMA(size_t mem_size, int numaNode);
+  UnreliableRDMA(size_t mem_size, bool huge, int numaNode);
   UnreliableRDMA(BaseMemory *buffer);
   ~UnreliableRDMA();
 
