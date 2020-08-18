@@ -16,7 +16,7 @@ namespace rdma {
 
 class OperationsCountPerfClientThread : public Thread {
 public:
-	OperationsCountPerfClientThread(BaseMemory *memory, std::vector<std::string>& rdma_addresses, std::string ownIpPort, std::string sequencerIpPort, size_t packet_size, int buffer_slots, size_t iterations, size_t max_rdma_wr_per_thread, WriteMode write_mode);
+	OperationsCountPerfClientThread(BaseMemory *memory, std::vector<std::string>& rdma_addresses, std::string ownIpPort, std::string sequencerIpPort, size_t packet_size, int buffer_slots, size_t iterations_per_thread, size_t max_rdma_wr_per_thread, WriteMode write_mode);
 	~OperationsCountPerfClientThread();
 	void run();
 	bool ready() {
@@ -34,7 +34,7 @@ private:
 	size_t m_packet_size;
 	int m_buffer_slots;
 	size_t m_memory_size_per_thread;
-	size_t m_iterations;
+	size_t m_iterations_per_thread;
 	size_t m_max_rdma_wr_per_thread;
 	WriteMode m_write_mode;
 	std::vector<std::string> m_rdma_addresses;
@@ -45,7 +45,7 @@ private:
 
 class OperationsCountPerfServerThread : public Thread {
 public:
-	OperationsCountPerfServerThread(RDMAServer<ReliableRDMA> *server, size_t packet_size, int buffer_slots, size_t iterations, size_t max_rdma_wr_per_thread, WriteMode write_mode, int thread_id);
+	OperationsCountPerfServerThread(RDMAServer<ReliableRDMA> *server, size_t packet_size, int buffer_slots, size_t iterations_per_thread, size_t max_rdma_wr_per_thread, WriteMode write_mode, int thread_id);
 	~OperationsCountPerfServerThread();
 	void run();
 	bool ready(){
@@ -57,7 +57,7 @@ private:
 	size_t m_packet_size;
 	int m_buffer_slots;
 	size_t m_memory_size_per_thread;
-	size_t m_iterations;
+	size_t m_iterations_per_thread;
 	size_t m_max_rdma_wr_per_thread;
 	WriteMode m_write_mode;
 	int m_thread_id;
@@ -68,7 +68,7 @@ private:
 
 class OperationsCountPerfTest : public rdma::PerfTest {
 public:
-	OperationsCountPerfTest(bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, std::string ownIpPort, std::string sequencerIpPort, int local_gpu_index, int remote_gpu_index, int thread_count, uint64_t packet_size, int buffer_slots, uint64_t iterations, WriteMode write_mode);
+	OperationsCountPerfTest(bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, std::string ownIpPort, std::string sequencerIpPort, int local_gpu_index, int remote_gpu_index, int thread_count, uint64_t packet_size, int buffer_slots, uint64_t iterations_per_thread, WriteMode write_mode);
 	virtual ~OperationsCountPerfTest();
 	std::string getTestParameters();
 	void setupTest();
@@ -95,7 +95,7 @@ private:
 	uint64_t m_packet_size;
 	int m_buffer_slots;
 	uint64_t m_memory_size;
-	uint64_t m_iterations;
+	uint64_t m_iterations_per_thread;
 	WriteMode m_write_mode;
 	std::vector<OperationsCountPerfClientThread*> m_client_threads;
 	std::vector<OperationsCountPerfServerThread*> m_server_threads;

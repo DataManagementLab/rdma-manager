@@ -13,12 +13,12 @@ condition_variable rdma::AtomicsBandwidthPerfTest::waitCv;
 bool rdma::AtomicsBandwidthPerfTest::signaled;
 rdma::TestMode rdma::AtomicsBandwidthPerfTest::testMode;
 
-rdma::AtomicsBandwidthPerfClientThread::AtomicsBandwidthPerfClientThread(BaseMemory *memory, std::vector<std::string>& rdma_addresses, std::string ownIpPort, std::string sequencerIpPort, int buffer_slots, size_t iterations) {
+rdma::AtomicsBandwidthPerfClientThread::AtomicsBandwidthPerfClientThread(BaseMemory *memory, std::vector<std::string>& rdma_addresses, std::string ownIpPort, std::string sequencerIpPort, int buffer_slots, size_t iterations_per_thread) {
 	this->m_client = new RDMAClient<ReliableRDMA>(memory, "AtomicsBandwidthPerfTestClient", ownIpPort, sequencerIpPort);
 	this->m_rdma_addresses = rdma_addresses;
 	this->m_memory_per_thread = buffer_slots * rdma::ATOMICS_SIZE;
 	this->m_buffer_slots = buffer_slots;
-	this->m_iterations = iterations;
+	this->m_iterations_per_thread = iterations_per_thread;
 	m_remOffsets = new size_t[m_rdma_addresses.size()];
 
 	for (size_t i = 0; i < m_rdma_addresses.size(); ++i) {
@@ -60,18 +60,18 @@ void rdma::AtomicsBandwidthPerfClientThread::run() {
 	auto start = rdma::PerfTest::startTimer();
 	switch(AtomicsBandwidthPerfTest::testMode){
 		case TEST_FETCH_AND_ADD: // Fetch & Add
-			for(size_t i = 0; i < m_iterations; i++){
+			for(size_t i = 0; i < m_iterations_per_thread; i++){
 				size_t connIdx = i % m_rdma_addresses.size();
-				bool signaled = (i == (m_iterations - 1) || (i+1)%Config::RDMA_MAX_WR==0);
+				bool signaled = (i == (m_iterations_per_thread - 1) || (i+1)%Config::RDMA_MAX_WR==0);
 				int offset = (i % m_buffer_slots) * rdma::ATOMICS_SIZE;
 				m_client->fetchAndAdd(m_addr[connIdx], m_remOffsets[connIdx] + offset, m_local_memory->pointer(offset), 1, rdma::ATOMICS_SIZE, signaled); // true=signaled
 			}
 			m_elapsedFetchAddMs = rdma::PerfTest::stopTimer(start);
 			break;
 		case TEST_COMPARE_AND_SWAP: // Compare & Swap
-			for(size_t i = 0; i < m_iterations; i++){
+			for(size_t i = 0; i < m_iterations_per_thread; i++){
 				size_t connIdx = i % m_rdma_addresses.size();
-				bool signaled = (i == (m_iterations - 1) || (i+1)%Config::RDMA_MAX_WR==0);
+				bool signaled = (i == (m_iterations_per_thread - 1) || (i+1)%Config::RDMA_MAX_WR==0);
 				int offset = (i % m_buffer_slots) * rdma::ATOMICS_SIZE;
 				m_client->compareAndSwap(m_addr[connIdx], m_remOffsets[connIdx] + offset, m_local_memory->pointer(offset), 2, 3, rdma::ATOMICS_SIZE, signaled); // true=signaled
 			}
@@ -84,7 +84,7 @@ void rdma::AtomicsBandwidthPerfClientThread::run() {
 
 
 
-rdma::AtomicsBandwidthPerfTest::AtomicsBandwidthPerfTest(bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, std::string ownIpPort, std::string sequencerIpPort, int local_gpu_index, int remote_gpu_index, int thread_count, int buffer_slots, uint64_t iterations) : PerfTest(){
+rdma::AtomicsBandwidthPerfTest::AtomicsBandwidthPerfTest(bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, std::string ownIpPort, std::string sequencerIpPort, int local_gpu_index, int remote_gpu_index, int thread_count, int buffer_slots, uint64_t iterations_per_thread) : PerfTest(){
 	this->m_is_server = is_server;
 	this->m_rdma_port = rdma_port;
 	this->m_ownIpPort = ownIpPort;
@@ -94,7 +94,7 @@ rdma::AtomicsBandwidthPerfTest::AtomicsBandwidthPerfTest(bool is_server, std::ve
 	this->m_thread_count = thread_count;
 	this->m_memory_size = thread_count * rdma::ATOMICS_SIZE * buffer_slots;
 	this->m_buffer_slots = buffer_slots;
-	this->m_iterations = iterations;
+	this->m_iterations_per_thread = iterations_per_thread;
 	this->m_rdma_addresses = rdma_addresses;
 }
 rdma::AtomicsBandwidthPerfTest::~AtomicsBandwidthPerfTest(){
@@ -112,7 +112,7 @@ std::string rdma::AtomicsBandwidthPerfTest::getTestParameters(bool forCSV){
 	oss << (m_is_server ? "Server" : "Client") << ", threads=" << m_thread_count << ", bufferslots=" << m_buffer_slots << ", packetsize=" << rdma::ATOMICS_SIZE << ", memory=";
 	oss << m_memory_size << " (" << m_thread_count << "x " << m_buffer_slots << "x " << rdma::ATOMICS_SIZE << ")";
 	oss << ", memory_type=" << getMemoryName(m_local_gpu_index) << (m_remote_gpu_index!=-404 ? "->"+getMemoryName(m_remote_gpu_index) : "");
-	if(!forCSV){ oss << ", iterations=" << (m_iterations*m_thread_count); }
+	if(!forCSV){ oss << ", iterations=" << (m_iterations_per_thread*m_thread_count); }
 	return oss.str();
 }
 std::string rdma::AtomicsBandwidthPerfTest::getTestParameters(){
@@ -157,7 +157,7 @@ void rdma::AtomicsBandwidthPerfTest::setupTest(){
 	} else {
 		// Client
 		for (int i = 0; i < m_thread_count; i++) {
-			AtomicsBandwidthPerfClientThread* perfThread = new AtomicsBandwidthPerfClientThread(m_memory, m_rdma_addresses, m_ownIpPort, m_sequencerIpPort, m_buffer_slots, m_iterations);
+			AtomicsBandwidthPerfClientThread* perfThread = new AtomicsBandwidthPerfClientThread(m_memory, m_rdma_addresses, m_ownIpPort, m_sequencerIpPort, m_buffer_slots, m_iterations_per_thread);
 			m_client_threads.push_back(perfThread);
 		}
 	}
@@ -203,34 +203,44 @@ std::string rdma::AtomicsBandwidthPerfTest::getTestResults(std::string csvFileNa
 	if(m_is_server){
 		return "only client";
 	} else {
+		
+		/*	There are  n  threads
+			Each thread computes  iterations_per_thread = total_iterations / n
+			Each thread takes  n  times more time compared to a single thread
+			 Bandwidth 	= transferedBytes / elapsedTime
+						= (n * iterations_per_thread * packetSize) / (elapsedTime_per_thread / n)
+		*/
 
 		const long double tu = (long double)NANO_SEC; // 1sec (nano to seconds as time unit)
 		
-		uint64_t transferedBytesFetchAdd = m_thread_count * m_iterations * rdma::ATOMICS_SIZE * 2; // 8 bytes send + 8 bytes receive
-		uint64_t transferedBytesCompSwap = m_thread_count * m_iterations * rdma::ATOMICS_SIZE * 3; // 16 bytes send + 8 bytes receive
+		const uint64_t iters = m_iterations_per_thread * m_thread_count;
+		uint64_t transferedBytesFetchAdd = iters * rdma::ATOMICS_SIZE * 2; // 8 bytes send + 8 bytes receive
+		uint64_t transferedBytesCompSwap = iters * rdma::ATOMICS_SIZE * 3; // 16 bytes send + 8 bytes receive
 		int64_t maxFetchAddMs=-1, minFetchAddMs=std::numeric_limits<int64_t>::max();
 		int64_t maxCompareSwapMs=-1, minCompareSwapMs=std::numeric_limits<int64_t>::max();
 		int64_t arrFetchAddMs[m_thread_count];
 		int64_t arrCompareSwapMs[m_thread_count];
 		long double avgFetchAddMs=0, medianFetchAddMs, avgCompareSwapMs=0, medianCompareSwapMs;
-
+		const long double div = m_thread_count;
+		const long double divAvg = m_client_threads.size() * div;
 		for(size_t i=0; i<m_client_threads.size(); i++){
 			AtomicsBandwidthPerfClientThread *thr = m_client_threads[i];
 			if(thr->m_elapsedFetchAddMs < minFetchAddMs) minFetchAddMs = thr->m_elapsedFetchAddMs;
 			if(thr->m_elapsedFetchAddMs > maxFetchAddMs) maxFetchAddMs = thr->m_elapsedFetchAddMs;
-			avgFetchAddMs += (long double) thr->m_elapsedFetchAddMs;
+			avgFetchAddMs += (long double) thr->m_elapsedFetchAddMs / divAvg;
 			arrFetchAddMs[i] = thr->m_elapsedFetchAddMs;
 			if(thr->m_elapsedCompareSwapMs < minCompareSwapMs) minCompareSwapMs = thr->m_elapsedCompareSwapMs;
 			if(thr->m_elapsedCompareSwapMs > maxCompareSwapMs) maxCompareSwapMs = thr->m_elapsedCompareSwapMs;
-			avgCompareSwapMs += (long double) thr->m_elapsedCompareSwapMs;
+			avgCompareSwapMs += (long double) thr->m_elapsedCompareSwapMs / divAvg;
 			arrCompareSwapMs[i] = thr->m_elapsedCompareSwapMs;
 		}
-		avgFetchAddMs /= (long double) m_thread_count;
-		avgCompareSwapMs /= (long double) m_thread_count;
+		minFetchAddMs /= div; maxFetchAddMs /= div;
+		minCompareSwapMs /= div; maxCompareSwapMs /= div;
+
 		std::sort(arrFetchAddMs, arrFetchAddMs + m_thread_count);
 		std::sort(arrCompareSwapMs, arrCompareSwapMs + m_thread_count);
-		medianFetchAddMs = arrFetchAddMs[(int)(m_thread_count/2)];
-		medianCompareSwapMs = arrCompareSwapMs[(int)(m_thread_count/2)];
+		medianFetchAddMs = arrFetchAddMs[(int)(m_thread_count/2)] / div;
+		medianCompareSwapMs = arrCompareSwapMs[(int)(m_thread_count/2)] / div;
 
 		// write results into CSV file
 		if(!csvFileName.empty()){
@@ -246,7 +256,7 @@ std::string rdma::AtomicsBandwidthPerfTest::getTestResults(std::string csvFileNa
 				ofs << "Min Fetch&Add [Sec], Min Comp&Swap [Sec], Max Fetch&Add [Sec], Max Comp&Swap [Sec], ";
 				ofs << "Avg Fetch&Add [Sec], Avg Comp&Swap [Sec], Median Fetch&Add [Sec], Median Comp&Swap [Sec]" << std::endl;
 			}
-			ofs << m_iterations << ", ";
+			ofs << iters  << ", ";
 			ofs << (round(transferedBytesFetchAdd*tu/su/m_elapsedFetchAddMs * 100000)/100000.0) << ", "; // fetch&add MB/s
 			ofs << (round(transferedBytesCompSwap*tu/su/m_elapsedCompareSwapMs * 100000)/100000.0) << ", "; // comp&swap MB/s
 			ofs << (round(transferedBytesFetchAdd*tu/su/maxFetchAddMs * 100000)/100000.0) << ", "; // min fetch&add MB/s

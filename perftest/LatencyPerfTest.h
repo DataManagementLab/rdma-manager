@@ -18,7 +18,7 @@ namespace rdma {
 
 class LatencyPerfClientThread : public Thread {
 public:
-	LatencyPerfClientThread(BaseMemory *memory, std::vector<std::string>& rdma_addresses, std::string ownIpPort, std::string sequencerIpPort, size_t packet_size, int buffer_slots, size_t iterations, WriteMode write_mode);
+	LatencyPerfClientThread(BaseMemory *memory, std::vector<std::string>& rdma_addresses, std::string ownIpPort, std::string sequencerIpPort, size_t packet_size, int buffer_slots, size_t iterations_per_thread, WriteMode write_mode);
 	~LatencyPerfClientThread();
 	void run();
 	bool ready() {
@@ -37,7 +37,7 @@ private:
 	size_t m_packet_size;
 	int m_buffer_slots;
 	size_t m_memory_size_per_thread;
-	size_t m_iterations;
+	size_t m_iterations_per_thread;
 	WriteMode m_write_mode;
 	std::vector<std::string> m_rdma_addresses;
 	std::vector<NodeID> m_addr;
@@ -47,7 +47,7 @@ private:
 
 class LatencyPerfServerThread : public Thread {
 public:
-	LatencyPerfServerThread(RDMAServer<ReliableRDMA> *server, size_t packet_size, int buffer_slots, size_t iterations, WriteMode write_mode, int thread_id);
+	LatencyPerfServerThread(RDMAServer<ReliableRDMA> *server, size_t packet_size, int buffer_slots, size_t iterations_per_thread, WriteMode write_mode, int thread_id);
 	~LatencyPerfServerThread();
 	void run();
 	bool ready(){
@@ -59,7 +59,7 @@ private:
 	size_t m_packet_size;
 	int m_buffer_slots;
 	size_t m_memory_size_per_thread;
-	size_t m_iterations;
+	size_t m_iterations_per_thread;
 	WriteMode m_write_mode;
 	int m_thread_id;
 	RDMAServer<ReliableRDMA> *m_server;
@@ -69,7 +69,7 @@ private:
 
 class LatencyPerfTest : public rdma::PerfTest {
 public:
-    LatencyPerfTest(bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, std::string ownIpPort, std::string sequencerIpPort, int local_gpu_index, int remote_gpu_index, int thread_count, uint64_t packet_size, int buffer_slots, uint64_t iterations, WriteMode write_mode);
+    LatencyPerfTest(bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, std::string ownIpPort, std::string sequencerIpPort, int local_gpu_index, int remote_gpu_index, int thread_count, uint64_t packet_size, int buffer_slots, uint64_t iterations_per_thread, WriteMode write_mode);
 	virtual ~LatencyPerfTest();
 	std::string getTestParameters();
 	void setupTest();
@@ -96,7 +96,7 @@ private:
 	uint64_t m_packet_size;
 	int m_buffer_slots;
 	uint64_t m_memory_size;
-	uint64_t m_iterations;
+	uint64_t m_iterations_per_thread;
 	WriteMode m_write_mode;
 	std::vector<LatencyPerfClientThread*> m_client_threads;
 	std::vector<LatencyPerfServerThread*> m_server_threads;

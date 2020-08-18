@@ -13,12 +13,12 @@ condition_variable rdma::AtomicsOperationsCountPerfTest::waitCv;
 bool rdma::AtomicsOperationsCountPerfTest::signaled;
 rdma::TestMode rdma::AtomicsOperationsCountPerfTest::testMode;
 
-rdma::AtomicsOperationsCountPerfClientThread::AtomicsOperationsCountPerfClientThread(BaseMemory *memory, std::vector<std::string>& rdma_addresses, std::string ownIpPort, std::string sequencerIpPort, int buffer_slots, size_t iterations) {
+rdma::AtomicsOperationsCountPerfClientThread::AtomicsOperationsCountPerfClientThread(BaseMemory *memory, std::vector<std::string>& rdma_addresses, std::string ownIpPort, std::string sequencerIpPort, int buffer_slots, size_t iterations_per_thread) {
 	this->m_client = new RDMAClient<ReliableRDMA>(memory, "AtomicsOperationsCountPerfTestClient", ownIpPort, sequencerIpPort);
 	this->m_rdma_addresses = rdma_addresses;
 	this->m_memory_per_thread = buffer_slots * rdma::ATOMICS_SIZE;
 	this->m_buffer_slots = buffer_slots;
-	this->m_iterations = iterations;
+	this->m_iterations_per_thread = iterations_per_thread;
 	m_remOffsets = new size_t[m_rdma_addresses.size()];
 
 	for (size_t i = 0; i < m_rdma_addresses.size(); ++i) {
@@ -60,18 +60,18 @@ void rdma::AtomicsOperationsCountPerfClientThread::run() {
 	auto start = rdma::PerfTest::startTimer();
 	switch(AtomicsOperationsCountPerfTest::testMode){
 		case TEST_FETCH_AND_ADD: // Fetch & Add
-			for(size_t i = 0; i < m_iterations; i++){
+			for(size_t i = 0; i < m_iterations_per_thread; i++){
 				size_t connIdx = i % m_rdma_addresses.size();
-				bool signaled = (i == (m_iterations - 1) || (i+1)%Config::RDMA_MAX_WR==0);
+				bool signaled = (i == (m_iterations_per_thread - 1) || (i+1)%Config::RDMA_MAX_WR==0);
 				int offset = (i % m_buffer_slots) * rdma::ATOMICS_SIZE;
 				m_client->fetchAndAdd(m_addr[connIdx], m_remOffsets[connIdx] + offset, m_local_memory->pointer(offset), 1, rdma::ATOMICS_SIZE, signaled); // true=signaled
 			}
 			m_elapsedFetchAdd = rdma::PerfTest::stopTimer(start);
 			break;
 		case TEST_COMPARE_AND_SWAP: // Compare & Swap
-			for(size_t i = 0; i < m_iterations; i++){
+			for(size_t i = 0; i < m_iterations_per_thread; i++){
 				size_t connIdx = i % m_rdma_addresses.size();
-				bool signaled = (i == (m_iterations - 1) || (i+1)%Config::RDMA_MAX_WR==0);
+				bool signaled = (i == (m_iterations_per_thread - 1) || (i+1)%Config::RDMA_MAX_WR==0);
 				int offset = (i % m_buffer_slots) * rdma::ATOMICS_SIZE;
 				m_client->compareAndSwap(m_addr[connIdx], m_remOffsets[connIdx] + offset, m_local_memory->pointer(offset), 2, 3, rdma::ATOMICS_SIZE, signaled); // true=signaled
 			}
@@ -84,7 +84,7 @@ void rdma::AtomicsOperationsCountPerfClientThread::run() {
 
 
 
-rdma::AtomicsOperationsCountPerfTest::AtomicsOperationsCountPerfTest(bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, std::string ownIpPort, std::string sequencerIpPort, int local_gpu_index, int remote_gpu_index, int thread_count, int buffer_slots, uint64_t iterations) : PerfTest(){
+rdma::AtomicsOperationsCountPerfTest::AtomicsOperationsCountPerfTest(bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, std::string ownIpPort, std::string sequencerIpPort, int local_gpu_index, int remote_gpu_index, int thread_count, int buffer_slots, uint64_t iterations_per_thread) : PerfTest(){
 	this->m_is_server = is_server;
 	this->m_rdma_port = rdma_port;
 	this->m_ownIpPort = ownIpPort;
@@ -94,7 +94,7 @@ rdma::AtomicsOperationsCountPerfTest::AtomicsOperationsCountPerfTest(bool is_ser
 	this->m_thread_count = thread_count;
 	this->m_memory_size = thread_count * rdma::ATOMICS_SIZE * buffer_slots;
 	this->m_buffer_slots = buffer_slots;
-	this->m_iterations = iterations;
+	this->m_iterations_per_thread = iterations_per_thread;
 	this->m_rdma_addresses = rdma_addresses;
 }
 rdma::AtomicsOperationsCountPerfTest::~AtomicsOperationsCountPerfTest(){
@@ -112,7 +112,7 @@ std::string rdma::AtomicsOperationsCountPerfTest::getTestParameters(bool forCSV)
 	oss << (m_is_server ? "Server" : "Client") << ", threads=" << m_thread_count << ", bufferslots=" << m_buffer_slots << ", packetsize=" << rdma::ATOMICS_SIZE << ", memory=";
 	oss << m_memory_size << " (" << m_thread_count << "x " << m_buffer_slots << "x " << rdma::ATOMICS_SIZE << ")";
 	oss << ", memory_type=" << getMemoryName(m_local_gpu_index) << (m_remote_gpu_index!=-404 ? "->"+getMemoryName(m_remote_gpu_index) : "");
-	if(!forCSV){ oss << ", iterations=" << (m_iterations*m_thread_count); }
+	if(!forCSV){ oss << ", iterations=" << (m_iterations_per_thread*m_thread_count); }
 	return oss.str();
 }
 std::string rdma::AtomicsOperationsCountPerfTest::getTestParameters(){
@@ -157,7 +157,7 @@ void rdma::AtomicsOperationsCountPerfTest::setupTest(){
 	} else {
 		// Client
 		for (int i = 0; i < m_thread_count; i++) {
-			AtomicsOperationsCountPerfClientThread* perfThread = new AtomicsOperationsCountPerfClientThread(m_memory, m_rdma_addresses, m_ownIpPort, m_sequencerIpPort, m_buffer_slots, m_iterations);
+			AtomicsOperationsCountPerfClientThread* perfThread = new AtomicsOperationsCountPerfClientThread(m_memory, m_rdma_addresses, m_ownIpPort, m_sequencerIpPort, m_buffer_slots, m_iterations_per_thread);
 			m_client_threads.push_back(perfThread);
 		}
 	}
@@ -203,33 +203,42 @@ std::string rdma::AtomicsOperationsCountPerfTest::getTestResults(std::string csv
 	if(m_is_server){
 		return "only client";
 	} else {
+		
+		/*	There are  n  threads
+			Each thread computes  iterations_per_thread = total_iterations / n
+			Each thread takes  n  times more time compared to a single thread
+			Operations/sec	= iterations / elapsedTime
+							= (n * iterations_per_thread) / (elpasedTime_per_thread / n)
+		*/
 
 		const long double tu = (long double)NANO_SEC; // 1sec (nano to seconds as time unit)
-        const long double itrs = (long double)m_iterations * (long double)m_thread_count;
+        const uint64_t iters = m_iterations_per_thread * m_thread_count;
 
 		int64_t maxFetchAdd=-1, minFetchAdd=std::numeric_limits<int64_t>::max();
 		int64_t maxCompareSwap=-1, minCompareSwap=std::numeric_limits<int64_t>::max();
 		int64_t arrFetchAdd[m_thread_count];
 		int64_t arrCompareSwap[m_thread_count];
 		long double avgFetchAdd=0, medianFetchAdd, avgCompareSwap=0, medianCompareSwap;
-
+		const long double div = m_thread_count;
+		const long double divAvg = m_client_threads.size() * div;
 		for(size_t i=0; i<m_client_threads.size(); i++){
 			AtomicsOperationsCountPerfClientThread *thr = m_client_threads[i];
 			if(thr->m_elapsedFetchAdd < minFetchAdd) minFetchAdd = thr->m_elapsedFetchAdd;
 			if(thr->m_elapsedFetchAdd > maxFetchAdd) maxFetchAdd = thr->m_elapsedFetchAdd;
-			avgFetchAdd += (long double) thr->m_elapsedFetchAdd;
+			avgFetchAdd += (long double) thr->m_elapsedFetchAdd / divAvg;
 			arrFetchAdd[i] = thr->m_elapsedFetchAdd;
 			if(thr->m_elapsedCompareSwap < minCompareSwap) minCompareSwap = thr->m_elapsedCompareSwap;
 			if(thr->m_elapsedCompareSwap > maxCompareSwap) maxCompareSwap = thr->m_elapsedCompareSwap;
-			avgCompareSwap += (long double) thr->m_elapsedCompareSwap;
+			avgCompareSwap += (long double) thr->m_elapsedCompareSwap / divAvg;
 			arrCompareSwap[i] = thr->m_elapsedCompareSwap;
 		}
-		avgFetchAdd /= (long double) m_thread_count;
-		avgCompareSwap /= (long double) m_thread_count;
+		minFetchAdd /= div; maxFetchAdd /= div;
+		minCompareSwap /= div; maxCompareSwap /= div;
+
 		std::sort(arrFetchAdd, arrFetchAdd + m_thread_count);
 		std::sort(arrCompareSwap, arrCompareSwap + m_thread_count);
-		medianFetchAdd = arrFetchAdd[(int)(m_thread_count/2)];
-		medianCompareSwap = arrCompareSwap[(int)(m_thread_count/2)];
+		medianFetchAdd = arrFetchAdd[(int)(m_thread_count/2)] / div;
+		medianCompareSwap = arrCompareSwap[(int)(m_thread_count/2)] / div;
 
 		// write results into CSV file
 		if(!csvFileName.empty()){
@@ -245,17 +254,17 @@ std::string rdma::AtomicsOperationsCountPerfTest::getTestResults(std::string csv
 				ofs << "Min Fetch&Add [Sec], Min Comp&Swap [Sec], Max Fetch&Add [Sec], Max Comp&Swap [Sec], ";
 				ofs << "Avg Fetch&Add [Sec], Avg Comp&Swap [Sec], Median Fetch&Add [Sec], Median Comp&Swap [Sec]" << std::endl;
 			}
-			ofs << m_iterations << ", ";
-			ofs << (round(itrs*tu/su/m_elapsedFetchAdd * 100000)/100000.0) << ", "; // fetch&add Op/s
-			ofs << (round(itrs*tu/su/m_elapsedCompareSwap * 100000)/100000.0) << ", "; // comp&swap Op/s
-			ofs << (round(itrs*tu/su/maxFetchAdd * 100000)/100000.0) << ", "; // min fetch&add Op/s
-			ofs << (round(itrs*tu/su/maxCompareSwap * 100000)/100000.0) << ", "; // min comp&swap Op/s
-			ofs << (round(itrs*tu/su/minFetchAdd * 100000)/100000.0) << ", "; // max fetch&add Op/s
-			ofs << (round(itrs*tu/su/minCompareSwap * 100000)/100000.0) << ", "; // max comp&swap Op/s
-			ofs << (round(itrs*tu/su/avgFetchAdd * 100000)/100000.0) << ", "; // avg fetch&add Op/s
-			ofs << (round(itrs*tu/su/avgCompareSwap * 100000)/100000.0) << ", "; // avg comp&swap Op/s
-			ofs << (round(itrs*tu/su/medianFetchAdd * 100000)/100000.0) << ", "; // median fetch&add Op/s
-			ofs << (round(itrs*tu/su/medianCompareSwap * 100000)/100000.0) << ", "; // median comp&swap Op/s
+			ofs << iters << ", ";
+			ofs << (round(iters*tu/su/m_elapsedFetchAdd * 100000)/100000.0) << ", "; // fetch&add Op/s
+			ofs << (round(iters*tu/su/m_elapsedCompareSwap * 100000)/100000.0) << ", "; // comp&swap Op/s
+			ofs << (round(iters*tu/su/maxFetchAdd * 100000)/100000.0) << ", "; // min fetch&add Op/s
+			ofs << (round(iters*tu/su/maxCompareSwap * 100000)/100000.0) << ", "; // min comp&swap Op/s
+			ofs << (round(iters*tu/su/minFetchAdd * 100000)/100000.0) << ", "; // max fetch&add Op/s
+			ofs << (round(iters*tu/su/minCompareSwap * 100000)/100000.0) << ", "; // max comp&swap Op/s
+			ofs << (round(iters*tu/su/avgFetchAdd * 100000)/100000.0) << ", "; // avg fetch&add Op/s
+			ofs << (round(iters*tu/su/avgCompareSwap * 100000)/100000.0) << ", "; // avg comp&swap Op/s
+			ofs << (round(iters*tu/su/medianFetchAdd * 100000)/100000.0) << ", "; // median fetch&add Op/s
+			ofs << (round(iters*tu/su/medianCompareSwap * 100000)/100000.0) << ", "; // median comp&swap Op/s
 			ofs << (round(m_elapsedFetchAdd/tu * 100000)/100000.0) << ", " << (round(m_elapsedCompareSwap/tu * 100000)/100000.0) << ", "; // fetch&add, comp&swap Sec
 			ofs << (round(minFetchAdd/tu * 100000)/100000.0) << ", " << (round(minCompareSwap/tu * 100000)/100000.0) << ", "; // min fetch&add, comp&swap Sec
 			ofs << (round(maxFetchAdd/tu * 100000)/100000.0) << ", " << (round(maxCompareSwap/tu * 100000)/100000.0) << ", "; // max fetch&add, comp&swap Sec
@@ -267,19 +276,19 @@ std::string rdma::AtomicsOperationsCountPerfTest::getTestResults(std::string csv
 		// generate result string
 		std::ostringstream oss;
 		oss << rdma::CONSOLE_PRINT_NOTATION << rdma::CONSOLE_PRINT_PRECISION;
-		oss << std::endl << " - Fetch&Add:     operations = " << rdma::PerfTest::convertCountPerSec(itrs*tu/m_elapsedFetchAdd);
-		oss << "  (range = " << rdma::PerfTest::convertCountPerSec(itrs*tu/maxFetchAdd) << " - ";
-		oss << rdma::PerfTest::convertCountPerSec(itrs*tu/minFetchAdd);
-		oss << " ; avg=" << rdma::PerfTest::convertCountPerSec(itrs*tu/avgFetchAdd) << " ; median=";
-		oss << rdma::PerfTest::convertCountPerSec(itrs*tu/minFetchAdd) << ")";
+		oss << std::endl << " - Fetch&Add:     operations = " << rdma::PerfTest::convertCountPerSec(iters*tu/m_elapsedFetchAdd);
+		oss << "  (range = " << rdma::PerfTest::convertCountPerSec(iters*tu/maxFetchAdd) << " - ";
+		oss << rdma::PerfTest::convertCountPerSec(iters*tu/minFetchAdd);
+		oss << " ; avg=" << rdma::PerfTest::convertCountPerSec(iters*tu/avgFetchAdd) << " ; median=";
+		oss << rdma::PerfTest::convertCountPerSec(iters*tu/minFetchAdd) << ")";
 		oss << "   &   time = " << rdma::PerfTest::convertTime(m_elapsedFetchAdd) << "  (range=";
 		oss << rdma::PerfTest::convertTime(minFetchAdd) << "-" << rdma::PerfTest::convertTime(maxFetchAdd);
 		oss << " ; avg=" << rdma::PerfTest::convertTime(avgFetchAdd) << " ; median=" << rdma::PerfTest::convertTime(medianFetchAdd) << ")" << std::endl;
-		oss << " - Compare&Swap:  operations = " << rdma::PerfTest::convertCountPerSec(itrs*tu/m_elapsedCompareSwap);
-		oss << "  (range = " << rdma::PerfTest::convertCountPerSec(itrs*tu/maxCompareSwap) << " - ";
-		oss << rdma::PerfTest::convertCountPerSec(itrs*tu/minCompareSwap);
-		oss << " ; avg=" << rdma::PerfTest::convertCountPerSec(itrs*tu/avgCompareSwap) << " ; median=";
-		oss << rdma::PerfTest::convertCountPerSec(itrs*tu/minCompareSwap) << ")";
+		oss << " - Compare&Swap:  operations = " << rdma::PerfTest::convertCountPerSec(iters*tu/m_elapsedCompareSwap);
+		oss << "  (range = " << rdma::PerfTest::convertCountPerSec(iters*tu/maxCompareSwap) << " - ";
+		oss << rdma::PerfTest::convertCountPerSec(iters*tu/minCompareSwap);
+		oss << " ; avg=" << rdma::PerfTest::convertCountPerSec(iters*tu/avgCompareSwap) << " ; median=";
+		oss << rdma::PerfTest::convertCountPerSec(iters*tu/minCompareSwap) << ")";
 		oss << "   &   time = " << rdma::PerfTest::convertTime(m_elapsedCompareSwap) << "  (range=";
 		oss << rdma::PerfTest::convertTime(minCompareSwap) << "-" << rdma::PerfTest::convertTime(maxCompareSwap);
 		oss << " ; avg=" << rdma::PerfTest::convertTime(avgCompareSwap) << " ; median=" << rdma::PerfTest::convertTime(medianCompareSwap) << ")" << std::endl;

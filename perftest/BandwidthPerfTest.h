@@ -16,7 +16,7 @@ namespace rdma {
 
 class BandwidthPerfClientThread : public Thread {
 public:
-	BandwidthPerfClientThread(BaseMemory *memory, std::vector<std::string>& rdma_addresses, std::string ownIpPort, std::string sequencerIpPort, size_t packet_size, int buffer_slots, size_t iterations, size_t max_rdma_wr_per_thread, WriteMode write_mode);
+	BandwidthPerfClientThread(BaseMemory *memory, std::vector<std::string>& rdma_addresses, std::string ownIpPort, std::string sequencerIpPort, size_t packet_size, int buffer_slots, size_t iterations_per_thread, size_t max_rdma_wr_per_thread, WriteMode write_mode);
 	~BandwidthPerfClientThread();
 	void run();
 	bool ready() {
@@ -34,7 +34,7 @@ private:
 	size_t m_packet_size;
 	int m_buffer_slots;
 	size_t m_memory_size_per_thread;
-	size_t m_iterations;
+	size_t m_iterations_per_thread;
 	size_t m_max_rdma_wr_per_thread;
 	WriteMode m_write_mode;
 	std::vector<std::string> m_rdma_addresses;
@@ -45,7 +45,7 @@ private:
 
 class BandwidthPerfServerThread : public Thread {
 public:
-	BandwidthPerfServerThread(RDMAServer<ReliableRDMA> *server, size_t packet_size, int buffer_slots, size_t iterations, size_t max_rdma_wr_per_thread, WriteMode write_mode, int thread_id);
+	BandwidthPerfServerThread(RDMAServer<ReliableRDMA> *server, size_t packet_size, int buffer_slots, size_t iterations_per_thread, size_t max_rdma_wr_per_thread, WriteMode write_mode, int thread_id);
 	~BandwidthPerfServerThread();
 	void run();
 	bool ready(){
@@ -57,7 +57,7 @@ private:
 	size_t m_packet_size;
 	int m_buffer_slots;
 	size_t m_memory_size_per_thread;
-	size_t m_iterations;
+	size_t m_iterations_per_thread;
 	size_t m_max_rdma_wr_per_thread;
 	WriteMode m_write_mode;
 	int m_thread_id;
@@ -68,7 +68,7 @@ private:
 
 class BandwidthPerfTest : public rdma::PerfTest {
 public:
-	BandwidthPerfTest(bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, std::string ownIpPort, std::string sequencerIpPort, int local_gpu_index, int remote_gpu_index, int thread_count, uint64_t packet_size, int buffer_slots, uint64_t iterations, WriteMode write_mode);
+	BandwidthPerfTest(bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, std::string ownIpPort, std::string sequencerIpPort, int local_gpu_index, int remote_gpu_index, int thread_count, uint64_t packet_size, int buffer_slots, uint64_t iterations_per_thread, WriteMode write_mode);
 	virtual ~BandwidthPerfTest();
 	std::string getTestParameters();
 	void setupTest();
@@ -95,7 +95,7 @@ private:
 	uint64_t m_packet_size;
 	int m_buffer_slots;
 	uint64_t m_memory_size;
-	uint64_t m_iterations;
+	uint64_t m_iterations_per_thread;
 	WriteMode m_write_mode;
 	std::vector<BandwidthPerfClientThread*> m_client_threads;
 	std::vector<BandwidthPerfServerThread*> m_server_threads;
