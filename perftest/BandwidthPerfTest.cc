@@ -457,7 +457,7 @@ std::string rdma::BandwidthPerfTest::getTestResults(std::string csvFileName, boo
 		int64_t arrReadMs[m_thread_count];
 		int64_t arrSendMs[m_thread_count];
 		long double avgWriteMs=0, medianWriteMs, avgReadMs=0, medianReadMs, avgSendMs=0, medianSendMs;
-		const long double div = m_thread_count;
+		const long double div = m_thread_count * m_thread_count; // TODO not sure why additional  * m_thread_count
 		const long double divAvg = m_client_threads.size() * div;
 		for(size_t i=0; i<m_client_threads.size(); i++){
 			BandwidthPerfClientThread *thr = m_client_threads[i];
@@ -493,7 +493,7 @@ std::string rdma::BandwidthPerfTest::getTestResults(std::string csvFileName, boo
 			ofs << rdma::CSV_PRINT_NOTATION << rdma::CSV_PRINT_PRECISION;
 			if(csvAddHeader){
 				ofs << std::endl << "BANDWIDTH, " << getTestParameters(true) << std::endl;
-				ofs << "PacketSize [Bytes], Transfered [GB], Write [GB/s], Read [GB/s], Send/Recv [GB/s], ";
+				ofs << "PacketSize [Bytes], Transfered [Bytes], Write [GB/s], Read [GB/s], Send/Recv [GB/s], ";
 				ofs << "Min Write [GB/s], Min Read [GB/s], Min Send/Recv [GB/s], ";
 				ofs << "Max Write [GB/s], Max Read [GB/s], Max Send/Recv [GB/s], ";
 				ofs << "Avg Write [GB/s], Avg Read [GB/s], Avg Send/Recv [GB/s], ";
@@ -504,7 +504,7 @@ std::string rdma::BandwidthPerfTest::getTestResults(std::string csvFileName, boo
 				ofs << "Avg Write [Sec], Avg Read [Sec], Avg Send/Recv [Sec], ";
 				ofs << "Median Write [Sec], Median Read [Sec], Median Send/Recv [Sec]" << std::endl;
 			}
-			ofs << m_packet_size << ", " << (round(transferedBytes/su * 100000)/100000.0) << ", "; // packet size Bytes
+			ofs << m_packet_size << ", " << transferedBytes << ", "; // packet size Bytes
 			ofs << (round(transferedBytes*tu/su/m_elapsedWriteMs * 100000)/100000.0) << ", "; // write GB/s
 			ofs << (round(transferedBytes*tu/su/m_elapsedReadMs * 100000)/100000.0) << ", "; // read GB/s
 			ofs << (round(transferedBytes*tu/su/m_elapsedSendMs * 100000)/100000.0) << ", "; // send/recv GB/s
