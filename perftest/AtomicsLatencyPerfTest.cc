@@ -220,7 +220,7 @@ std::string rdma::AtomicsLatencyPerfTest::getTestResults(std::string csvFileName
 		int64_t minCompareSwapMs=std::numeric_limits<int64_t>::max(), maxCompareSwapMs=-1, medianCompareSwapMs=-1;
 		long double avgFetchAddMs=0, avgCompareSwapMs=0;
 		int64_t mediansFetchAddNs[m_thread_count], mediansCompareSwapNs[m_thread_count];
-		const long double div = m_thread_count * (m_thread_count * m_iterations_per_thread); // total iterations
+		const long double div = (m_thread_count * m_iterations_per_thread); // total iterations   TODO not sure why additional   m_thread_count  is too much
         const long double divAvg = m_client_threads.size() * div; // for calculating average
 		for(size_t i=0; i<m_client_threads.size(); i++){
 			AtomicsLatencyPerfClientThread *thr = m_client_threads[i];

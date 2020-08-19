@@ -406,7 +406,7 @@ std::string rdma::LatencyPerfTest::getTestResults(std::string csvFileName, bool 
 		int64_t minSendMs=std::numeric_limits<int64_t>::max(), maxSendMs=-1, medianSendMs=-1;
 		long double avgWriteMs=0, avgReadMs=0, avgSendMs=0;
 		int64_t mediansWriteNs[thread_count], mediansReadNs[thread_count], mediansSendNs[thread_count];
-		const long double div = thread_count * (thread_count * m_iterations_per_thread); // total iterations
+		const long double div = (thread_count * m_iterations_per_thread); // total iterations  TODO not sure why additional   m_thread_count  is too much
         const long double divAvg = m_client_threads.size() * div; // for calculating average
 		for(size_t i=0; i<m_client_threads.size(); i++){
 			LatencyPerfClientThread *thr = m_client_threads[i];

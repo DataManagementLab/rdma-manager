@@ -457,7 +457,7 @@ std::string rdma::BandwidthPerfTest::getTestResults(std::string csvFileName, boo
 		int64_t arrReadMs[m_thread_count];
 		int64_t arrSendMs[m_thread_count];
 		long double avgWriteMs=0, medianWriteMs, avgReadMs=0, medianReadMs, avgSendMs=0, medianSendMs;
-		const long double div = m_thread_count * m_thread_count; // TODO not sure why additional  * m_thread_count
+		const long double div = 1; // TODO not sure why additional   m_thread_count  is too much
 		const long double divAvg = m_client_threads.size() * div;
 		for(size_t i=0; i<m_client_threads.size(); i++){
 			BandwidthPerfClientThread *thr = m_client_threads[i];

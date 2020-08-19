@@ -221,7 +221,7 @@ std::string rdma::AtomicsBandwidthPerfTest::getTestResults(std::string csvFileNa
 		int64_t arrFetchAddMs[m_thread_count];
 		int64_t arrCompareSwapMs[m_thread_count];
 		long double avgFetchAddMs=0, medianFetchAddMs, avgCompareSwapMs=0, medianCompareSwapMs;
-		const long double div = m_thread_count * m_thread_count; // TODO not sure why additional  * m_thread_count
+		const long double div = 1; // TODO not sure why additional   m_thread_count  is too much
 		const long double divAvg = m_client_threads.size() * div;
 		for(size_t i=0; i<m_client_threads.size(); i++){
 			AtomicsBandwidthPerfClientThread *thr = m_client_threads[i];
