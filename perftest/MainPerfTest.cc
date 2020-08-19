@@ -20,17 +20,18 @@
 
 #include <gflags/gflags.h>
 
-DEFINE_bool(fulltest, false, "Overwrites flags 'test, gpu, remote_gpu, packetsize, threads, iterations, csv' to execute a broad variety of predefined tests. If GPUs are supported then gpu=-1,-1,0,0 on client side and gpu=-1,0,-1,0 on server side to test all memory combinations: Main->Main, Main->GPU, GPU->Main, GPU->GPU");
-DEFINE_bool(halftest, false, "Overwrites flags 'test, gpu, remote_gpu, packetsize, threads, iterations, csv' to execute a smaller variety of predefined tests. If GPUs are supported then gpu=-1,-1,0,0 on client side and gpu=-1,0,-1,0 on server side to test all memory combinations: Main->Main, Main->GPU, GPU->Main, GPU->GPU");
-DEFINE_bool(quicktest, false, "Overwrites flags 'test, gpu, remote_gpu, packetsize, threads, iterations, csv' to execute a very smaller variety of predefined tests. If GPUs are supported then gpu=-1,-1,0,0 on client side and gpu=-1,0,-1,0 on server side to test all memory combinations: Main->Main, Main->GPU, GPU->Main, GPU->GPU");
+DEFINE_bool(fulltest, false, "Sets default values for flags 'test, gpu, remote_gpu, packetsize, threads, iterations, bufferslots, csv' to execute a broad variety of predefined tests. Flags can still be overwritten. If GPUs are supported then gpu=-1,-1,0,0 on client side and gpu=-1,0,-1,0 on server side to test all memory combinations: Main->Main, Main->GPU, GPU->Main, GPU->GPU");
+DEFINE_bool(halftest, false, "Sets default values for flags 'test, gpu, remote_gpu, packetsize, threads, iterations, bufferslots, csv' to execute a smaller variety of predefined tests. If GPUs are supported then gpu=-1,-1,0,0 on client side and gpu=-1,0,-1,0 on server side to test all memory combinations: Main->Main, Main->GPU, GPU->Main, GPU->GPU");
+DEFINE_bool(quicktest, false, "Sets default values for flags 'test, gpu, remote_gpu, packetsize, threads, iterations, csv' to execute a very smaller variety of predefined tests. If GPUs are supported then gpu=-1,-1,0,0 on client side and gpu=-1,0,-1,0 on server side to test all memory combinations: Main->Main, Main->GPU, GPU->Main, GPU->GPU");
 DEFINE_string(test, "bandwidth", "Test: bandwidth, latency, operationscount, atomicsbandwidth, atomicslatency, atomicsoperationscount (multiples separated by comma without space, not full word required)");
 DEFINE_bool(server, false, "Act as server for a client to test performance");
-DEFINE_string(gpu, "-3", "Index of GPU for memory allocation (-3=Main memory, -2=NUMA aware GPU, -1=Default GPU, 0..n=fixed GPU | multiples separated by comma without space)");
+DEFINE_string(gpu, "", "Index of GPU for memory allocation (-3=Main memory, -2=NUMA aware GPU, -1=Default GPU, 0..n=fixed GPU | multiples separated by comma without space) [Default -3]");
 DEFINE_string(remote_gpu, "", "Just for prettier result printing and therefore not required. Same as gpu flag but for remote side (should be empty or same length as gpu flag)");
-DEFINE_string(packetsize, "4096", "Packet size in bytes (multiples separated by comma without space)");
-DEFINE_string(bufferslots, "16", "How many packets the buffer can hold (round-robin distribution of packets inside buffer | multiples separated by comma without space)");
-DEFINE_string(threads, "1", "How many individual clients connect to the server. Server has to run same number of threads as all connecting clients together (multiples separated by comma without space)");
-DEFINE_string(iterations, "500000", "Amount of test repeats (multiples separated by comma without space)");
+DEFINE_string(packetsize, "", "Packet size in bytes (multiples separated by comma without space) [Default 4096B]");
+DEFINE_string(bufferslots, "", "How many packets the buffer can hold (round-robin distribution of packets inside buffer | multiples separated by comma without space) [Default 16]");
+DEFINE_string(threads, "", "How many individual clients connect to the server. Server has to run same number of threads as all connecting clients together (multiples separated by comma without space) [Default 1]");
+DEFINE_string(iterations, "", "Amount of transfers for latency and all atomics tests (multiples separated by comma without space) [Default 500000]");
+DEFINE_string(transfersize, "", "How much data should be transfered in bandwidth and operations/sec tests but not for atomics tests (multiples separated by comma without space) [Default 24GB]");
 DEFINE_bool(csv, false, "Results will be written into an automatically generated CSV file");
 DEFINE_string(csvfile, "", "Results will be written into a given CSV file");
 DEFINE_string(seqaddr, "", "Address of NodeIDSequencer to connect/bind to. If empty then config value will be used");
@@ -67,7 +68,23 @@ static std::vector<uint64_t> parseUInt64List(std::string str){
         if(str.length() == 0)
             continue;
         try {
-            v.push_back((uint64_t)std::strtoull(str.c_str(), nullptr, 10));
+            v.push_back((uint64_t)std::strtoull(str.c_str(), nullptr, 10)); // base 10
+        } catch (std::exception const &e){
+            std::cerr << "Could not parse integer from '" << str << "'" << std::endl;
+        }
+    } return v;
+}
+static std::vector<uint64_t> parseByteSizesList(std::string str){
+    std::cout << "INPUT: " << str << std::endl; // TODO REMOVE
+    std::vector<uint64_t> v;
+    if(str.empty()) return v;
+    std::stringstream ss(str);
+    while((std::getline(ss, str, ','))){
+        if(str.length() == 0)
+            continue;
+        try {
+            std::cout << str << " -> " << rdma::StringHelper::parseByteSize(str) << std::endl; // TODO REMOVE
+            v.push_back((uint64_t)rdma::StringHelper::parseByteSize(str));
         } catch (std::exception const &e){
             std::cerr << "Could not parse integer from '" << str << "'" << std::endl;
         }
@@ -133,83 +150,60 @@ int main(int argc, char *argv[]){
     if(FLAGS_port<=0) FLAGS_port=rdma::Config::RDMA_PORT;
     std::cout << "Config loaded" << std::endl;
 
+    if(FLAGS_fulltest || FLAGS_halftest || FLAGS_quicktest){
+        FLAGS_csv = true;
+        if(FLAGS_test.empty()) FLAGS_test = "bandwidth,latency,operationscount,atomicsbandwidth,atomicslatency,atomicsoperationscount";
+        if(FLAGS_gpu.empty()) FLAGS_gpu = FLAGS_server ? "-3,-2,-3,-3" : "-3,-3,-2,-2";
+        if(FLAGS_remote_gpu.empty()) FLAGS_remote_gpu = FLAGS_server ? "-3,-3,-2,-2" : "-3,-2,-3,-2";
+    }
+    if(FLAGS_fulltest){
+        // TODO for some reason GPUDirect not working for GPU memory smaller than 128 bytes
+        // packetsizes.push_back(64); packetsizes.push_back(128);
+        if(FLAGS_packetsize.empty()) FLAGS_packetsize = "128,256,512,1024,2048,4096,8192,16384,32768,65536,131072,262144,524288,1048576";
+        if(FLAGS_threads.empty()) FLAGS_threads = "1,2,4,8,16";
+        if(FLAGS_iterations.empty()) FLAGS_iterations = "500,500000";
+        if(FLAGS_bufferslots.empty()) FLAGS_bufferslots = "1,16";
 
+    } else if(FLAGS_halftest){
+        // TODO for some reason GPUDirect not working for GPU memory smaller than 128 bytes
+        if(FLAGS_packetsize.empty()) FLAGS_packetsize = "256,1024,4096,16384,65536,262144,1048576";
+        if(FLAGS_threads.empty()) FLAGS_threads = "1,4,16";
+        if(FLAGS_iterations.empty()) FLAGS_iterations = "500,500000";
+        if(FLAGS_bufferslots.empty()) FLAGS_bufferslots = "1,16";
+
+    } else if(FLAGS_quicktest){
+        // TODO for some reason GPUDirect not working for GPU memory smaller than 128 bytes
+        if(FLAGS_packetsize.empty()) FLAGS_packetsize = "256,1024,4096,16384,65536";
+        if(FLAGS_threads.empty()) FLAGS_threads = "1,4";
+        if(FLAGS_iterations.empty()) FLAGS_iterations = "500000";
+    }
+
+
+    // Loading default values if no value is set
+    if(FLAGS_gpu.empty()) FLAGS_gpu = "-3";
+    if(FLAGS_remote_gpu.empty()) FLAGS_remote_gpu = "-3";
+    if(FLAGS_packetsize.empty()) FLAGS_packetsize = "4096";
+    if(FLAGS_bufferslots.empty()) FLAGS_bufferslots = "16";
+    if(FLAGS_threads.empty()) FLAGS_threads = "1";
+    if(FLAGS_iterations.empty()) FLAGS_iterations = "500000";
+    if(FLAGS_transfersize.empty()) FLAGS_transfersize = "24GB";
+
+
+    // Parsing values
     std::vector<std::string> testNames = rdma::StringHelper::split(FLAGS_test);
     std::vector<int> local_gpus = parseIntList(FLAGS_gpu);
     std::vector<int> remote_gpus = parseIntList(FLAGS_remote_gpu);
-    std::vector<uint64_t> packetsizes = parseUInt64List(FLAGS_packetsize);
+    std::vector<uint64_t> packetsizes = parseByteSizesList(FLAGS_packetsize);
     std::vector<int> bufferslots = parseIntList(FLAGS_bufferslots);
     std::vector<int> thread_counts = parseIntList(FLAGS_threads);
     std::vector<uint64_t> iteration_counts = parseUInt64List(FLAGS_iterations);
+    std::vector<uint64_t> transfersizes = parseByteSizesList(FLAGS_transfersize);
     std::vector<std::string> writeModeNames = rdma::StringHelper::split(FLAGS_writemode);
     std::vector<std::string> addresses = rdma::StringHelper::split(FLAGS_addr);
 	for (auto &addr : addresses){
         if(!rdma::Network::isValidIP(addr)) addr=rdma::Config::getIP(addr);
 		addr += ":" + to_string(FLAGS_port);
 	}
-    
-    if(FLAGS_fulltest || FLAGS_halftest || FLAGS_quicktest){
-        FLAGS_csv = true;
-        testNames.clear(); 
-        testNames.push_back("bandwidth");
-        testNames.push_back("latency");
-        testNames.push_back("operationscount");
-        testNames.push_back("atomicsbandwidth"); 
-        testNames.push_back("atomicslatency"); 
-        testNames.push_back("atomicsoperationscount");
-
-        packetsizes.clear();
-        thread_counts.clear();
-        iteration_counts.clear(); 
-        
-        
-        local_gpus.clear(); remote_gpus.clear();
-        if(!FLAGS_server){
-            local_gpus.push_back(-3); local_gpus.push_back(-3); local_gpus.push_back(-2); local_gpus.push_back(-2); //     Main, Main, GPU, GPU
-            remote_gpus.push_back(-3); remote_gpus.push_back(-2); remote_gpus.push_back(-3); remote_gpus.push_back(-2); // Main, GPU, Main, GPU
-        } else {
-            local_gpus.push_back(-3); local_gpus.push_back(-2); local_gpus.push_back(-3); local_gpus.push_back(-2); //     Main, GPU, Main, GPU
-            remote_gpus.push_back(-3); remote_gpus.push_back(-3); remote_gpus.push_back(-2); remote_gpus.push_back(-2); // Main, Main, GPU, GPU
-        }
-    }
-    if(FLAGS_fulltest){
-        // TODO for some reason GPUDirect not working for GPU memory smaller than 128 bytes
-        // packetsizes.push_back(64); packetsizes.push_back(128);
-        packetsizes.push_back(256); packetsizes.push_back(512); packetsizes.push_back(1024);
-        packetsizes.push_back(2048); packetsizes.push_back(4096); packetsizes.push_back(8192);
-        packetsizes.push_back(16384); packetsizes.push_back(32768); packetsizes.push_back(65536);
-        packetsizes.push_back(131072); packetsizes.push_back(262144); packetsizes.push_back(524288);
-        packetsizes.push_back(1048576); // > 1MB
-
-        thread_counts.push_back(1); thread_counts.push_back(2); 
-        thread_counts.push_back(4); thread_counts.push_back(8);
-        thread_counts.push_back(16);
-
-        iteration_counts.push_back(500); iteration_counts.push_back(500000);
-
-    } else if(FLAGS_halftest){
-        // TODO for some reason GPUDirect not working for GPU memory smaller than 128 bytes
-        //packetsizes.push_back(64);
-        packetsizes.push_back(256); packetsizes.push_back(1024); packetsizes.push_back(4096);
-        packetsizes.push_back(16384); packetsizes.push_back(65536);
-        packetsizes.push_back(262144); packetsizes.push_back(1048576); // > 1MB
-
-        thread_counts.push_back(1); thread_counts.push_back(4); thread_counts.push_back(16);
-
-        iteration_counts.push_back(500); iteration_counts.push_back(500000);
-
-    } else if(FLAGS_quicktest){
-        //packetsizes.push_back(64);
-        packetsizes.push_back(256);
-        packetsizes.push_back(1024);
-        packetsizes.push_back(4096);
-        packetsizes.push_back(16384);
-        packetsizes.push_back(65536);
-
-        thread_counts.push_back(1); thread_counts.push_back(4);
-
-        iteration_counts.push_back(500); iteration_counts.push_back(50000);
-    }
 
     // check thread counts
     for(int &tc : thread_counts){
@@ -331,6 +325,38 @@ int main(int argc, char *argv[]){
             for(int &thread_count : thread_counts){
                 for(int &buffer_slots : bufferslots){
                     bool csvAddHeader = true;
+                    for(uint64_t &transfersize : transfersizes){
+                        rdma::PerfTest *test = nullptr;
+                        std::string testName;
+
+                        for(rdma::WriteMode &write_mode : write_modes){
+                            csvAddHeader = true;
+                            for(uint64_t &packet_size : packetsizes){
+                                test = nullptr;
+                                uint64_t iterations_per_thread = (uint64_t)((long double)transfersize / (long double)packet_size / (long double)thread_count + 0.5);
+                                if(iterations_per_thread==0) iterations_per_thread = 1;
+
+                                if(t == BANDWIDTH_TEST){
+                                    // Bandwidth Test
+                                    testName = "Bandwidth";
+                                    test = new rdma::BandwidthPerfTest(FLAGS_server, addresses, FLAGS_port, ownIpPort, sequencerIpAddr, local_gpu_index, remote_gpu_index, thread_count, packet_size, buffer_slots, iterations_per_thread, write_mode);
+
+                                } else if(t == OPERATIONS_COUNT_TEST){
+                                    // Operations Count Test
+                                    testName = "Operations Count";
+                                    test = new rdma::OperationsCountPerfTest(FLAGS_server, addresses, FLAGS_port, ownIpPort, sequencerIpAddr, local_gpu_index, remote_gpu_index, thread_count, packet_size, buffer_slots, iterations_per_thread, write_mode);
+                                }
+
+                                if(test != nullptr){
+                                    testCounter++;
+                                    runTest(testCounter, testIterations, testName, test, csvFileName, csvAddHeader);
+                                    csvAddHeader = false;
+                                }
+                            }
+                        }
+                    }
+
+                    csvAddHeader = true;
                     for(uint64_t &iterations : iteration_counts){
                         rdma::PerfTest *test = nullptr;
                         std::string testName;
@@ -364,25 +390,20 @@ int main(int argc, char *argv[]){
                         for(rdma::WriteMode &write_mode : write_modes){
                             csvAddHeader = true;
                             for(uint64_t &packet_size : packetsizes){
-                                if(t == BANDWIDTH_TEST){
-                                    // Bandwidth Test
-                                    testName = "Bandwidth";
-                                    test = new rdma::BandwidthPerfTest(FLAGS_server, addresses, FLAGS_port, ownIpPort, sequencerIpAddr, local_gpu_index, remote_gpu_index, thread_count, packet_size, buffer_slots, iterations_per_thread, write_mode);
+                                test = nullptr;
 
-                                } else if(t == LATENCY_TEST){
+                                if(t == LATENCY_TEST){
                                     // Latency Test
                                     testName = "Latency";
                                     test = new rdma::LatencyPerfTest(FLAGS_server, addresses, FLAGS_port, ownIpPort, sequencerIpAddr, local_gpu_index, remote_gpu_index, thread_count, packet_size, buffer_slots, iterations_per_thread, write_mode);
 
-                                } else if(t == OPERATIONS_COUNT_TEST){
-                                    // Operations Count Test
-                                    testName = "Operations Count";
-                                    test = new rdma::OperationsCountPerfTest(FLAGS_server, addresses, FLAGS_port, ownIpPort, sequencerIpAddr, local_gpu_index, remote_gpu_index, thread_count, packet_size, buffer_slots, iterations_per_thread, write_mode);
                                 }
 
-                                testCounter++;
-                                runTest(testCounter, testIterations, testName, test, csvFileName, csvAddHeader);
-                                csvAddHeader = false;
+                                if(test != nullptr){
+                                    testCounter++;
+                                    runTest(testCounter, testIterations, testName, test, csvFileName, csvAddHeader);
+                                    csvAddHeader = false;
+                                }
                             }
                         }
                     }
