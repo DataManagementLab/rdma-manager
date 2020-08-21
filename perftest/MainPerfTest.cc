@@ -32,6 +32,7 @@ DEFINE_string(bufferslots, "", "How many packets the buffer can hold (round-robi
 DEFINE_string(threads, "", "How many individual clients connect to the server. Server has to run same number of threads as all connecting clients together (multiples separated by comma without space) [Default 1]");
 DEFINE_string(iterations, "", "Amount of transfers for latency and all atomics tests (multiples separated by comma without space) [Default 500000]");
 DEFINE_string(transfersize, "", "How much data should be transfered in bandwidth and operations/sec tests but not for atomics tests (multiples separated by comma without space) [Default 24GB]");
+DEFINE_int32(maxiterations, 500000, "Amount of iterations for bandwidth and operations/sec are calculated via transfersize/packetsize and this flag sets a maximum limit to speed up tests for very small packetsizes. Set to negative value to ignore this flag. Doesn't effect the  --iterations  flags");
 DEFINE_bool(csv, false, "Results will be written into an automatically generated CSV file");
 DEFINE_string(csvfile, "", "Results will be written into a given CSV file");
 DEFINE_string(seqaddr, "", "Address of NodeIDSequencer to connect/bind to. If empty then config value will be used");
@@ -75,7 +76,6 @@ static std::vector<uint64_t> parseUInt64List(std::string str){
     } return v;
 }
 static std::vector<uint64_t> parseByteSizesList(std::string str){
-    std::cout << "INPUT: " << str << std::endl; // TODO REMOVE
     std::vector<uint64_t> v;
     if(str.empty()) return v;
     std::stringstream ss(str);
@@ -83,7 +83,6 @@ static std::vector<uint64_t> parseByteSizesList(std::string str){
         if(str.length() == 0)
             continue;
         try {
-            std::cout << str << " -> " << rdma::StringHelper::parseByteSize(str) << std::endl; // TODO REMOVE
             v.push_back((uint64_t)rdma::StringHelper::parseByteSize(str));
         } catch (std::exception const &e){
             std::cerr << "Could not parse integer from '" << str << "'" << std::endl;
@@ -333,7 +332,9 @@ int main(int argc, char *argv[]){
                             csvAddHeader = true;
                             for(uint64_t &packet_size : packetsizes){
                                 test = nullptr;
-                                uint64_t iterations_per_thread = (uint64_t)((long double)transfersize / (long double)packet_size / (long double)thread_count + 0.5);
+                                uint64_t iterations_per_thread = (uint64_t)((long double)transfersize / (long double)packet_size + 0.5);
+                                if(FLAGS_maxiterations >= 0 && iterations_per_thread > (uint64_t)FLAGS_maxiterations) iterations_per_thread = FLAGS_maxiterations;
+                                iterations_per_thread = (uint64_t)((long double)iterations_per_thread / (long double)thread_count + 0.5);
                                 if(iterations_per_thread==0) iterations_per_thread = 1;
 
                                 if(t == BANDWIDTH_TEST){
