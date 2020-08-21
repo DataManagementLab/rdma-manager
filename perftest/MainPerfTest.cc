@@ -274,26 +274,29 @@ int main(int argc, char *argv[]){
             continue;
         std::transform(testName.begin(), testName.end(), testName.begin(), ::tolower);
 
-        size_t count = local_gpus.size() * thread_counts.size() * iteration_counts.size() * bufferslots.size();
+        size_t count = local_gpus.size() * thread_counts.size() * bufferslots.size();
 
         if(std::string("bandwidth").rfind(testName, 0) == 0){
             tests.push_back(BANDWIDTH_TEST);
-            count *= packetsizes.size() * write_modes.size();
+            count *= transfersizes.size() * packetsizes.size() * write_modes.size();
         } else if(std::string("latency").rfind(testName, 0) == 0){
             tests.push_back(LATENCY_TEST);
-            count *= packetsizes.size() * write_modes.size();
+            count *= iteration_counts.size() * packetsizes.size() * write_modes.size();
         } else if(std::string("operationscount").rfind(testName, 0) == 0 || std::string("operationcount").rfind(testName, 0) == 0 || 
                     std::string("ops").rfind(testName, 0) == 0){
             tests.push_back(OPERATIONS_COUNT_TEST);
-            count *= packetsizes.size() * write_modes.size();
+            count *= transfersizes.size() * packetsizes.size() * write_modes.size();
         } else if(std::string("atomicsbandwidth").rfind(testName, 0) == 0 || std::string("atomicbandwidth").rfind(testName, 0) == 0){
             tests.push_back(ATOMICS_BANDWIDTH_TEST);
+            count *= iteration_counts.size();
         } else if(std::string("atomicslatency").rfind(testName, 0) == 0 || std::string("atomiclatency").rfind(testName, 0) == 0){
             tests.push_back(ATOMICS_LATENCY_TEST);
+            count *= iteration_counts.size();
         } else if(std::string("atomicsoperationscount").rfind(testName, 0) == 0 || std::string("atomicoperationscount").rfind(testName, 0) == 0 || 
                     std::string("atomicsoperationcount").rfind(testName, 0) == 0 || std::string("atomicoperationcount").rfind(testName, 0) == 0 ||
                     std::string("atomicsops").rfind(testName, 0) == 0 || std::string("atomicops").rfind(testName, 0) == 0){
             tests.push_back(ATOMICS_OPERATIONS_COUNT_TEST);
+            count *= iteration_counts.size();
         } else {
             std::cerr << "No test with name '" << *testIt << "' found" << std::endl;
             testIt++;
