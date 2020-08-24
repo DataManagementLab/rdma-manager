@@ -33,10 +33,10 @@ class RDMAClient : public RDMA_API_T, public ProtoClient {
   RDMAClient() : RDMAClient(Config::RDMA_MEMSIZE){}
   RDMAClient(size_t mem_size) : RDMAClient(mem_size, "RDMAClient"){}
   RDMAClient(size_t mem_size, int numaNode) : RDMAClient(mem_size, "RDMAClient", numaNode){}
-  RDMAClient(size_t mem_size, std::string name, int numaNode) : RDMAClient(mem_size, name, Config::getIP(Config::RDMA_INTERFACE)){}
-  RDMAClient(size_t mem_size, std::string name, std::string ownIpPort, int numaNode) : RDMAClient(mem_size, name, ownIpPort, Config::SEQUENCER_IP+":"+to_string(Config::SEQUENCER_PORT), numaNode){}
   RDMAClient(size_t mem_size, std::string name) : RDMAClient(mem_size, name, Config::getIP(Config::RDMA_INTERFACE)){}
+  RDMAClient(size_t mem_size, std::string name, int numaNode) : RDMAClient(mem_size, name, Config::getIP(Config::RDMA_INTERFACE), numaNode){}
   RDMAClient(size_t mem_size, std::string name, std::string ownIpPort) : RDMAClient(mem_size, name, ownIpPort, Config::SEQUENCER_IP+":"+to_string(Config::SEQUENCER_PORT)){}
+  RDMAClient(size_t mem_size, std::string name, std::string ownIpPort, int numaNode) : RDMAClient(mem_size, name, ownIpPort, Config::SEQUENCER_IP+":"+to_string(Config::SEQUENCER_PORT), numaNode){}
   RDMAClient(size_t mem_size, std::string name, std::string ownIpPort, std::string sequencerIpPort) : RDMAClient(mem_size, name, ownIpPort, sequencerIpPort, Config::RDMA_NUMAREGION){}
   RDMAClient(size_t mem_size, std::string name, std::string ownIpPort, std::string sequencerIpPort, int numaNode) : RDMAClient(mem_size, name, ownIpPort, NodeType::Enum::CLIENT, sequencerIpPort, numaNode){
     
