@@ -96,9 +96,9 @@ def get_line_color(label: str, ordered_possible_values: []) -> str:
         return "#" + h1 + h2 + "00"
     elif label.find("send") >= 0:
         return "#" + h2 + h1 + "00"
-    elif label.find("fet"):
+    elif label.find("fet") >= 0:
         return "#" + h2 + h1 + h1
-    elif label.find("comp"):
+    elif label.find("swap") >= 0:
         return "#" + h1 + h1 + h2
     h = hex(255 - int(h1, 16))[2:]  # remove '0x' at beginning
     while len(h) < 2:
@@ -219,7 +219,7 @@ def remove_unit_from_label(label: str) -> (str, str):
     if end < 0:
         return label[:start].strip(), "[" + label[(start + 1):].strip() + "]"
     return (label[:start] + label[(end + 1):].strip()).strip(), \
-           "[" + label[(start + 1):end].strip() + "]"
+        "[" + label[(start + 1):end].strip() + "]"
 
 
 def filter_columns(columns: [{}], search: [str]) -> [{}]:
@@ -247,7 +247,7 @@ def sort_columns(columns: [{}]) -> [{}]:
     process_columns_by_name("read")
     process_columns_by_name("send")
     process_columns_by_name("fetch")
-    process_columns_by_name("comp")
+    process_columns_by_name("swap")
     output = []
     output.extend(cols)
     output.extend(tmp)
@@ -299,7 +299,7 @@ def split_plot_by_fetch_compare(plot: {}) -> [{}]:
         "columns": get_filtered_columns("fetch")
     }, {
         "title": title + " for compare&swap",
-        "columns": get_filtered_columns("comp")
+        "columns": get_filtered_columns("swap")
     }]
 
 
@@ -365,7 +365,7 @@ def plot_bandwidth(test_params: [TestParameters], test_columns: [{}], output_fil
         mem_type = params.local_memory_type + "→" + params.remote_memory_type
         memory_types_possible_values.add(mem_type.lower())
         compare_memory_types_key = str(params.threads) + "-" + str(params.buffer_slots) + "-" + \
-                                   str(params.iterations) + "-" + str(params.write_mode)
+            str(params.iterations) + "-" + str(params.write_mode)
         if compare_memory_types_key not in compare_memory_types:
             compare_memory_types[compare_memory_types_key] = {
                 "params": params,
@@ -1626,13 +1626,9 @@ def plot_atomics_bandwidth(test_params: [TestParameters], test_columns: [{}], ou
     compare_threads = {}  # {key: {params:[], plots:[{title:str, columns:[{}] }] }}  # (tmp)
     buffer_slots_possible_values = set()
     compare_buffer_slots = {}  # {key: {params:[], plots:[{title:str, columns:[{}] }] }}  # (tmp)
-    iterations_possible_values = set()
-    compare_iterations = {}  # {key: {params:[], plots:[{title:str, columns:[{}] }] }}  # (tmp)
-    write_modes_possible_values = set()
-    compare_write_modes = {}  # {key: {params:[], plots:[{title:str, columns:[{}] }] }}  # (tmp)
     for entry in range(entry_count):
         params = test_params[entry]
-        columns = sort_columns(filter_columns(test_columns[entry], ("/s", "size")))
+        columns = sort_columns(filter_columns(test_columns[entry], ("/s", "iter")))
         test_columns[entry] = columns
 
         # initialize compare memory types
@@ -1677,34 +1673,6 @@ def plot_atomics_bandwidth(test_params: [TestParameters], test_columns: [{}], ou
                 }, ]  # possibly split up into multiple plots if too much columns
             }
 
-        # initialize compare iterations
-        iterations_possible_values.add(params.iterations)
-        compare_iterations_key = str(params.threads) + "-" + str(params.buffer_slots) + \
-            "-" + str(params.local_memory_type) + "-" + str(params.remote_memory_type) + \
-            "-" + str(params.write_mode)
-        if compare_iterations_key not in compare_iterations:
-            compare_iterations[compare_iterations_key] = {
-                "params": params,
-                "plots": [{
-                    "title": "Atomics Bandwidth compare iterations",
-                    "columns": [columns[0], ]  # x-values, y-values will be appended
-                }, ]  # possibly split up into multiple plots if too much columns
-            }
-
-        # initialize compare write modes
-        write_modes_possible_values.add(params.write_mode)
-        compare_write_modes_key = str(params.threads) + "-" + str(params.buffer_slots) + \
-            "-" + str(params.iterations) + "-" + str(params.local_memory_type) + \
-            "-" + str(params.remote_memory_type)
-        if compare_write_modes_key not in compare_write_modes:
-            compare_write_modes[compare_write_modes_key] = {
-                "params": params,
-                "plots": [{
-                    "title": "Atomics Bandwidth compare write modes",
-                    "columns": [columns[0], ]  # x-values, y-values will be appended
-                }, ]  # possibly split up into multiple plots if too much columns
-            }
-
         for column in columns:
             # Process medians and averages
             if str(column["name"]).lower().startswith("med") or \
@@ -1724,18 +1692,6 @@ def plot_atomics_bandwidth(test_params: [TestParameters], test_columns: [{}], ou
                 compare_buffer_slots[compare_buffer_slots_key]["plots"][0]["columns"].append(
                     {
                         "name": column["name"] + " (" + str(params.buffer_slots) + "x BufSlots)",
-                        "values": column["values"]
-                    }
-                )
-                compare_iterations[compare_iterations_key]["plots"][0]["columns"].append(
-                    {
-                        "name": column["name"] + " (" + str(params.iterations) + "x Itrs)",
-                        "values": column["values"]
-                    }
-                )
-                compare_write_modes[compare_write_modes_key]["plots"][0]["columns"].append(
-                    {
-                        "name": column["name"] + " (wm: " + str(params.write_mode) + ")",
                         "values": column["values"]
                     }
                 )
@@ -1767,24 +1723,6 @@ def plot_atomics_bandwidth(test_params: [TestParameters], test_columns: [{}], ou
     buffer_slots_possible_values = list(buffer_slots_possible_values)
     buffer_slots_possible_values.sort(reverse=True)
 
-    for entry in compare_iterations.values():
-        if len(entry["plots"][0]["columns"]) > MAX_LINES_PER_PLOT_BEFORE_SPLITTING + 1:
-            entry["plots"] = split_plot_by_write_read_send(  # split columns into multiple plots
-                entry["plots"][0]
-            )
-    compare_iterations = transform_and_sort_plots(compare_iterations.values())  # TRANSFORMS !
-    iterations_possible_values = list(iterations_possible_values)
-    iterations_possible_values.sort(reverse=True)
-
-    for entry in compare_write_modes.values():
-        if len(entry["plots"][0]["columns"]) > MAX_LINES_PER_PLOT_BEFORE_SPLITTING + 1:
-            entry["plots"] = split_plot_by_write_read_send(  # split columns into multiple plots
-                entry["plots"][0]
-            )
-    compare_write_modes = transform_and_sort_plots(compare_write_modes.values())  # TRANSFORMS !
-    write_modes_possible_values = list(write_modes_possible_values)
-    write_modes_possible_values.sort(reverse=True)
-
     # Plot raw values
     print("Plotting Atomics Bandwidth results RAW ...")
     for entry in range(entry_count):
@@ -1792,8 +1730,7 @@ def plot_atomics_bandwidth(test_params: [TestParameters], test_columns: [{}], ou
         columns = test_columns[entry]
         title = "Atomics Bandwidth (" + params.local_memory_type + "→" + \
             params.remote_memory_type + ")"
-        subtitle = "thrs=" + str(params.threads) + "  bufslots=" + str(params.buffer_slots) + \
-                   "  itrs=" + str(params.iterations) + "  wm=" + str(params.write_mode)
+        subtitle = "thrs=" + str(params.threads) + "  bufslots=" + str(params.buffer_slots)
         y_label = "Atomics Bandwidth"
         y_label_update = True
         x_values = columns[0]["values"]
@@ -1833,8 +1770,7 @@ def plot_atomics_bandwidth(test_params: [TestParameters], test_columns: [{}], ou
             continue  # check if multiple avg & medians such that comparing makes sense
         params = plot["params"]
         title = plot["title"]
-        subtitle = "thrs=" + str(params.threads) + "  bufslots=" + str(params.buffer_slots) + \
-                   "  itrs=" + str(params.iterations) + "  wm=" + str(params.write_mode)
+        subtitle = "thrs=" + str(params.threads) + "  bufslots=" + str(params.buffer_slots)
         y_label = "Atomics Bandwidth"
         y_label_update = True
         x_values = columns[0]["values"]
@@ -1876,8 +1812,7 @@ def plot_atomics_bandwidth(test_params: [TestParameters], test_columns: [{}], ou
         params = plot["params"]
         title = plot["title"] + " (" + params.local_memory_type + "→" + \
             params.remote_memory_type + ")"
-        subtitle = "bufslots=" + str(params.buffer_slots) + "  itrs=" + \
-                   str(params.iterations) + "  wm=" + str(params.write_mode)
+        subtitle = "bufslots=" + str(params.buffer_slots)
         y_label = "Atomics Bandwidth"
         y_label_update = True
         x_values = columns[0]["values"]
@@ -1918,8 +1853,7 @@ def plot_atomics_bandwidth(test_params: [TestParameters], test_columns: [{}], ou
         params = plot["params"]
         title = plot["title"] + " (" + params.local_memory_type + "→" + \
             params.remote_memory_type + ")"
-        subtitle = "thrs=" + str(params.threads) + "  itrs=" + \
-                   str(params.iterations) + "  wm=" + str(params.write_mode)
+        subtitle = "thrs=" + str(params.threads)
         y_label = "Atomics Bandwidth"
         y_label_update = True
         x_values = columns[0]["values"]
@@ -1952,18 +1886,124 @@ def plot_atomics_bandwidth(test_params: [TestParameters], test_columns: [{}], ou
                 "." + output_format)
         plt.close(fig)
 
-    # Plot values to compare iterations
-    print("Plotting Atomics Bandwidth results to compare iterations ...")
-    for plot in compare_iterations:
-        columns = plot["columns"]
-        if len(columns) <= MIN_LINES_PER_COMPARE_PLOT:
-            continue  # check if multiple avg & medians such that comparing makes sense
-        params = plot["params"]
-        title = plot["title"] + " (" + params.local_memory_type + "→" + \
+
+def plot_atomics_latency(test_params: [TestParameters], test_columns: [{}], output_file_name,
+                         output_format):
+    entry_count = len(test_params)
+
+    # Group columns and find minimum and maximum y value
+    memory_types_possible_values = set()
+    compare_memory_types = {}  # {key: {params:[], plots:[{title:str, columns:[{}] }] }}  # (tmp)
+    threads_possible_values = set()
+    compare_threads = {}  # {key: {params:[], plots:[{title:str, columns:[{}] }] }}  # (tmp)
+    buffer_slots_possible_values = set()
+    compare_buffer_slots = {}  # {key: {params:[], plots:[{title:str, columns:[{}] }] }}  # (tmp)
+    for entry in range(entry_count):
+        params = test_params[entry]
+        columns = sort_columns(test_columns[entry])  # no filtering needed
+        test_columns[entry] = columns
+
+        # initialize compare memory types
+        mem_type = params.local_memory_type + "→" + params.remote_memory_type
+        memory_types_possible_values.add(mem_type.lower())
+        compare_memory_types_key = str(params.threads) + "-" + str(params.buffer_slots) + "-" + \
+            str(params.iterations) + "-" + str(params.write_mode)
+        if compare_memory_types_key not in compare_memory_types:
+            compare_memory_types[compare_memory_types_key] = {
+                "params": params,
+                "plots": [{
+                    "title": "Atomics Latency compare memory types",
+                    "columns": [columns[0], ]  # x-values, y-values will be appended
+                }, ]  # possibly split up into multiple plots if too much columns
+            }
+
+        # initialize compare thread counts
+        threads_possible_values.add(params.threads)
+        compare_threads_key = str(params.buffer_slots) + "-" + str(params.iterations) + \
+            "-" + str(params.local_memory_type) + "-" + str(params.remote_memory_type) + \
+            "-" + str(params.write_mode)
+        if compare_threads_key not in compare_threads:
+            compare_threads[compare_threads_key] = {
+                "params": params,
+                "plots": [{
+                    "title": "Atomics Latency compare thread counts",
+                    "columns": [columns[0], ]  # x-values, y-values will be appended
+                }, ]  # possibly split up into multiple plots if too much columns
+            }
+
+        # initialize compare buffer slots
+        buffer_slots_possible_values.add(params.buffer_slots)
+        compare_buffer_slots_key = str(params.threads) + "-" + str(params.iterations) + \
+            "-" + str(params.local_memory_type) + "-" + str(params.remote_memory_type) + \
+            "-" + str(params.write_mode)
+        if compare_buffer_slots_key not in compare_buffer_slots:
+            compare_buffer_slots[compare_buffer_slots_key] = {
+                "params": params,
+                "plots": [{
+                    "title": "Atomics Latency compare buffer slots",
+                    "columns": [columns[0], ]  # x-values, y-values will be appended
+                }, ]  # possibly split up into multiple plots if too much columns
+            }
+
+        for column in columns:
+            # Process medians and averages
+            if str(column["name"]).lower().startswith("med") or \
+                    str(column["name"]).lower().startswith("av"):
+                compare_memory_types[compare_memory_types_key]["plots"][0]["columns"].append(
+                    {
+                        "name": column["name"] + " (" + mem_type + ")",
+                        "values": column["values"]
+                    }
+                )
+                compare_threads[compare_threads_key]["plots"][0]["columns"].append(
+                    {
+                        "name": column["name"] + " (" + str(params.threads) + "x Thr)",
+                        "values": column["values"]
+                    }
+                )
+                compare_buffer_slots[compare_buffer_slots_key]["plots"][0]["columns"].append(
+                    {
+                        "name": column["name"] + " (" + str(params.buffer_slots) + "x BufSlots)",
+                        "values": column["values"]
+                    }
+                )
+
+    for entry in compare_memory_types.values():
+        if len(entry["plots"][0]["columns"]) > MAX_LINES_PER_PLOT_BEFORE_SPLITTING + 1:
+            entry["plots"] = split_plot_by_write_read_send(  # split columns into multiple plots
+                entry["plots"][0]
+            )
+    compare_memory_types = transform_and_sort_plots(compare_memory_types.values())  # TRANSFORMS !
+    memory_types_possible_values = list(memory_types_possible_values)
+    memory_types_possible_values.sort(reverse=True)
+
+    for entry in compare_threads.values():
+        if len(entry["plots"][0]["columns"]) > MAX_LINES_PER_PLOT_BEFORE_SPLITTING + 1:
+            entry["plots"] = split_plot_by_write_read_send(  # split columns into multiple plots
+                entry["plots"][0]
+            )
+    compare_threads = transform_and_sort_plots(compare_threads.values())  # TRANSFORMS !
+    threads_possible_values = list(threads_possible_values)
+    threads_possible_values.sort(reverse=True)
+
+    for entry in compare_buffer_slots.values():
+        if len(entry["plots"][0]["columns"]) > MAX_LINES_PER_PLOT_BEFORE_SPLITTING + 1:
+            entry["plots"] = split_plot_by_write_read_send(  # split columns into multiple plots
+                entry["plots"][0]
+            )
+    compare_buffer_slots = transform_and_sort_plots(compare_buffer_slots.values())  # TRANSFORMS !
+    buffer_slots_possible_values = list(buffer_slots_possible_values)
+    buffer_slots_possible_values.sort(reverse=True)
+
+    # Plot raw values
+    print("Plotting Atomics Latency results RAW ...")
+    for entry in range(entry_count):
+        params = test_params[entry]
+        columns = test_columns[entry]
+        title = "Atomics Latency (" + params.local_memory_type + "→" + \
             params.remote_memory_type + ")"
-        subtitle = "thrs=" + str(params.threads) + "  bufslots=" + \
-                   str(params.buffer_slots) + "  wm=" + str(params.write_mode)
-        y_label = "Atomics Bandwidth"
+        subtitle = "thrs=" + str(params.threads) + "  bufslots=" + str(params.buffer_slots)
+        y_label = "Atomics Latency"
         y_label_update = True
         x_values = columns[0]["values"]
         for i in range(len(x_values)):
@@ -1981,32 +2021,29 @@ def plot_atomics_bandwidth(test_params: [TestParameters], test_columns: [{}], ou
             tmp = remove_unit_from_label(col_label)
             col_label = tmp[0]
             if tmp[1] and y_label_update:
-                y_label = "Atomics Bandwidth " + tmp[1]
+                y_label = "Atomics Latency " + tmp[1]
                 y_label_update = False
             ax.plot(x_values, y_values, label=col_label, antialiased=False,
-                    **get_compare_line_style(col_label, iterations_possible_values))
+                    **get_latency_raw_line_style(col_label))
         ax.set(xlabel="Packet Size [Bytes]", ylabel=y_label, title=subtitle)
         ax.legend(fontsize="xx-small")
         if isinstance(output_file_name, PdfPages):
             output_file_name.savefig(figure=fig)
         else:
-            plt.savefig(
-                output_file_name + "ATOMICS_BANDWIDTH-" + params.to_file_str() + "-Iterations" +
-                "." + output_format)
+            plt.savefig(output_file_name + "ATOMICS_LATENCY-" + params.to_file_str() + "-Raw" +
+                        "." + output_format)
         plt.close(fig)
 
-    # Plot values to compare write modes
-    print("Plotting Atomics Bandwidth results to compare write modes ...")
-    for plot in compare_write_modes:
+    # Plot values to compare memory types
+    print("Plotting Atomics Latency results to compare memory types ...")
+    for plot in compare_memory_types:
         columns = plot["columns"]
         if len(columns) <= MIN_LINES_PER_COMPARE_PLOT:
             continue  # check if multiple avg & medians such that comparing makes sense
         params = plot["params"]
-        title = plot["title"] + " (" + params.local_memory_type + "→" + \
-            params.remote_memory_type + ")"
-        subtitle = "thrs=" + str(params.threads) + "  bufslots=" + \
-                   str(params.buffer_slots) + "  itrs=" + str(params.iterations)
-        y_label = "Atomics Bandwidth"
+        title = plot["title"]
+        subtitle = "thrs=" + str(params.threads) + "  bufslots=" + str(params.buffer_slots)
+        y_label = "Atomics Latency"
         y_label_update = True
         x_values = columns[0]["values"]
         for i in range(len(x_values)):
@@ -2024,27 +2061,374 @@ def plot_atomics_bandwidth(test_params: [TestParameters], test_columns: [{}], ou
             tmp = remove_unit_from_label(col_label)
             col_label = tmp[0]
             if tmp[1] and y_label_update:
-                y_label = "Atomics Bandwidth " + tmp[1]
+                y_label = "Atomics Latency " + tmp[1]
                 y_label_update = False
             ax.plot(x_values, y_values, label=col_label, antialiased=False,
-                    **get_compare_line_style(col_label, write_modes_possible_values))
+                    **get_compare_line_style(col_label, memory_types_possible_values))
         ax.set(xlabel="Packet Size [Bytes]", ylabel=y_label, title=subtitle)
         ax.legend(fontsize="xx-small")
         if isinstance(output_file_name, PdfPages):
             output_file_name.savefig(figure=fig)
         else:
             plt.savefig(
-                output_file_name + "ATOMICS_BANDWIDTH-" + params.to_file_str() + "-WriteModes" +
+                output_file_name + "ATOMICS_LATENCY-" + params.to_file_str() + "-MemoryTypes" +
+                "." + output_format)
+        plt.close(fig)
+
+    # Plot values to compare thread counts
+    print("Plotting Atomics Latency results to compare thread counts ...")
+    for plot in compare_threads:
+        columns = plot["columns"]
+        if len(columns) <= MIN_LINES_PER_COMPARE_PLOT:
+            continue  # check if multiple avg & medians such that comparing makes sense
+        params = plot["params"]
+        title = plot["title"] + " (" + params.local_memory_type + "→" + \
+            params.remote_memory_type + ")"
+        subtitle = "bufslots=" + str(params.buffer_slots)
+        y_label = "Atomics Latency"
+        y_label_update = True
+        x_values = columns[0]["values"]
+        for i in range(len(x_values)):
+            x_values[i] = str(x_values[i])
+        x_values = np.array(x_values)
+        fig, ax = plt.subplots()
+        fig.suptitle(title)
+        first = True
+        for column in columns:
+            if first:  # skip x-values
+                first = False
+                continue
+            col_label = column["name"]
+            y_values = np.array(column["values"])
+            tmp = remove_unit_from_label(col_label)
+            col_label = tmp[0]
+            if tmp[1] and y_label_update:
+                y_label = "Atomics Latency " + tmp[1]
+                y_label_update = False
+            ax.plot(x_values, y_values, label=col_label, antialiased=False,
+                    **get_compare_line_style(col_label, threads_possible_values))
+        ax.set(xlabel="Packet Size [Bytes]", ylabel=y_label, title=subtitle)
+        ax.legend(fontsize="xx-small")
+        if isinstance(output_file_name, PdfPages):
+            output_file_name.savefig(figure=fig)
+        else:
+            plt.savefig(output_file_name + "ATOMICS_LATENCY-" + params.to_file_str() +
+                        "-ThreadCounts" + "." + output_format)
+        plt.close(fig)
+
+    # Plot values to compare buffer slots
+    print("Plotting Atomics Latency results to compare buffer slots ...")
+    for plot in compare_buffer_slots:
+        columns = plot["columns"]
+        if len(columns) <= MIN_LINES_PER_COMPARE_PLOT:
+            continue  # check if multiple avg & medians such that comparing makes sense
+        params = plot["params"]
+        title = plot["title"] + " (" + params.local_memory_type + "→" + \
+            params.remote_memory_type + ")"
+        subtitle = "thrs=" + str(params.threads)
+        y_label = "Atomics Latency"
+        y_label_update = True
+        x_values = columns[0]["values"]
+        for i in range(len(x_values)):
+            x_values[i] = str(x_values[i])
+        x_values = np.array(x_values)
+        fig, ax = plt.subplots()
+        fig.suptitle(title)
+        first = True
+        for column in columns:
+            if first:  # skip x-values
+                first = False
+                continue
+            col_label = column["name"]
+            y_values = np.array(column["values"])
+            tmp = remove_unit_from_label(col_label)
+            col_label = tmp[0]
+            if tmp[1] and y_label_update:
+                y_label = "Atomics Latency " + tmp[1]
+                y_label_update = False
+            ax.plot(x_values, y_values, label=col_label, antialiased=False,
+                    **get_compare_line_style(col_label, buffer_slots_possible_values))
+        ax.set(xlabel="Packet Size [Bytes]", ylabel=y_label, title=subtitle)
+        ax.legend(fontsize="xx-small")
+        if isinstance(output_file_name, PdfPages):
+            output_file_name.savefig(figure=fig)
+        else:
+            plt.savefig(
+                output_file_name + "ATOMICS_LATENCY-" + params.to_file_str() + "-BufferSlots" +
                 "." + output_format)
         plt.close(fig)
 
 
-def plot_atomics_latency(test_params, test_columns, output_file_name, output_format):
-    print("Plotting AtomicsLatency results ...")
+def plot_atomics_operations_count(test_params: [TestParameters], test_columns: [{}],
+                                  output_file_name, output_format):
+    entry_count = len(test_params)
 
+    # Group columns and find minimum and maximum y value
+    memory_types_possible_values = set()
+    compare_memory_types = {}  # {key: {params:[], plots:[{title:str, columns:[{}] }] }}  # (tmp)
+    threads_possible_values = set()
+    compare_threads = {}  # {key: {params:[], plots:[{title:str, columns:[{}] }] }}  # (tmp)
+    buffer_slots_possible_values = set()
+    compare_buffer_slots = {}  # {key: {params:[], plots:[{title:str, columns:[{}] }] }}  # (tmp)
+    for entry in range(entry_count):
+        params = test_params[entry]
+        columns = sort_columns(filter_columns(test_columns[entry], ("/s", "iter")))
+        test_columns[entry] = columns
 
-def plot_atomics_operations_count(test_params, test_columns, output_file_name, output_format):
-    print("Plotting AtomicsOperationsCount results ...")
+        # initialize compare memory types
+        mem_type = params.local_memory_type + "→" + params.remote_memory_type
+        memory_types_possible_values.add(mem_type.lower())
+        compare_memory_types_key = str(params.threads) + "-" + str(params.buffer_slots) + "-" + \
+            str(params.iterations) + "-" + str(params.write_mode)
+        if compare_memory_types_key not in compare_memory_types:
+            compare_memory_types[compare_memory_types_key] = {
+                "params": params,
+                "plots": [{
+                    "title": "Atomics Operations/sec compare memory types",
+                    "columns": [columns[0], ]  # x-values, y-values will be appended
+                }, ]  # possibly split up into multiple plots if too much columns
+            }
+
+        # initialize compare thread counts
+        threads_possible_values.add(params.threads)
+        compare_threads_key = str(params.buffer_slots) + "-" + str(params.iterations) + \
+            "-" + str(params.local_memory_type) + "-" + str(params.remote_memory_type) + \
+            "-" + str(params.write_mode)
+        if compare_threads_key not in compare_threads:
+            compare_threads[compare_threads_key] = {
+                "params": params,
+                "plots": [{
+                    "title": "Atomics Operations/sec compare thread counts",
+                    "columns": [columns[0], ]  # x-values, y-values will be appended
+                }, ]  # possibly split up into multiple plots if too much columns
+            }
+
+        # initialize compare buffer slots
+        buffer_slots_possible_values.add(params.buffer_slots)
+        compare_buffer_slots_key = str(params.threads) + "-" + str(params.iterations) + \
+            "-" + str(params.local_memory_type) + "-" + str(params.remote_memory_type) + \
+            "-" + str(params.write_mode)
+        if compare_buffer_slots_key not in compare_buffer_slots:
+            compare_buffer_slots[compare_buffer_slots_key] = {
+                "params": params,
+                "plots": [{
+                    "title": "Atomics Operations/sec compare buffer slots",
+                    "columns": [columns[0], ]  # x-values, y-values will be appended
+                }, ]  # possibly split up into multiple plots if too much columns
+            }
+
+        for column in columns:
+            # Process medians and averages
+            if str(column["name"]).lower().startswith("med") or \
+                    str(column["name"]).lower().startswith("av"):
+                compare_memory_types[compare_memory_types_key]["plots"][0]["columns"].append(
+                    {
+                        "name": column["name"] + " (" + mem_type + ")",
+                        "values": column["values"]
+                    }
+                )
+                compare_threads[compare_threads_key]["plots"][0]["columns"].append(
+                    {
+                        "name": column["name"] + " (" + str(params.threads) + "x Thr)",
+                        "values": column["values"]
+                    }
+                )
+                compare_buffer_slots[compare_buffer_slots_key]["plots"][0]["columns"].append(
+                    {
+                        "name": column["name"] + " (" + str(params.buffer_slots) + "x BufSlots)",
+                        "values": column["values"]
+                    }
+                )
+
+    for entry in compare_memory_types.values():
+        if len(entry["plots"][0]["columns"]) > MAX_LINES_PER_PLOT_BEFORE_SPLITTING + 1:
+            entry["plots"] = split_plot_by_write_read_send(  # split columns into multiple plots
+                entry["plots"][0]
+            )
+    compare_memory_types = transform_and_sort_plots(compare_memory_types.values())  # TRANSFORMS !
+    memory_types_possible_values = list(memory_types_possible_values)
+    memory_types_possible_values.sort(reverse=True)
+
+    for entry in compare_threads.values():
+        if len(entry["plots"][0]["columns"]) > MAX_LINES_PER_PLOT_BEFORE_SPLITTING + 1:
+            entry["plots"] = split_plot_by_write_read_send(  # split columns into multiple plots
+                entry["plots"][0]
+            )
+    compare_threads = transform_and_sort_plots(compare_threads.values())  # TRANSFORMS !
+    threads_possible_values = list(threads_possible_values)
+    threads_possible_values.sort(reverse=True)
+
+    for entry in compare_buffer_slots.values():
+        if len(entry["plots"][0]["columns"]) > MAX_LINES_PER_PLOT_BEFORE_SPLITTING + 1:
+            entry["plots"] = split_plot_by_write_read_send(  # split columns into multiple plots
+                entry["plots"][0]
+            )
+    compare_buffer_slots = transform_and_sort_plots(compare_buffer_slots.values())  # TRANSFORMS !
+    buffer_slots_possible_values = list(buffer_slots_possible_values)
+    buffer_slots_possible_values.sort(reverse=True)
+
+    # Plot raw values
+    print("Plotting Atomics Operations/sec results RAW ...")
+    for entry in range(entry_count):
+        params = test_params[entry]
+        columns = test_columns[entry]
+        title = "Atomics Operations/sec (" + params.local_memory_type + "→" + \
+            params.remote_memory_type + ")"
+        subtitle = "thrs=" + str(params.threads) + "  bufslots=" + str(params.buffer_slots)
+        y_label = "Atomics Operations/sec"
+        y_label_update = True
+        x_values = columns[0]["values"]
+        for i in range(len(x_values)):
+            x_values[i] = str(x_values[i])
+        x_values = np.array(x_values)
+        fig, ax = plt.subplots()
+        fig.suptitle(title)
+        first = True
+        for column in columns:
+            if first:  # skip x-values
+                first = False
+                continue
+            col_label = column["name"]
+            y_values = np.array(column["values"])
+            tmp = remove_unit_from_label(col_label)
+            col_label = tmp[0]
+            if tmp[1] and y_label_update:
+                y_label = "Atomics Operations/sec " + tmp[1]
+                y_label_update = False
+            ax.plot(x_values, y_values, label=col_label, antialiased=False,
+                    **get_operations_count_raw_line_style(col_label))
+        ax.set(xlabel="Packet Size [Bytes]", ylabel=y_label, title=subtitle)
+        ax.legend(fontsize="xx-small")
+        if isinstance(output_file_name, PdfPages):
+            output_file_name.savefig(figure=fig)
+        else:
+            plt.savefig(output_file_name + "ATOMICS_OPERATIONS_COUNT-" + params.to_file_str() +
+                        "-Raw" + "." + output_format)
+        plt.close(fig)
+
+    # Plot values to compare memory types
+    print("Plotting Atomics Operations/sec results to compare memory types ...")
+    for plot in compare_memory_types:
+        columns = plot["columns"]
+        if len(columns) <= MIN_LINES_PER_COMPARE_PLOT:
+            continue  # check if multiple avg & medians such that comparing makes sense
+        params = plot["params"]
+        title = plot["title"]
+        subtitle = "thrs=" + str(params.threads) + "  bufslots=" + str(params.buffer_slots)
+        y_label = "Atomics Operations/sec"
+        y_label_update = True
+        x_values = columns[0]["values"]
+        for i in range(len(x_values)):
+            x_values[i] = str(x_values[i])
+        x_values = np.array(x_values)
+        fig, ax = plt.subplots()
+        fig.suptitle(title)
+        first = True
+        for column in columns:
+            if first:  # skip x-values
+                first = False
+                continue
+            col_label = column["name"]
+            y_values = np.array(column["values"])
+            tmp = remove_unit_from_label(col_label)
+            col_label = tmp[0]
+            if tmp[1] and y_label_update:
+                y_label = "Atomics Operations/sec " + tmp[1]
+                y_label_update = False
+            ax.plot(x_values, y_values, label=col_label, antialiased=False,
+                    **get_compare_line_style(col_label, memory_types_possible_values))
+        ax.set(xlabel="Packet Size [Bytes]", ylabel=y_label, title=subtitle)
+        ax.legend(fontsize="xx-small")
+        if isinstance(output_file_name, PdfPages):
+            output_file_name.savefig(figure=fig)
+        else:
+            plt.savefig(
+                output_file_name + "ATOMICS_OPERATIONS_COUNT-" + params.to_file_str() +
+                "-MemoryTypes" + "." + output_format)
+        plt.close(fig)
+
+    # Plot values to compare thread counts
+    print("Plotting Atomics Operations/sec results to compare thread counts ...")
+    for plot in compare_threads:
+        columns = plot["columns"]
+        if len(columns) <= MIN_LINES_PER_COMPARE_PLOT:
+            continue  # check if multiple avg & medians such that comparing makes sense
+        params = plot["params"]
+        title = plot["title"] + " (" + params.local_memory_type + "→" + \
+            params.remote_memory_type + ")"
+        subtitle = "bufslots=" + str(params.buffer_slots)
+        y_label = "Atomics Operations/sec"
+        y_label_update = True
+        x_values = columns[0]["values"]
+        for i in range(len(x_values)):
+            x_values[i] = str(x_values[i])
+        x_values = np.array(x_values)
+        fig, ax = plt.subplots()
+        fig.suptitle(title)
+        first = True
+        for column in columns:
+            if first:  # skip x-values
+                first = False
+                continue
+            col_label = column["name"]
+            y_values = np.array(column["values"])
+            tmp = remove_unit_from_label(col_label)
+            col_label = tmp[0]
+            if tmp[1] and y_label_update:
+                y_label = "Atomics Operations/sec " + tmp[1]
+                y_label_update = False
+            ax.plot(x_values, y_values, label=col_label, antialiased=False,
+                    **get_compare_line_style(col_label, threads_possible_values))
+        ax.set(xlabel="Packet Size [Bytes]", ylabel=y_label, title=subtitle)
+        ax.legend(fontsize="xx-small")
+        if isinstance(output_file_name, PdfPages):
+            output_file_name.savefig(figure=fig)
+        else:
+            plt.savefig(output_file_name + "ATOMICS_OPERATIONS_COUNT-" + params.to_file_str() +
+                        "-ThreadCounts" + "." + output_format)
+        plt.close(fig)
+
+    # Plot values to compare buffer slots
+    print("Plotting Atomics Operations/sec results to compare buffer slots ...")
+    for plot in compare_buffer_slots:
+        columns = plot["columns"]
+        if len(columns) <= MIN_LINES_PER_COMPARE_PLOT:
+            continue  # check if multiple avg & medians such that comparing makes sense
+        params = plot["params"]
+        title = plot["title"] + " (" + params.local_memory_type + "→" + \
+            params.remote_memory_type + ")"
+        subtitle = "thrs=" + str(params.threads)
+        y_label = "Atomics Operations/sec"
+        y_label_update = True
+        x_values = columns[0]["values"]
+        for i in range(len(x_values)):
+            x_values[i] = str(x_values[i])
+        x_values = np.array(x_values)
+        fig, ax = plt.subplots()
+        fig.suptitle(title)
+        first = True
+        for column in columns:
+            if first:  # skip x-values
+                first = False
+                continue
+            col_label = column["name"]
+            y_values = np.array(column["values"])
+            tmp = remove_unit_from_label(col_label)
+            col_label = tmp[0]
+            if tmp[1] and y_label_update:
+                y_label = "Atomics Operations/sec " + tmp[1]
+                y_label_update = False
+            ax.plot(x_values, y_values, label=col_label, antialiased=False,
+                    **get_compare_line_style(col_label, buffer_slots_possible_values))
+        ax.set(xlabel="Packet Size [Bytes]", ylabel=y_label, title=subtitle)
+        ax.legend(fontsize="xx-small")
+        if isinstance(output_file_name, PdfPages):
+            output_file_name.savefig(figure=fig)
+        else:
+            plt.savefig(
+                output_file_name + "ATOMICS_OPERATIONS_COUNT-" + params.to_file_str() +
+                "-BufferSlots" + "." + output_format)
+        plt.close(fig)
 
 
 def parse_test_parameters(test_params: [str]) -> TestParameters:
@@ -2131,6 +2515,7 @@ def plot_csv_file(csv_file_name, output_file_name, output_format):
     """
     with open(csv_file_name, 'r', newline='') as csv_file:
         reader = csv.reader(csv_file, delimiter=CSV_DELIMITER, quotechar=CSV_LINEBREAK)
+        has_values = False
         test_index = 0
         parse_labels = True
         prev_test_name = ""
@@ -2153,9 +2538,10 @@ def plot_csv_file(csv_file_name, output_file_name, output_format):
             if len(test_name) == 0:
                 test_name = str(row[0]).strip()
                 if test_name.lower() != prev_test_name:  # reset because new test name
-                    if test_index > 0:
+                    if has_values:
                         plot_test_values(prev_test_name, test_params, test_columns,
                                          output_file_name, output_format)
+                    has_values = False
                     test_index = 0
                     test_params = []
                     test_columns = {}
@@ -2173,6 +2559,7 @@ def plot_csv_file(csv_file_name, output_file_name, output_format):
                         "values": []
                     })
                 continue
+            has_values = True
             for i in range(len(row)):
                 row_value = str(row[i])
                 if CSV_COMMA in row_value:
@@ -2188,7 +2575,7 @@ def plot_csv_file(csv_file_name, output_file_name, output_format):
                 column = test_columns[test_index]
                 column[i]["values"].append(row_value)
                 test_columns[test_index] = column
-        if test_index > 0:
+        if has_values:
             plot_test_values(test_name, test_params, test_columns, output_file_name, output_format)
 
         if output_file_name and isinstance(output_file_name, PdfPages):
