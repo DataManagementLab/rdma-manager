@@ -220,8 +220,7 @@ std::string rdma::AtomicsLatencyPerfTest::getTestResults(std::string csvFileName
 		int64_t minCompareSwapMs=std::numeric_limits<int64_t>::max(), maxCompareSwapMs=-1, medianCompareSwapMs=-1;
 		long double avgFetchAddMs=0, avgCompareSwapMs=0;
 		int64_t mediansFetchAddNs[m_thread_count], mediansCompareSwapNs[m_thread_count];
-		const long double div = (m_thread_count * m_iterations_per_thread); // total iterations   TODO not sure why additional   m_thread_count  is too much
-        const long double divAvg = m_client_threads.size() * div; // for calculating average
+        const long double divAvg = m_client_threads.size() * m_iterations_per_thread; // for calculating average
 		for(size_t i=0; i<m_client_threads.size(); i++){
 			AtomicsLatencyPerfClientThread *thr = m_client_threads[i];
 			if(minFetchAddMs > thr->m_minFetchAddMs) minFetchAddMs = thr->m_minFetchAddMs;
@@ -236,13 +235,11 @@ std::string rdma::AtomicsLatencyPerfTest::getTestResults(std::string csvFileName
 			mediansFetchAddNs[i] = thr->m_arrFetchAddMs[(int)(m_iterations_per_thread/2)];
 			mediansCompareSwapNs[i] = thr->m_arrCompareSwapMs[(int)(m_iterations_per_thread/2)];
 		}
-		minFetchAddMs /= div; maxFetchAddMs /= div;
-		minCompareSwapMs /= div; maxCompareSwapMs /= div;
 
 		std::sort(mediansFetchAddNs, mediansFetchAddNs + m_thread_count);
 		std::sort(mediansCompareSwapNs, mediansCompareSwapNs + m_thread_count);
-		medianFetchAddMs = mediansFetchAddNs[(int)(m_thread_count/2)] / div;
-		medianCompareSwapMs = mediansCompareSwapNs[(int)(m_thread_count/2)] / div;
+		medianFetchAddMs = mediansFetchAddNs[(int)(m_thread_count/2)];
+		medianCompareSwapMs = mediansCompareSwapNs[(int)(m_thread_count/2)];
 
 		// write results into CSV file
 		if(!csvFileName.empty()){

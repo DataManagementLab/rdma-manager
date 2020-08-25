@@ -2,21 +2,30 @@ cmake_minimum_required(VERSION 2.8)
 
 project(rdma)
 
-set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/modules)
-set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR}/bin)
 
-# if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
-#     set(CMAKE_INSTALL_PREFIX ${CMAKE_BINARY_DIR}/bin/rdma_lib)
-# endif()
+# ---------------------------------------------------------------------------------------------------------------------
+# --- [ SETTINGS ] ----------------------------------------------------------------------------------------------------
 
-# for GDB debugging
-# set(CMAKE_BUILD_TYPE Debug)
+# How this project should be build. Possible values are:
+# - Release     Best performance without additional overhead
+# - Debug       Adds debug infos and enables sanitizers
+set(CMAKE_BUILD_TYPE Release)
 
 # Compiler Options
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DLINUX -std=c++17 -Wall -Wextra -DHUGEPAGE")
 
-# If OFF no CUDA related classes will be compiled to support systems without CUDA devices
+# If CUDA and therefore GPUDirect is supported. Otherwise set to 'OFF' to compile completly without CUDA and onyl RDMA
 option(CUDA_ENABLED "CUDA support" ON)
+
+# Path where the CMake modules are located to find all required libraries 
+set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/modules)
+
+# Path where the binaries should be compiled into
+set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR}/bin)
+
+# --- [ END SETTINGS ] ------------------------------------------------------------------------------------------------
+# ---------------------------------------------------------------------------------------------------------------------
+
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
     MESSAGE(STATUS "  BUILD TYPE:     DEBUG  (not suitable for release)")
@@ -50,7 +59,6 @@ if (CMAKE_BUILD_TYPE STREQUAL "Release")
 endif()
 
 
-
 # setup CUDA support (if enabled)
 if (CUDA_ENABLED)
     enable_language(CUDA)
@@ -70,6 +78,5 @@ add_subdirectory(src)
 add_subdirectory(gtest)
 add_subdirectory(perftest_old)
 add_subdirectory(perftest)
-
 
 unset(CUDA_ENABLED CACHE)

@@ -137,7 +137,6 @@ ibv_context* BaseMemory::ib_context(){
 
 void BaseMemory::mergeFreeMem(list<rdma_mem_t>::iterator &listIter) {
     std::unique_lock<std::recursive_mutex> lock(m_lockMem);
-    rdma_mem_t &memRes = *(listIter);
     size_t freeSpace = (*listIter).size;
     size_t offset = (*listIter).offset;
     size_t size = (*listIter).size;

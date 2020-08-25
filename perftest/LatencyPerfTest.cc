@@ -406,8 +406,7 @@ std::string rdma::LatencyPerfTest::getTestResults(std::string csvFileName, bool 
 		int64_t minSendMs=std::numeric_limits<int64_t>::max(), maxSendMs=-1, medianSendMs=-1;
 		long double avgWriteMs=0, avgReadMs=0, avgSendMs=0;
 		int64_t mediansWriteNs[thread_count], mediansReadNs[thread_count], mediansSendNs[thread_count];
-		const long double div = (thread_count * m_iterations_per_thread); // total iterations  TODO not sure why additional   m_thread_count  is too much
-        const long double divAvg = m_client_threads.size() * div; // for calculating average
+		const long double divAvg = m_client_threads.size() * m_iterations_per_thread; // for calculating average
 		for(size_t i=0; i<m_client_threads.size(); i++){
 			LatencyPerfClientThread *thr = m_client_threads[i];
 			if(minWriteMs > thr->m_minWriteMs) minWriteMs = thr->m_minWriteMs;
@@ -427,16 +426,13 @@ std::string rdma::LatencyPerfTest::getTestResults(std::string csvFileName, bool 
 			mediansReadNs[i] = thr->m_arrReadMs[(int)(m_iterations_per_thread/2)];
 			mediansSendNs[i] = thr->m_arrSendMs[(int)(m_iterations_per_thread/2)];
 		}
-		minWriteMs /= div; maxWriteMs /= div;
-		minReadMs /= div; maxReadMs /= div;
-		minSendMs /= div; maxSendMs /= div;
 
 		std::sort(mediansWriteNs, mediansWriteNs + thread_count);
 		std::sort(mediansReadNs, mediansReadNs + thread_count);
 		std::sort(mediansSendNs, mediansSendNs + thread_count);
-		medianWriteMs = mediansWriteNs[(int)(thread_count/2)] / div;
-		medianReadMs = mediansReadNs[(int)(thread_count/2)] / div;
-		medianSendMs = mediansSendNs[(int)(thread_count/2)] / div;
+		medianWriteMs = mediansWriteNs[(int)(thread_count/2)];
+		medianReadMs = mediansReadNs[(int)(thread_count/2)];
+		medianSendMs = mediansSendNs[(int)(thread_count/2)];
 
 		// write results into CSV file
 		if(!csvFileName.empty()){
