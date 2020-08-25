@@ -135,41 +135,42 @@ ibv_context* BaseMemory::ib_context(){
     return this->ib_ctx;
 }
 
-void BaseMemory::mergeFreeMem(list<rdma_mem_t>::iterator &iter) {
+void BaseMemory::mergeFreeMem(list<rdma_mem_t>::iterator &listIter) {
     std::unique_lock<std::recursive_mutex> lock(m_lockMem);
-    size_t freeSpace = (*iter).size;
-    size_t offset = (*iter).offset;
-    size_t size = (*iter).size;
+    rdma_mem_t &memRes = *(listIter);
+    size_t freeSpace = (*listIter).size;
+    size_t offset = (*listIter).offset;
+    size_t size = (*listIter).size;
 
     // start with the prev
-    if (iter != m_rdmaMem.begin()) {
-        --iter;
-        if (iter->offset + iter->size == offset) {
+    if (listIter != m_rdmaMem.begin()) {
+        --listIter;
+        if(listIter->offset + listIter->size == offset) {
             // increase mem of prev
-            freeSpace += iter->size;
-            (*iter).size = freeSpace;
+            freeSpace += listIter->size;
+            (*listIter).size = freeSpace;
 
             // delete hand-in el
-            iter++;
-            iter = m_rdmaMem.erase(iter);
-            iter--;
+            listIter++;
+            listIter = m_rdmaMem.erase(listIter);
+            listIter--;
         } else {
             // adjust iter to point to hand-in el
-            iter++;
+            listIter++;
         }
     }
     // now check following
-    ++iter;
-    if (iter != m_rdmaMem.end()) {
-        if (offset + size == iter->offset) {
-            freeSpace += iter->size;
+    ++listIter;
+    if (listIter != m_rdmaMem.end()) {
+        if(offset + size == listIter->offset) {
+            freeSpace += listIter->size;
 
             // delete following
-            iter = m_rdmaMem.erase(iter);
+            listIter = m_rdmaMem.erase(listIter);
 
             // go to previous and extend
-            --iter;
-            (*iter).size = freeSpace;
+            --listIter;
+            (*listIter).size = freeSpace;
         }
     }
     Logging::debug(
@@ -193,13 +194,11 @@ rdma_mem_t BaseMemory::internalAlloc(size_t size){
                 m_rdmaMem.insert(listIter, memResFree);
             }
             m_rdmaMem.erase(listIter);
-            // printMem();
             lock.unlock();
             return memResUsed;
         }
     }
     lock.unlock();
-    // printMem();
     Logging::warn("BaseMemory out of local memory");
     return rdma_mem_t();  // nullptr
 }
@@ -265,19 +264,18 @@ void BaseMemory::free(const size_t &offset){
                 listIter--;
                 Logging::debug(__FILE__, __LINE__, "Freed reserved local memory");
 
-                // printMem();
                 mergeFreeMem(listIter);
-                // printMem();
-
                 lock.unlock();
                 return;
             }
-            lastOffset += memRes.offset;
+            lastOffset += memRes.size;
         }
 
         // added because otherwise not able to append largest offset at end
         if(lastOffset <= offset){
+            memResFree.free = true;
             m_rdmaMem.insert(listIter, memResFree);
+            listIter--;
             mergeFreeMem(listIter);
             lock.unlock();
             return;
@@ -287,11 +285,9 @@ void BaseMemory::free(const size_t &offset){
         memResFree.free = true;
         m_rdmaMem.insert(listIter, memResFree);
         Logging::debug(__FILE__, __LINE__, "Freed reserved local memory");
-        // printMem();
         lock.unlock();
         return;
     }
     lock.unlock();
-    // printMem();
     throw runtime_error("Did not free any internal memory!");
 }

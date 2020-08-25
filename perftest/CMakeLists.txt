@@ -27,3 +27,8 @@ target_link_libraries(perf_test perftest)
 
 find_package(gflags REQUIRED)
 target_link_libraries(perf_test gflags)
+
+file(COPY
+    ${CMAKE_CURRENT_SOURCE_DIR}/PlotResults.py
+    DESTINATION ${CMAKE_BINARY_DIR}/bin/
+)
