@@ -8,7 +8,7 @@ using namespace rdma;
 // constructors
 CudaMemory::CudaMemory(size_t mem_size) : CudaMemory(mem_size, -2){}
 CudaMemory::CudaMemory(size_t mem_size, int device_index) : AbstractBaseMemory(mem_size), AbstractCudaMemory(mem_size, device_index), BaseMemory(mem_size){
-    if(this->device_index < -1) this->device_index = GpuNumaUtils::get_cuda_device_index_for_numa_node();
+    if(this->device_index < -1) this->device_index = GpuNumaUtils::get_cuda_device_index_by_cpu();
 
     // allocate CUDA memory
     openContext();

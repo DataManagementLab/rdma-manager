@@ -100,7 +100,7 @@ class Config
     static vector<vector<int>> NUMA_THREAD_CPUS;
     
     // GPUS
-    static std::vector<std::vector<int>> NUMA_GPUS; // GPU index to NUMA id
+    static std::vector<std::vector<int>> GPUS_TO_CPU_AFFINITY; // GPU index to CPU affinity
 
     //LOGGING
     static int LOGGING_LEVEL; //0=all, 1=ERR, 2=DBG, 3=INF, (>=4)=NONE
