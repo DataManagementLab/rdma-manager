@@ -5,8 +5,8 @@
 #include "../src/memory/LocalBaseMemoryStub.h"
 #include "../src/rdma/RDMAClient.h"
 #include "../src/rdma/RDMAServer.h"
+#include "../src/thread/Thread.h"
 
-#include <thread>
 #include <vector>
 #include <mutex>
 #include <condition_variable>

@@ -92,8 +92,8 @@ static std::vector<uint64_t> parseByteSizesList(std::string str){
 
 
 static void runTest(size_t testNumber, size_t testIterations, std::string testName, rdma::PerfTest *test, std::string csvFileName, bool csvAddHeader){
-    bool error;
-    std::string errorstr = "";
+    bool error = false;
+    std::string errorname = "", errorstr = "";
     try {
         std::cout << std::endl << "TEST " << testNumber << " / " << testIterations << " (" << (testNumber*100/testIterations) << "%)" << std::endl;
         char timestr[255];
@@ -110,11 +110,13 @@ static void runTest(size_t testNumber, size_t testIterations, std::string testNa
         std::cout << "DONE TESTING '" << testName << "' (" << rdma::PerfTest::convertTime(duration) << ")" << std::endl << std::endl;
     } catch (const std::exception &ex){
         error = true;
+        try { errorname = std::string(typeid(ex).name()) + ":  "; } catch (...){}
         errorstr = ex.what();
         if(!FLAGS_ignoreerrors)
             throw ex;
     } catch (const std::string &ex){
         error = true;
+        errorname = "string: ";
         errorstr = ex;
         if(!FLAGS_ignoreerrors)
             throw ex;
@@ -125,7 +127,7 @@ static void runTest(size_t testNumber, size_t testIterations, std::string testNa
             throw runtime_error("Error occurred while executing test");
     }
     if(error)
-        std::cerr << "ERROR '" << errorstr << "' OCCURRED WHILE EXECUTING TEST '" << testName << "' --> JUMP TO NEXT TEST" << std::endl;
+        std::cerr << "ERROR " << errorname << "'" << errorstr << "' OCCURRED WHILE EXECUTING TEST '" << testName << "' --> JUMP TO NEXT TEST" << std::endl;
     
     delete test;
 
