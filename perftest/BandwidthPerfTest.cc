@@ -11,7 +11,7 @@
 mutex rdma::BandwidthPerfTest::waitLock;
 condition_variable rdma::BandwidthPerfTest::waitCv;
 bool rdma::BandwidthPerfTest::signaled;
-rdma::TestMode rdma::BandwidthPerfTest::testMode;
+rdma::TestOperation rdma::BandwidthPerfTest::testOperation;
 
 rdma::BandwidthPerfClientThread::BandwidthPerfClientThread(BaseMemory *memory, std::vector<std::string>& rdma_addresses, std::string ownIpPort, std::string sequencerIpPort, size_t packet_size, int buffer_slots, size_t iterations_per_thread, size_t max_rdma_wr_per_thread, WriteMode write_mode) {
 	this->m_client = new RDMAClient<ReliableRDMA>(memory, "BandwidthPerfTestClient", ownIpPort, sequencerIpPort);
@@ -65,8 +65,8 @@ void rdma::BandwidthPerfClientThread::run() {
 	int sendCounter = 0, receiveCounter = 0, totalBudget = m_iterations_per_thread;
 	uint32_t localBaseOffset = (uint32_t)m_local_memory->getRootOffset();
 	auto start = rdma::PerfTest::startTimer();
-	switch(BandwidthPerfTest::testMode){
-		case TEST_WRITE: // Write
+	switch(BandwidthPerfTest::testOperation){
+		case WRITE_OPERATION: // Write
 			switch(m_write_mode){
 				case WRITE_MODE_NORMAL:
 					for(size_t i = 0; i < m_iterations_per_thread; i++){
@@ -106,7 +106,7 @@ void rdma::BandwidthPerfClientThread::run() {
 			m_elapsedWriteMs = rdma::PerfTest::stopTimer(start);
 			break;
 
-		case TEST_READ: // Read
+		case READ_OPERATION: // Read
 			for(size_t i = 0; i < m_iterations_per_thread; i++){
 				size_t connIdx = i % m_rdma_addresses.size();
 				bool signaled = (i == (m_iterations_per_thread - 1));
@@ -116,7 +116,7 @@ void rdma::BandwidthPerfClientThread::run() {
 			m_elapsedReadMs = rdma::PerfTest::stopTimer(start);
 			break;
 
-		case TEST_SEND_AND_RECEIVE: // Send & Receive
+		case SEND_RECEIVE_OPERATION: // Send & Receive
 			// alternating send/receive blocks to not overfill queues
 			for(size_t i = 0; i < m_iterations_per_thread; i+=2*m_max_rdma_wr_per_thread){
 				int budgetS = m_iterations_per_thread - i;
@@ -182,8 +182,8 @@ void rdma::BandwidthPerfServerThread::run() {
 	int sendCounter = 0, receiveCounter = 0, totalBudget = m_iterations_per_thread, budgetR = totalBudget, budgetS;
 	uint32_t remoteBaseOffset;
 
-	switch(BandwidthPerfTest::testMode){
-		case TEST_WRITE:
+	switch(BandwidthPerfTest::testOperation){
+		case WRITE_OPERATION:
 			if(m_write_mode == WRITE_MODE_IMMEDIATE){
 				// Calculate receive budget for even blocks
 				if(budgetR > (int)m_max_rdma_wr_per_thread){ budgetR = m_max_rdma_wr_per_thread; }
@@ -226,7 +226,7 @@ void rdma::BandwidthPerfServerThread::run() {
 			}
 			break;
 
-		case TEST_SEND_AND_RECEIVE:
+		case SEND_RECEIVE_OPERATION:
 			// Calculate receive budget for even blocks
 			if(budgetR > (int)m_max_rdma_wr_per_thread){ budgetR = m_max_rdma_wr_per_thread; }
 			totalBudget -= budgetR;
@@ -278,7 +278,7 @@ void rdma::BandwidthPerfServerThread::run() {
 
 
 
-rdma::BandwidthPerfTest::BandwidthPerfTest(bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, std::string ownIpPort, std::string sequencerIpPort, int local_gpu_index, int remote_gpu_index, int thread_count, uint64_t packet_size, int buffer_slots, uint64_t iterations_per_thread, WriteMode write_mode) : PerfTest(){
+rdma::BandwidthPerfTest::BandwidthPerfTest(int testOperations, bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, std::string ownIpPort, std::string sequencerIpPort, int local_gpu_index, int remote_gpu_index, int thread_count, uint64_t packet_size, int buffer_slots, uint64_t iterations_per_thread, WriteMode write_mode) : PerfTest(testOperations){
 	this->m_is_server = is_server;
 	this->m_rdma_port = rdma_port;
 	this->m_ownIpPort = ownIpPort;
@@ -321,8 +321,8 @@ std::string rdma::BandwidthPerfTest::getTestParameters(){
 	return getTestParameters(false);
 }
 
-void rdma::BandwidthPerfTest::makeThreadsReady(TestMode testMode){
-	BandwidthPerfTest::testMode = testMode;
+void rdma::BandwidthPerfTest::makeThreadsReady(TestOperation testOperation){
+	BandwidthPerfTest::testOperation = testOperation;
 	BandwidthPerfTest::signaled = false;
 	for(BandwidthPerfServerThread* perfThread : m_server_threads){
 		perfThread->start();
@@ -402,15 +402,19 @@ void rdma::BandwidthPerfTest::runTest(){
 		// waiting until clients have connected to sync
 		while(m_server->getConnectedConnIDs().size() < (size_t)m_thread_count) usleep(Config::RDMA_SLEEP_INTERVAL);
 		
-		makeThreadsReady(TEST_WRITE); // receive
-		//auto startReceive = rdma::PerfTest::startTimer();
-        runThreads();
-		//m_elapsedReceiveMs = rdma::PerfTest::stopTimer(startReceive);
+		if(hasTestOperation(WRITE_OPERATION)){
+			makeThreadsReady(WRITE_OPERATION); // receive
+			//auto startReceive = rdma::PerfTest::startTimer();
+			runThreads();
+			//m_elapsedReceiveMs = rdma::PerfTest::stopTimer(startReceive);
+		}
 		
-		makeThreadsReady(TEST_SEND_AND_RECEIVE); // receive
-		//auto startReceive = rdma::PerfTest::startTimer();
-        runThreads();
-		//m_elapsedReceiveMs = rdma::PerfTest::stopTimer(startReceive);
+		if(hasTestOperation(SEND_RECEIVE_OPERATION)){
+			makeThreadsReady(SEND_RECEIVE_OPERATION); // receive
+			//auto startReceive = rdma::PerfTest::startTimer();
+			runThreads();
+			//m_elapsedReceiveMs = rdma::PerfTest::stopTimer(startReceive);
+		}
 
 		// wait until server is done
 		while (m_server->isRunning() && m_server->getConnectedConnIDs().size() > 0) usleep(Config::RDMA_SLEEP_INTERVAL);
@@ -421,24 +425,30 @@ void rdma::BandwidthPerfTest::runTest(){
 
 
         // Measure bandwidth for writing
-		makeThreadsReady(TEST_WRITE); // write
-		usleep(4 * Config::RDMA_SLEEP_INTERVAL); // let server first post the receives
-		auto startWrite = rdma::PerfTest::startTimer();
-        runThreads();
-		m_elapsedWriteMs = rdma::PerfTest::stopTimer(startWrite);
+		if(hasTestOperation(WRITE_OPERATION)){
+			makeThreadsReady(WRITE_OPERATION); // write
+			usleep(4 * Config::RDMA_SLEEP_INTERVAL); // let server first post the receives
+			auto startWrite = rdma::PerfTest::startTimer();
+			runThreads();
+			m_elapsedWriteMs = rdma::PerfTest::stopTimer(startWrite);
+		}
 
 		// Measure bandwidth for reading
-		makeThreadsReady(TEST_READ); // read
-		auto startRead = rdma::PerfTest::startTimer();
-        runThreads();
-		m_elapsedReadMs = rdma::PerfTest::stopTimer(startRead);
+		if(hasTestOperation(READ_OPERATION)){
+			makeThreadsReady(READ_OPERATION); // read
+			auto startRead = rdma::PerfTest::startTimer();
+			runThreads();
+			m_elapsedReadMs = rdma::PerfTest::stopTimer(startRead);
+		}
 
-		// Measure bandwidth for sending
-		makeThreadsReady(TEST_SEND_AND_RECEIVE); // send
-		usleep(4 * Config::RDMA_SLEEP_INTERVAL); // let server first post the receives
-		auto startSend = rdma::PerfTest::startTimer();
-        runThreads();
-		m_elapsedSendMs = rdma::PerfTest::stopTimer(startSend);
+		if(hasTestOperation(SEND_RECEIVE_OPERATION)){
+			// Measure bandwidth for sending
+			makeThreadsReady(SEND_RECEIVE_OPERATION); // send
+			usleep(4 * Config::RDMA_SLEEP_INTERVAL); // let server first post the receives
+			auto startSend = rdma::PerfTest::startTimer();
+			runThreads();
+			m_elapsedSendMs = rdma::PerfTest::stopTimer(startSend);
+		}
 	}
 }
 
@@ -452,7 +462,7 @@ std::string rdma::BandwidthPerfTest::getTestResults(std::string csvFileName, boo
 			Each thread computes  iterations_per_thread = total_iterations / n
 			Each thread takes  n  times more time compared to a single thread
 			 Bandwidth 	= transferedBytes / elapsedTime
-						= (n * iterations_per_thread * packetSize) / (elapsedTime_per_thread / n)
+						= (n * iterations_per_thread * packetSize) / (elapsedTime_per_thread)
 		*/
 
 		const long double tu = (long double)NANO_SEC; // 1sec (nano to seconds as time unit)
@@ -501,71 +511,93 @@ std::string rdma::BandwidthPerfTest::getTestResults(std::string csvFileName, boo
 			ofs << rdma::CSV_PRINT_NOTATION << rdma::CSV_PRINT_PRECISION;
 			if(csvAddHeader){
 				ofs << std::endl << "BANDWIDTH, " << getTestParameters(true) << std::endl;
-				ofs << "PacketSize [Bytes], Transfered [Bytes], Write [GB/s], Read [GB/s], Send/Recv [GB/s], ";
-				ofs << "Min Write [GB/s], Min Read [GB/s], Min Send/Recv [GB/s], ";
-				ofs << "Max Write [GB/s], Max Read [GB/s], Max Send/Recv [GB/s], ";
-				ofs << "Avg Write [GB/s], Avg Read [GB/s], Avg Send/Recv [GB/s], ";
-				ofs << "Median Write [GB/s], Median Read [GB/s], Median Send/Recv [GB/s], ";
-				ofs << "Write [Sec], Read [Sec], Send/Recv [Sec], ";
-				ofs << "Min Write [Sec], Min Read [Sec], Min Send/Recv [Sec], ";
-				ofs << "Max Write [Sec], Max Read [Sec], Max Send/Recv [Sec], ";
-				ofs << "Avg Write [Sec], Avg Read [Sec], Avg Send/Recv [Sec], ";
-				ofs << "Median Write [Sec], Median Read [Sec], Median Send/Recv [Sec]" << std::endl;
+				ofs << "PacketSize [Bytes], Transfered [Bytes]";
+				if(hasTestOperation(WRITE_OPERATION)){
+					ofs << ", Write [GB/s], Min Write [GB/s],Max Write [GB/s], Avg Write [GB/s], Median Write [GB/s], ";
+					ofs << "Write [Sec], Min Write [Sec], Max Write [Sec], Avg Write [Sec], Median Write [Sec]";
+				}
+				if(hasTestOperation(READ_OPERATION)){
+					ofs << ", Read [GB/s], Min Read [GB/s], Max Read [GB/s], Avg Read [GB/s], Median Read [GB/s], ";
+					ofs << "Read [Sec], Min Read [Sec], Max Read [Sec], Avg Read [Sec], Median Read [Sec]";
+				}
+				if(hasTestOperation(SEND_RECEIVE_OPERATION)){
+					ofs << ", Send/Recv [GB/s], Min Send/Recv [GB/s], Max Send/Recv [GB/s], Avg Send/Recv [GB/s], Median Send/Recv [GB/s], ";
+					ofs << "Send/Recv [Sec], Min Send/Recv [Sec], Max Send/Recv [Sec], Avg Send/Recv [Sec], Median Send/Recv [Sec]";
+				}
+				ofs << std::endl;
 			}
-			ofs << m_packet_size << ", " << transferedBytes << ", "; // packet size Bytes
-			ofs << (round(transferedBytes*tu/su/m_elapsedWriteMs * 100000)/100000.0) << ", "; // write GB/s
-			ofs << (round(transferedBytes*tu/su/m_elapsedReadMs * 100000)/100000.0) << ", "; // read GB/s
-			ofs << (round(transferedBytes*tu/su/m_elapsedSendMs * 100000)/100000.0) << ", "; // send/recv GB/s
-			ofs << (round(transferedBytes*tu/su/maxWriteMs * 100000)/100000.0) << ", "; // min write GB/s
-			ofs << (round(transferedBytes*tu/su/maxReadMs * 100000)/100000.0) << ", "; // min read GB/s
-			ofs << (round(transferedBytes*tu/su/maxSendMs * 100000)/100000.0) << ", "; // min send/recv GB/s
-			ofs << (round(transferedBytes*tu/su/minWriteMs * 100000)/100000.0) << ", "; // max write GB/s
-			ofs << (round(transferedBytes*tu/su/minReadMs * 100000)/100000.0) << ", "; // max read GB/s
-			ofs << (round(transferedBytes*tu/su/minSendMs * 100000)/100000.0) << ", "; // max send/recv GB/s
-			ofs << (round(transferedBytes*tu/su/avgWriteMs * 100000)/100000.0) << ", "; // avg write GB/s
-			ofs << (round(transferedBytes*tu/su/avgReadMs * 100000)/100000.0) << ", "; // avg read GB/s
-			ofs << (round(transferedBytes*tu/su/avgSendMs * 100000)/100000.0) << ", "; // avg send/recv GB/s
-			ofs << (round(transferedBytes*tu/su/medianWriteMs * 100000)/100000.0) << ", "; // median write GB/s
-			ofs << (round(transferedBytes*tu/su/medianReadMs * 100000)/100000.0) << ", "; // median read GB/s
-			ofs << (round(transferedBytes*tu/su/medianSendMs * 100000)/100000.0) << ", "; // median send/recv GB/s
-			ofs << (round(m_elapsedWriteMs/tu * 100000)/100000.0) << ", " << (round(m_elapsedReadMs/tu * 100000)/100000.0) << ", "; // write, read Sec
-			ofs << (round(m_elapsedSendMs/tu * 100000)/100000.0) << ", "; // send Sec
-			ofs << (round(minWriteMs/tu * 100000)/100000.0) << ", " << (round(minReadMs/tu * 100000)/100000.0) << ", "; // min write, read Sec
-			ofs << (round(minSendMs/tu * 100000)/100000.0) << ", "; // min send Sec
-			ofs << (round(maxWriteMs/tu * 100000)/100000.0) << ", " << (round(maxReadMs/tu * 100000)/100000.0) << ", "; // max write, read Sec
-			ofs << (round(maxSendMs/tu * 100000)/100000.0) << ", "; // max send Sec
-			ofs << (round(avgWriteMs/tu * 100000)/100000.0) << ", " << (round(avgReadMs/tu * 100000)/100000.0) << ", "; // avg write, read Sec
-			ofs << (round(avgSendMs/tu * 100000)/100000.0) << ", "; // avg send Sec
-			ofs << (round(medianWriteMs/tu * 100000)/100000.0) << ", " << (round(medianReadMs/tu * 100000)/100000.0) << ", "; // median write, read Sec
-			ofs << (round(medianSendMs/tu * 100000)/100000.0) << std::endl; // median send Sec
-			ofs.close();
+			ofs << m_packet_size << ", " << transferedBytes; // packet size Bytes
+			if(hasTestOperation(WRITE_OPERATION)){
+				ofs << ", " << (round(transferedBytes*tu/su/m_elapsedWriteMs * 100000)/100000.0) << ", "; // write GB/s
+				ofs << (round(transferedBytes*tu/su/maxWriteMs * 100000)/100000.0) << ", "; // min write GB/s
+				ofs << (round(transferedBytes*tu/su/minWriteMs * 100000)/100000.0) << ", "; // max write GB/s
+				ofs << (round(transferedBytes*tu/su/avgWriteMs * 100000)/100000.0) << ", "; // avg write GB/s
+				ofs << (round(transferedBytes*tu/su/medianWriteMs * 100000)/100000.0) << ", "; // median write GB/s
+				ofs << (round(m_elapsedWriteMs/tu * 100000)/100000.0) << ", " ; // write Sec
+				ofs << (round(minWriteMs/tu * 100000)/100000.0) << ", "; // min write Sec
+				ofs << (round(maxWriteMs/tu * 100000)/100000.0) << ", "; // max write Sec
+				ofs << (round(avgWriteMs/tu * 100000)/100000.0) << ", "; // avg write Sec
+				ofs << (round(medianWriteMs/tu * 100000)/100000.0); // median write Sec
+			}
+			if(hasTestOperation(READ_OPERATION)){
+				ofs << ", " << (round(transferedBytes*tu/su/m_elapsedReadMs * 100000)/100000.0) << ", "; // read GB/s
+				ofs << (round(transferedBytes*tu/su/maxReadMs * 100000)/100000.0) << ", "; // min read GB/s
+				ofs << (round(transferedBytes*tu/su/minReadMs * 100000)/100000.0) << ", "; // max read GB/s
+				ofs << (round(transferedBytes*tu/su/avgReadMs * 100000)/100000.0) << ", "; // avg read GB/s
+				ofs << (round(transferedBytes*tu/su/medianReadMs * 100000)/100000.0) << ", "; // median read GB/s
+				ofs << (round(m_elapsedReadMs/tu * 100000)/100000.0) << ", "; // read Sec
+				ofs << (round(minReadMs/tu * 100000)/100000.0) << ", "; // min read Sec
+				ofs << (round(maxReadMs/tu * 100000)/100000.0) << ", "; // max read Sec
+				ofs << (round(avgReadMs/tu * 100000)/100000.0) << ", "; // avg read Sec
+				ofs << (round(medianReadMs/tu * 100000)/100000.0); // median read Sec
+			}
+			if(hasTestOperation(SEND_RECEIVE_OPERATION)){
+				ofs << ", " << (round(transferedBytes*tu/su/m_elapsedSendMs * 100000)/100000.0) << ", "; // send/recv GB/s
+				ofs << (round(transferedBytes*tu/su/maxSendMs * 100000)/100000.0) << ", "; // min send/recv GB/s
+				ofs << (round(transferedBytes*tu/su/minSendMs * 100000)/100000.0) << ", "; // max send/recv GB/s
+				ofs << (round(transferedBytes*tu/su/avgSendMs * 100000)/100000.0) << ", "; // avg send/recv GB/s
+				ofs << (round(transferedBytes*tu/su/medianSendMs * 100000)/100000.0) << ", "; // median send/recv GB/s
+				ofs << (round(m_elapsedSendMs/tu * 100000)/100000.0) << ", "; // send Sec
+				ofs << (round(minSendMs/tu * 100000)/100000.0) << ", "; // min send Sec
+				ofs << (round(maxSendMs/tu * 100000)/100000.0) << ", "; // max send Sec
+				ofs << (round(avgSendMs/tu * 100000)/100000.0) << ", "; // avg send Sec
+				ofs << (round(medianSendMs/tu * 100000)/100000.0); // median send Sec
+			}
+
+			ofs << std::endl; ofs.close();
 		}
 
 		// generate result string
 		std::ostringstream oss;
 		oss << rdma::CONSOLE_PRINT_NOTATION << rdma::CONSOLE_PRINT_PRECISION;
 		oss << "transfered = " << rdma::PerfTest::convertByteSize(transferedBytes) << std::endl;
-		oss << " - Write:         bandwidth = " << rdma::PerfTest::convertBandwidth(transferedBytes*tu/m_elapsedWriteMs); 
-		oss << "  (range = " << rdma::PerfTest::convertBandwidth(transferedBytes*tu/maxWriteMs) << " - " << rdma::PerfTest::convertBandwidth(transferedBytes*tu/minWriteMs);
-		oss << " ; avg=" << rdma::PerfTest::convertBandwidth(transferedBytes*tu/avgWriteMs) << " ; median=";
-		oss << rdma::PerfTest::convertBandwidth(transferedBytes*tu/minWriteMs) << ")";
-		oss << "   &   time = " << rdma::PerfTest::convertTime(m_elapsedWriteMs) << "  (range=";
-		oss << rdma::PerfTest::convertTime(minWriteMs) << "-" << rdma::PerfTest::convertTime(maxWriteMs);
-		oss << " ; avg=" << rdma::PerfTest::convertTime(avgWriteMs) << " ; median=" << rdma::PerfTest::convertTime(medianWriteMs) << ")" << std::endl;
-		oss << " - Read:          bandwidth = " << rdma::PerfTest::convertBandwidth(transferedBytes*tu/m_elapsedReadMs);
-		oss << "  (range = " << rdma::PerfTest::convertBandwidth(transferedBytes*tu/maxReadMs) << " - " << rdma::PerfTest::convertBandwidth(transferedBytes*tu/minReadMs);
-		oss << " ; avg=" << rdma::PerfTest::convertBandwidth(transferedBytes*tu/avgReadMs) << " ; median=";
-		oss << rdma::PerfTest::convertBandwidth(transferedBytes*tu/minReadMs) << ")";
-		oss << "   &   time = " << rdma::PerfTest::convertTime(m_elapsedReadMs) << "  (range=";
-		oss << rdma::PerfTest::convertTime(minReadMs) << "-" << rdma::PerfTest::convertTime(maxReadMs);
-		oss << " ; avg=" << rdma::PerfTest::convertTime(avgReadMs) << " ; median=" << rdma::PerfTest::convertTime(medianReadMs) << ")" << std::endl;
-		oss << " - Send:          bandwidth = " << rdma::PerfTest::convertBandwidth(transferedBytes*tu/m_elapsedSendMs);
-		oss << "  (range = " << rdma::PerfTest::convertBandwidth(transferedBytes*tu/maxSendMs) << " - " << rdma::PerfTest::convertBandwidth(transferedBytes*tu/minSendMs);
-		oss << " ; avg=" << rdma::PerfTest::convertBandwidth(transferedBytes*tu/avgSendMs) << " ; median=";
-		oss << rdma::PerfTest::convertBandwidth(transferedBytes*tu/minSendMs) << ")";
-		oss << "   &   time = " << rdma::PerfTest::convertTime(m_elapsedSendMs) << "  (range=";
-		oss << rdma::PerfTest::convertTime(minSendMs) << "-" << rdma::PerfTest::convertTime(maxSendMs);
-		oss << " ; avg=" << rdma::PerfTest::convertTime(avgSendMs) << " ; median=" << rdma::PerfTest::convertTime(medianSendMs) << ")" << std::endl;
+		if(hasTestOperation(WRITE_OPERATION)){
+			oss << " - Write:         bandwidth = " << rdma::PerfTest::convertBandwidth(transferedBytes*tu/m_elapsedWriteMs); 
+			oss << "  (range = " << rdma::PerfTest::convertBandwidth(transferedBytes*tu/maxWriteMs) << " - " << rdma::PerfTest::convertBandwidth(transferedBytes*tu/minWriteMs);
+			oss << " ; avg=" << rdma::PerfTest::convertBandwidth(transferedBytes*tu/avgWriteMs) << " ; median=";
+			oss << rdma::PerfTest::convertBandwidth(transferedBytes*tu/minWriteMs) << ")";
+			oss << "   &   time = " << rdma::PerfTest::convertTime(m_elapsedWriteMs) << "  (range=";
+			oss << rdma::PerfTest::convertTime(minWriteMs) << "-" << rdma::PerfTest::convertTime(maxWriteMs);
+			oss << " ; avg=" << rdma::PerfTest::convertTime(avgWriteMs) << " ; median=" << rdma::PerfTest::convertTime(medianWriteMs) << ")" << std::endl;
+		}
+		if(hasTestOperation(READ_OPERATION)){
+			oss << " - Read:          bandwidth = " << rdma::PerfTest::convertBandwidth(transferedBytes*tu/m_elapsedReadMs);
+			oss << "  (range = " << rdma::PerfTest::convertBandwidth(transferedBytes*tu/maxReadMs) << " - " << rdma::PerfTest::convertBandwidth(transferedBytes*tu/minReadMs);
+			oss << " ; avg=" << rdma::PerfTest::convertBandwidth(transferedBytes*tu/avgReadMs) << " ; median=";
+			oss << rdma::PerfTest::convertBandwidth(transferedBytes*tu/minReadMs) << ")";
+			oss << "   &   time = " << rdma::PerfTest::convertTime(m_elapsedReadMs) << "  (range=";
+			oss << rdma::PerfTest::convertTime(minReadMs) << "-" << rdma::PerfTest::convertTime(maxReadMs);
+			oss << " ; avg=" << rdma::PerfTest::convertTime(avgReadMs) << " ; median=" << rdma::PerfTest::convertTime(medianReadMs) << ")" << std::endl;
+		}
+		if(hasTestOperation(SEND_RECEIVE_OPERATION)){
+			oss << " - Send:          bandwidth = " << rdma::PerfTest::convertBandwidth(transferedBytes*tu/m_elapsedSendMs);
+			oss << "  (range = " << rdma::PerfTest::convertBandwidth(transferedBytes*tu/maxSendMs) << " - " << rdma::PerfTest::convertBandwidth(transferedBytes*tu/minSendMs);
+			oss << " ; avg=" << rdma::PerfTest::convertBandwidth(transferedBytes*tu/avgSendMs) << " ; median=";
+			oss << rdma::PerfTest::convertBandwidth(transferedBytes*tu/minSendMs) << ")";
+			oss << "   &   time = " << rdma::PerfTest::convertTime(m_elapsedSendMs) << "  (range=";
+			oss << rdma::PerfTest::convertTime(minSendMs) << "-" << rdma::PerfTest::convertTime(maxSendMs);
+			oss << " ; avg=" << rdma::PerfTest::convertTime(avgSendMs) << " ; median=" << rdma::PerfTest::convertTime(medianSendMs) << ")" << std::endl;
+		}
 		return oss.str();
 
 	}

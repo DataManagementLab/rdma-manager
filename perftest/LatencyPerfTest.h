@@ -69,7 +69,7 @@ private:
 
 class LatencyPerfTest : public rdma::PerfTest {
 public:
-    LatencyPerfTest(bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, std::string ownIpPort, std::string sequencerIpPort, int local_gpu_index, int remote_gpu_index, int thread_count, uint64_t packet_size, int buffer_slots, uint64_t iterations_per_thread, WriteMode write_mode);
+    LatencyPerfTest(int testOperations, bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, std::string ownIpPort, std::string sequencerIpPort, int local_gpu_index, int remote_gpu_index, int thread_count, uint64_t packet_size, int buffer_slots, uint64_t iterations_per_thread, WriteMode write_mode);
 	virtual ~LatencyPerfTest();
 	std::string getTestParameters();
 	void setupTest();
@@ -81,7 +81,7 @@ public:
 	static mutex waitLock;
 	static condition_variable waitCv;
 	static bool signaled;
-	static TestMode testMode;
+	static TestOperation testOperation;
 	static int thread_count;
 
 private:
@@ -106,7 +106,7 @@ private:
 	RDMAServer<ReliableRDMA>* m_server;
 
 	std::string getTestParameters(bool forCSV);
-	void makeThreadsReady(TestMode testMode);
+	void makeThreadsReady(TestOperation testOperatione);
 	void runThreads();
 };
 

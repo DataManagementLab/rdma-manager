@@ -11,7 +11,7 @@
 mutex rdma::AtomicsOperationsCountPerfTest::waitLock;
 condition_variable rdma::AtomicsOperationsCountPerfTest::waitCv;
 bool rdma::AtomicsOperationsCountPerfTest::signaled;
-rdma::TestMode rdma::AtomicsOperationsCountPerfTest::testMode;
+rdma::TestOperation rdma::AtomicsOperationsCountPerfTest::testOperation;
 
 rdma::AtomicsOperationsCountPerfClientThread::AtomicsOperationsCountPerfClientThread(BaseMemory *memory, std::vector<std::string>& rdma_addresses, std::string ownIpPort, std::string sequencerIpPort, int buffer_slots, size_t iterations_per_thread) {
 	this->m_client = new RDMAClient<ReliableRDMA>(memory, "AtomicsOperationsCountPerfTestClient", ownIpPort, sequencerIpPort);
@@ -58,8 +58,8 @@ void rdma::AtomicsOperationsCountPerfClientThread::run() {
 	}
 	lck.unlock();
 	auto start = rdma::PerfTest::startTimer();
-	switch(AtomicsOperationsCountPerfTest::testMode){
-		case TEST_FETCH_AND_ADD: // Fetch & Add
+	switch(AtomicsOperationsCountPerfTest::testOperation){
+		case FETCH_ADD_OPERATION: // Fetch & Add
 			for(size_t i = 0; i < m_iterations_per_thread; i++){
 				size_t connIdx = i % m_rdma_addresses.size();
 				bool signaled = (i == (m_iterations_per_thread - 1) || (i+1)%Config::RDMA_MAX_WR==0);
@@ -68,7 +68,7 @@ void rdma::AtomicsOperationsCountPerfClientThread::run() {
 			}
 			m_elapsedFetchAdd = rdma::PerfTest::stopTimer(start);
 			break;
-		case TEST_COMPARE_AND_SWAP: // Compare & Swap
+		case COMPARE_SWAP_OPERATION: // Compare & Swap
 			for(size_t i = 0; i < m_iterations_per_thread; i++){
 				size_t connIdx = i % m_rdma_addresses.size();
 				bool signaled = (i == (m_iterations_per_thread - 1) || (i+1)%Config::RDMA_MAX_WR==0);
@@ -84,7 +84,7 @@ void rdma::AtomicsOperationsCountPerfClientThread::run() {
 
 
 
-rdma::AtomicsOperationsCountPerfTest::AtomicsOperationsCountPerfTest(bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, std::string ownIpPort, std::string sequencerIpPort, int local_gpu_index, int remote_gpu_index, int thread_count, int buffer_slots, uint64_t iterations_per_thread) : PerfTest(){
+rdma::AtomicsOperationsCountPerfTest::AtomicsOperationsCountPerfTest(int testOperations, bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, std::string ownIpPort, std::string sequencerIpPort, int local_gpu_index, int remote_gpu_index, int thread_count, int buffer_slots, uint64_t iterations_per_thread) : PerfTest(testOperations){
 	this->m_is_server = is_server;
 	this->m_rdma_port = rdma_port;
 	this->m_ownIpPort = ownIpPort;
@@ -120,8 +120,8 @@ std::string rdma::AtomicsOperationsCountPerfTest::getTestParameters(){
 	return getTestParameters(false);
 }
 
-void rdma::AtomicsOperationsCountPerfTest::makeThreadsReady(TestMode testMode){
-	AtomicsOperationsCountPerfTest::testMode = testMode;
+void rdma::AtomicsOperationsCountPerfTest::makeThreadsReady(TestOperation testOperation){
+	AtomicsOperationsCountPerfTest::testOperation = testOperation;
 	AtomicsOperationsCountPerfTest::signaled = false;
 	for(AtomicsOperationsCountPerfClientThread* perfThread : m_client_threads){
 		perfThread->start();
@@ -193,16 +193,20 @@ void rdma::AtomicsOperationsCountPerfTest::runTest(){
 		// Client
 
 		// Measure operations/s for fetching & adding
-		makeThreadsReady(TEST_FETCH_AND_ADD); // fetch & add
-		auto startFetchAdd = rdma::PerfTest::startTimer();
-        runThreads();
-		m_elapsedFetchAdd = rdma::PerfTest::stopTimer(startFetchAdd); 
+		if(hasTestOperation(FETCH_ADD_OPERATION)){
+			makeThreadsReady(FETCH_ADD_OPERATION); // fetch & add
+			auto startFetchAdd = rdma::PerfTest::startTimer();
+			runThreads();
+			m_elapsedFetchAdd = rdma::PerfTest::stopTimer(startFetchAdd); 
+		}
 
 		// Measure operations/s for comparing & swaping
-		makeThreadsReady(TEST_COMPARE_AND_SWAP); // compare & swap
-		auto startCompareSwap = rdma::PerfTest::startTimer();
-        runThreads();
-		m_elapsedCompareSwap = rdma::PerfTest::stopTimer(startCompareSwap);
+		if(hasTestOperation(COMPARE_SWAP_OPERATION)){
+			makeThreadsReady(COMPARE_SWAP_OPERATION); // compare & swap
+			auto startCompareSwap = rdma::PerfTest::startTimer();
+			runThreads();
+			m_elapsedCompareSwap = rdma::PerfTest::stopTimer(startCompareSwap);
+		}
 	}
 }
 
@@ -216,7 +220,7 @@ std::string rdma::AtomicsOperationsCountPerfTest::getTestResults(std::string csv
 			Each thread computes  iterations_per_thread = total_iterations / n
 			Each thread takes  n  times more time compared to a single thread
 			Operations/sec	= iterations / elapsedTime
-							= (n * iterations_per_thread) / (elpasedTime_per_thread / n)
+							= (n * iterations_per_thread) / (elpasedTime_per_thread)
 		*/
 
 		const long double tu = (long double)NANO_SEC; // 1sec (nano to seconds as time unit)
@@ -256,29 +260,43 @@ std::string rdma::AtomicsOperationsCountPerfTest::getTestResults(std::string csv
 			ofs << rdma::CSV_PRINT_NOTATION << rdma::CSV_PRINT_PRECISION;
 			if(csvAddHeader){
 				ofs << std::endl << "ATOMICS OPERATIONS COUNT, " << getTestParameters(true) << std::endl;
-				ofs << "Iterations, Fetch&Add [megaOp/s], Comp&Swap [megaOp/s], Min Fetch&Add [megaOp/s], Min Comp&Swap [megaOp/s], ";
-				ofs << "Max Fetch&Add [megaOp/s], Max Comp&Swap [megaOp/s], Avg Fetch&Add [megaOp/s], Avg Comp&Swap [megaOp/s], ";
-				ofs << "Median Fetch&Add [megaOp/s], Median Comp&Swap [megaOp/s], Fetch&Add [Sec], Comp&Swap [Sec], ";
-				ofs << "Min Fetch&Add [Sec], Min Comp&Swap [Sec], Max Fetch&Add [Sec], Max Comp&Swap [Sec], ";
-				ofs << "Avg Fetch&Add [Sec], Avg Comp&Swap [Sec], Median Fetch&Add [Sec], Median Comp&Swap [Sec]" << std::endl;
+				ofs << "Iterations";
+				if(hasTestOperation(FETCH_ADD_OPERATION)){
+					ofs << ", Fetch&Add [megaOp/s], Avg Fetch&Add [megaOp/s], Median Fetch&Add [megaOp/s], Min Fetch&Add [megaOp/s], Max Fetch&Add [megaOp/s], ";
+					ofs << "Fetch&Add [Sec], Avg Fetch&Add [Sec], Median Fetch&Add [Sec], Min Fetch&Add [Sec], Max Fetch&Add [Sec]";
+				}
+				if(hasTestOperation(COMPARE_SWAP_OPERATION)){
+					ofs << ", Comp&Swap [megaOp/s], Avg Comp&Swap [megaOp/s], Median Comp&Swap [megaOp/s], Min Comp&Swap [megaOp/s], Max Comp&Swap [megaOp/s], ";
+					ofs << "Comp&Swap [Sec], Avg Comp&Swap [Sec], Median Comp&Swap [Sec], Min Comp&Swap [Sec], Max Comp&Swap [Sec]";
+				}
+				ofs << std::endl;
 			}
-			ofs << iters << ", ";
-			ofs << (round(iters*tu/su/m_elapsedFetchAdd * 100000)/100000.0) << ", "; // fetch&add Op/s
-			ofs << (round(iters*tu/su/m_elapsedCompareSwap * 100000)/100000.0) << ", "; // comp&swap Op/s
-			ofs << (round(iters*tu/su/maxFetchAdd * 100000)/100000.0) << ", "; // min fetch&add Op/s
-			ofs << (round(iters*tu/su/maxCompareSwap * 100000)/100000.0) << ", "; // min comp&swap Op/s
-			ofs << (round(iters*tu/su/minFetchAdd * 100000)/100000.0) << ", "; // max fetch&add Op/s
-			ofs << (round(iters*tu/su/minCompareSwap * 100000)/100000.0) << ", "; // max comp&swap Op/s
-			ofs << (round(iters*tu/su/avgFetchAdd * 100000)/100000.0) << ", "; // avg fetch&add Op/s
-			ofs << (round(iters*tu/su/avgCompareSwap * 100000)/100000.0) << ", "; // avg comp&swap Op/s
-			ofs << (round(iters*tu/su/medianFetchAdd * 100000)/100000.0) << ", "; // median fetch&add Op/s
-			ofs << (round(iters*tu/su/medianCompareSwap * 100000)/100000.0) << ", "; // median comp&swap Op/s
-			ofs << (round(m_elapsedFetchAdd/tu * 100000)/100000.0) << ", " << (round(m_elapsedCompareSwap/tu * 100000)/100000.0) << ", "; // fetch&add, comp&swap Sec
-			ofs << (round(minFetchAdd/tu * 100000)/100000.0) << ", " << (round(minCompareSwap/tu * 100000)/100000.0) << ", "; // min fetch&add, comp&swap Sec
-			ofs << (round(maxFetchAdd/tu * 100000)/100000.0) << ", " << (round(maxCompareSwap/tu * 100000)/100000.0) << ", "; // max fetch&add, comp&swap Sec
-			ofs << (round(avgFetchAdd/tu * 100000)/100000.0) << ", " << (round(avgCompareSwap/tu * 100000)/100000.0) << ", "; // avg fetch&add comp&swap Sec
-			ofs << (round(medianFetchAdd/tu * 100000)/100000.0) << ", " << (round(medianCompareSwap/tu * 100000)/100000.0) << std::endl; // median fetch&add, comp&swap Sec
-			ofs.close();
+			ofs << iters;
+			if(hasTestOperation(FETCH_ADD_OPERATION)){
+				ofs << ", " << (round(iters*tu/su/m_elapsedFetchAdd * 100000)/100000.0) << ", "; // fetch&add Op/s
+				ofs << (round(iters*tu/su/maxFetchAdd * 100000)/100000.0) << ", "; // min fetch&add Op/s
+				ofs << (round(iters*tu/su/minFetchAdd * 100000)/100000.0) << ", "; // max fetch&add Op/s
+				ofs << (round(iters*tu/su/avgFetchAdd * 100000)/100000.0) << ", "; // avg fetch&add Op/s
+				ofs << (round(iters*tu/su/medianFetchAdd * 100000)/100000.0) << ", "; // median fetch&add Op/s
+				ofs << (round(m_elapsedFetchAdd/tu * 100000)/100000.0) << ", "; // fetch&add Op/s
+				ofs << (round(minFetchAdd/tu * 100000)/100000.0) << ", "; // min fetch&add Op/s
+				ofs << (round(maxFetchAdd/tu * 100000)/100000.0) << ", "; // max fetch&add Op/s
+				ofs << (round(avgFetchAdd/tu * 100000)/100000.0) << ", "; // avg fetch&add Op/s
+				ofs << (round(medianFetchAdd/tu * 100000)/100000.0); // median fetch&add Op/s
+			}
+			if(hasTestOperation(COMPARE_SWAP_OPERATION)){
+				ofs << ", " << (round(iters*tu/su/m_elapsedCompareSwap * 100000)/100000.0) << ", "; // comp&swap Op/s
+				ofs << (round(iters*tu/su/avgCompareSwap * 100000)/100000.0) << ", "; // avg comp&swap Op/s
+				ofs << (round(iters*tu/su/medianCompareSwap * 100000)/100000.0) << ", "; // median comp&swap Op/s
+				ofs << (round(iters*tu/su/maxCompareSwap * 100000)/100000.0) << ", "; // min comp&swap Op/s
+				ofs << (round(iters*tu/su/minCompareSwap * 100000)/100000.0) << ", "; // max comp&swap Op/s
+				ofs << (round(m_elapsedCompareSwap/tu * 100000)/100000.0) << ", "; // comp&swap Sec
+				ofs << (round(avgCompareSwap/tu * 100000)/100000.0) << ", "; // avg comp&swap Sec
+				ofs << (round(medianCompareSwap/tu * 100000)/100000.0); // median fetch&add, comp&swap Sec
+				ofs << (round(minCompareSwap/tu * 100000)/100000.0) << ", "; // min comp&swap Sec
+				ofs << (round(maxCompareSwap/tu * 100000)/100000.0) << ", "; // max comp&swap Sec
+			}
+			ofs << std::endl; ofs.close();
 		}
 
 		// generate result string

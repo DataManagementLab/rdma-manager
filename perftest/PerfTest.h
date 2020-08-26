@@ -11,7 +11,7 @@
 
 namespace rdma {
 
-enum TestMode { TEST_WRITE=0x00, TEST_READ=0x01, TEST_SEND_AND_RECEIVE=0x02, TEST_FETCH_AND_ADD=0x03, TEST_COMPARE_AND_SWAP=0x04 };
+enum TestOperation { WRITE_OPERATION=1, READ_OPERATION=2, SEND_RECEIVE_OPERATION=4, FETCH_ADD_OPERATION=8, COMPARE_SWAP_OPERATION=16 };
 enum WriteMode { WRITE_MODE_AUTO=0x00, WRITE_MODE_NORMAL=0x01, WRITE_MODE_IMMEDIATE=0x02 };
 const int ATOMICS_SIZE = 8; // 8 bytes = 64bit
 const uint64_t NANO_SEC = 1000000000;
@@ -21,7 +21,14 @@ const auto CSV_PRINT_NOTATION = std::fixed; // prevents scientific representatio
 const auto CSV_PRINT_PRECISION = std::setprecision(6); // decimal precision for numbers
 
 class PerfTest {
+protected:
+    PerfTest(int testOperations){
+        this->testOperations = testOperations;
+    }
+
 public:
+    int testOperations;
+
     virtual ~PerfTest() = default;
 
     virtual std::string getTestParameters() = 0;
@@ -31,6 +38,10 @@ public:
     virtual void runTest() = 0;
 
     virtual std::string getTestResults(std::string csvFileName="", bool csvAddHeader=true) = 0;
+
+    bool hasTestOperation(TestOperation op){
+        return testOperations == (testOperations | (int)op);
+    }
 
     static std::chrono::high_resolution_clock::time_point startTimer(){
         return std::chrono::high_resolution_clock::now();

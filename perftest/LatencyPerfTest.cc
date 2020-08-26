@@ -8,7 +8,7 @@
 mutex rdma::LatencyPerfTest::waitLock;
 condition_variable rdma::LatencyPerfTest::waitCv;
 bool rdma::LatencyPerfTest::signaled;
-rdma::TestMode rdma::LatencyPerfTest::testMode;
+rdma::TestOperation rdma::LatencyPerfTest::testOperation;
 int rdma::LatencyPerfTest::thread_count;
 
 
@@ -70,8 +70,8 @@ void rdma::LatencyPerfClientThread::run() {
 	volatile void *arrSend = nullptr;
 	volatile char value;
 	uint32_t localBaseOffset = (uint32_t)m_local_memory->getRootOffset();
-	switch(LatencyPerfTest::testMode){
-		case TEST_WRITE: // Write
+	switch(LatencyPerfTest::testOperation){
+		case WRITE_OPERATION: // Write
 			switch(m_write_mode){
 				case WRITE_MODE_NORMAL:
 					m_local_memory->setMemory(0);
@@ -121,7 +121,7 @@ void rdma::LatencyPerfClientThread::run() {
 			}
 			break;
 
-		case TEST_READ: // Read
+		case READ_OPERATION: // Read
 			for(size_t i = 0; i < m_iterations_per_thread; i++){
 				size_t connIdx = i % m_rdma_addresses.size();
 				int offset = (i % m_buffer_slots) * m_packet_size;
@@ -135,7 +135,7 @@ void rdma::LatencyPerfClientThread::run() {
 			}
 			break;
 
-		case TEST_SEND_AND_RECEIVE: // Send & Receive
+		case SEND_RECEIVE_OPERATION: // Send & Receive
 			for(size_t i = 0; i < m_rdma_addresses.size(); i++){
 				m_client->receive(m_addr[i], m_local_memory->pointer(), m_packet_size);
 			}
@@ -189,8 +189,8 @@ void rdma::LatencyPerfServerThread::run() {
 	volatile char value;
 	size_t sendOffset, receiveOffset;
 	uint32_t remoteBaseOffset = m_thread_id * 2 * m_memory_size_per_thread;
-	switch(LatencyPerfTest::testMode){
-		case TEST_WRITE: // Write
+	switch(LatencyPerfTest::testOperation){
+		case WRITE_OPERATION: // Write
 			switch(m_write_mode){
 				case WRITE_MODE_NORMAL:
 					for(size_t i = 0; i < m_iterations_per_thread; i++){
@@ -230,7 +230,7 @@ void rdma::LatencyPerfServerThread::run() {
 			}
 			break;
 
-		case TEST_SEND_AND_RECEIVE: // Send & Receive
+		case SEND_RECEIVE_OPERATION: // Send & Receive
 			m_server->receive(clientId, m_local_memory->pointer(), m_packet_size);
 			for(size_t i = 0; i < m_iterations_per_thread; i++){
 				int off = (i % m_buffer_slots) * m_packet_size, nextOff = ((i+1) % m_buffer_slots) * m_packet_size;
@@ -245,7 +245,7 @@ void rdma::LatencyPerfServerThread::run() {
 
 
 
-rdma::LatencyPerfTest::LatencyPerfTest(bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, std::string ownIpPort, std::string sequencerIpPort, int local_gpu_index, int remote_gpu_index, int thread_count, uint64_t packet_size, int buffer_slots, uint64_t iterations_per_thread, WriteMode write_mode) : PerfTest(){
+rdma::LatencyPerfTest::LatencyPerfTest(int testOperations, bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, std::string ownIpPort, std::string sequencerIpPort, int local_gpu_index, int remote_gpu_index, int thread_count, uint64_t packet_size, int buffer_slots, uint64_t iterations_per_thread, WriteMode write_mode) : PerfTest(testOperations){
 	this->m_is_server = is_server;
 	this->m_rdma_port = rdma_port;
 	this->m_ownIpPort = ownIpPort;
@@ -288,8 +288,8 @@ std::string rdma::LatencyPerfTest::getTestParameters(){
 	return getTestParameters(false);
 }
 
-void rdma::LatencyPerfTest::makeThreadsReady(TestMode testMode){
-	LatencyPerfTest::testMode = testMode;
+void rdma::LatencyPerfTest::makeThreadsReady(TestOperation testOperation){
+	LatencyPerfTest::testOperation = testOperation;
 	LatencyPerfTest::signaled = false;
 	for(LatencyPerfServerThread* perfThread : m_server_threads){
 		perfThread->start();
@@ -365,12 +365,16 @@ void rdma::LatencyPerfTest::runTest(){
 		while(m_server->getConnectedConnIDs().size() < (size_t)thread_count) usleep(Config::RDMA_SLEEP_INTERVAL);
 
 		// Measure Latency for writing
-		makeThreadsReady(TEST_WRITE);
-        runThreads();
+		if(hasTestOperation(WRITE_OPERATION)){
+			makeThreadsReady(WRITE_OPERATION);
+			runThreads();
+		}
 
 		// Measure Latency for receiving
-		makeThreadsReady(TEST_SEND_AND_RECEIVE); // receive
-        runThreads();
+		if(hasTestOperation(SEND_RECEIVE_OPERATION)){
+			makeThreadsReady(SEND_RECEIVE_OPERATION); // receive
+			runThreads();
+		}
 
 		// wait until server is done
 		while (m_server->isRunning() && m_server->getConnectedConnIDs().size() > 0) usleep(Config::RDMA_SLEEP_INTERVAL);
@@ -380,19 +384,25 @@ void rdma::LatencyPerfTest::runTest(){
 		// Client
 
         // Measure Latency for writing
-		makeThreadsReady(TEST_WRITE); // write
-		usleep(4 * Config::RDMA_SLEEP_INTERVAL); // let server first post the receives
-        runThreads();
+		if(hasTestOperation(WRITE_OPERATION)){
+			makeThreadsReady(WRITE_OPERATION); // write
+			usleep(4 * Config::RDMA_SLEEP_INTERVAL); // let server first post the receives
+			runThreads();
+		}
 
 		// Measure Latency for reading
-		makeThreadsReady(TEST_READ); // read
-		usleep(Config::RDMA_SLEEP_INTERVAL); // let server first make ready (shouldn't be necessary)
-        runThreads();
+		if(hasTestOperation(READ_OPERATION)){
+			makeThreadsReady(READ_OPERATION); // read
+			usleep(Config::RDMA_SLEEP_INTERVAL); // let server first make ready (shouldn't be necessary)
+			runThreads();
+		}
 
 		// Measure Latency for sending
-		makeThreadsReady(TEST_SEND_AND_RECEIVE); // send
-		usleep(4 * Config::RDMA_SLEEP_INTERVAL); // let server first post the receives
-        runThreads();
+		if(hasTestOperation(SEND_RECEIVE_OPERATION)){
+			makeThreadsReady(SEND_RECEIVE_OPERATION); // send
+			usleep(4 * Config::RDMA_SLEEP_INTERVAL); // let server first post the receives
+			runThreads();
+		}
 	}
 }
 
@@ -406,7 +416,7 @@ std::string rdma::LatencyPerfTest::getTestResults(std::string csvFileName, bool 
 			Each thread computes  iterations_per_thread = total_iterations / n
 			Each thread takes  n  times more time compared to a single thread
 			  Latency 	= elapsedTime / iterations
-						= (elpasedTime_per_thread / n) / (n * iterations_per_thread)
+						= (elpasedTime_per_thread) / (n * iterations_per_thread)
 		*/
 
 		int64_t minWriteMs=std::numeric_limits<int64_t>::max(), maxWriteMs=-1, medianWriteMs=-1;
@@ -450,35 +460,57 @@ std::string rdma::LatencyPerfTest::getTestResults(std::string csvFileName, bool 
 			ofs << rdma::CSV_PRINT_NOTATION << rdma::CSV_PRINT_PRECISION;
 			if(csvAddHeader){
 				ofs << std::endl << "LATENCY, " << getTestParameters(true) << std::endl;
-				ofs << "PacketSize [Bytes], Avg Write [usec], Avg Read [usec], Avg Send/Recv [usec], ";
-				ofs << "Median Write [usec], Median Read [usec], Median Send/Recv [usec], ";
-				ofs << "Min Write [usec], Min Read [usec], Min Send/Recv [usec], ";
-				ofs << "Max Write [usec], Max Read [usec], Max Send/Recv [usec]" << std::endl;
+				ofs << "PacketSize [Bytes]";
+				if(hasTestOperation(WRITE_OPERATION)){
+					ofs << ", Avg Write [usec], Median Write [usec], Min Write [usec], Max Write [usec]";
+				}
+				if(hasTestOperation(READ_OPERATION)){
+					ofs << ", Avg Read [usec], Median Read [usec], Min Read [usec], Min Send/Recv [usec], Max Read [usec]";
+				}
+				if(hasTestOperation(SEND_RECEIVE_OPERATION)){
+					ofs << ", Avg Send/Recv [usec], Median Send/Recv [usec], Min Send/Recv [usec], Max Send/Recv [usec]";
+				}
+				ofs << std::endl;
 			}
-			ofs << m_packet_size << ", "; // packet size Bytes
-			ofs << (round(avgWriteMs/ustu * 10)/10.0) << ", " << (round(avgReadMs/ustu * 10)/10.0) << ", "; // avg write, read us
-			ofs << (round(avgSendMs/ustu * 10)/10.0) << ", "; // avg send us
-			ofs << (round(medianWriteMs/ustu * 10)/10.0) << ", " << (round(medianReadMs/ustu * 10)/10.0) << ", "; // median write, read us
-			ofs << (round(medianSendMs/ustu * 10)/10.0) << ", "; // median send us
-			ofs << (round(minWriteMs/ustu * 10)/10.0) << ", " << (round(minReadMs/ustu * 10)/10.0) << ", "; // min write, read us
-			ofs << (round(minSendMs/ustu * 10)/10.0) << ", "; // min send us
-			ofs << (round(maxWriteMs/ustu * 10)/10.0) << ", " << (round(maxReadMs/ustu * 10)/10.0) << ", "; // max write, read us
-			ofs << (round(maxSendMs/ustu * 10)/10.0) << std::endl; // max send us
-			ofs.close();
+			ofs << m_packet_size; // packet size Bytes
+			if(hasTestOperation(WRITE_OPERATION)){
+				ofs << ", " << (round(avgWriteMs/ustu * 10)/10.0) << ", "; // avg write us
+				ofs << (round(medianWriteMs/ustu * 10)/10.0) << ", "; // median write us
+				ofs << (round(minWriteMs/ustu * 10)/10.0) << ", "; // min write us
+				ofs << (round(maxWriteMs/ustu * 10)/10.0); // max write us
+			}
+			if(hasTestOperation(READ_OPERATION)){
+				ofs << ", " << (round(avgReadMs/ustu * 10)/10.0) << ", "; // avg read us
+				ofs << (round(medianReadMs/ustu * 10)/10.0) << ", "; // median read us
+				ofs << (round(minReadMs/ustu * 10)/10.0) << ", "; // min read us
+				ofs << (round(maxReadMs/ustu * 10)/10.0); // max read us
+			}
+			if(hasTestOperation(SEND_RECEIVE_OPERATION)){
+				ofs << ", " << (round(avgSendMs/ustu * 10)/10.0) << ", "; // avg send us
+				ofs << (round(medianSendMs/ustu * 10)/10.0) << ", "; // median send us
+				ofs << (round(minSendMs/ustu * 10)/10.0) << ", "; // min send us
+				ofs << (round(maxSendMs/ustu * 10)/10.0); // max send us
+			}
+			ofs << std::endl; ofs.close();
 		}
 
 		// generate result string
 		std::ostringstream oss;
 		oss << rdma::CONSOLE_PRINT_NOTATION << rdma::CONSOLE_PRINT_PRECISION;
 		oss << "Measured as 'one trip time' latencies:" << std::endl;
-		oss << " - Write:           average = " << rdma::PerfTest::convertTime(avgWriteMs) << "    median = " << rdma::PerfTest::convertTime(medianWriteMs);
-		oss << "    range = " <<  rdma::PerfTest::convertTime(minWriteMs) << " - " << rdma::PerfTest::convertTime(maxWriteMs) << std::endl;
-		oss << " - Read:            average = " << rdma::PerfTest::convertTime(avgReadMs) << "    median = " << rdma::PerfTest::convertTime(medianReadMs);
-		oss << "    range = " <<  rdma::PerfTest::convertTime(minReadMs) << " - " << rdma::PerfTest::convertTime(maxReadMs) << std::endl;
-		oss << " - Send:            average = " << rdma::PerfTest::convertTime(avgSendMs) << "    median = " << rdma::PerfTest::convertTime(medianSendMs);
-		oss << "    range = " <<  rdma::PerfTest::convertTime(minSendMs) << " - " << rdma::PerfTest::convertTime(maxSendMs) << std::endl;
+		if(hasTestOperation(WRITE_OPERATION)){
+			oss << " - Write:           average = " << rdma::PerfTest::convertTime(avgWriteMs) << "    median = " << rdma::PerfTest::convertTime(medianWriteMs);
+			oss << "    range = " <<  rdma::PerfTest::convertTime(minWriteMs) << " - " << rdma::PerfTest::convertTime(maxWriteMs) << std::endl;
+		}
+		if(hasTestOperation(READ_OPERATION)){
+			oss << " - Read:            average = " << rdma::PerfTest::convertTime(avgReadMs) << "    median = " << rdma::PerfTest::convertTime(medianReadMs);
+			oss << "    range = " <<  rdma::PerfTest::convertTime(minReadMs) << " - " << rdma::PerfTest::convertTime(maxReadMs) << std::endl;
+		}
+		if(hasTestOperation(SEND_RECEIVE_OPERATION)){
+			oss << " - Send:            average = " << rdma::PerfTest::convertTime(avgSendMs) << "    median = " << rdma::PerfTest::convertTime(medianSendMs);
+			oss << "    range = " <<  rdma::PerfTest::convertTime(minSendMs) << " - " << rdma::PerfTest::convertTime(maxSendMs) << std::endl;
+		}
 		return oss.str();
-
 	}
 	return NULL;
 }

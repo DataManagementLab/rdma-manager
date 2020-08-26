@@ -23,7 +23,7 @@
 DEFINE_bool(fulltest, false, "Sets default values for flags 'test, gpu, remote_gpu, packetsize, threads, iterations, bufferslots, csv' to execute a broad variety of predefined tests. Flags can still be overwritten. If GPUs are supported then gpu=-1,-1,0,0 on client side and gpu=-1,0,-1,0 on server side to test all memory combinations: Main->Main, Main->GPU, GPU->Main, GPU->GPU");
 DEFINE_bool(halftest, false, "Sets default values for flags 'test, gpu, remote_gpu, packetsize, threads, iterations, bufferslots, csv' to execute a smaller variety of predefined tests. If GPUs are supported then gpu=-1,-1,0,0 on client side and gpu=-1,0,-1,0 on server side to test all memory combinations: Main->Main, Main->GPU, GPU->Main, GPU->GPU");
 DEFINE_bool(quicktest, false, "Sets default values for flags 'test, gpu, remote_gpu, packetsize, threads, iterations, csv' to execute a very smaller variety of predefined tests. If GPUs are supported then gpu=-1,-1,0,0 on client side and gpu=-1,0,-1,0 on server side to test all memory combinations: Main->Main, Main->GPU, GPU->Main, GPU->GPU");
-DEFINE_string(test, "", "Tests: bandwidth, latency, operationscount, atomicsbandwidth, atomicslatency, atomicsoperationscount (multiples separated by comma without space, not full word required) [Default bandwidth]");
+DEFINE_string(test, "", "Tests: write_bw, write_lat, write_ops, read_bw, read_lat, read_ops, send_bw, send_lat, send_ops, atomics_bw, atomics_lat, atomics_ops (multiples separated by comma without space, not full word required) [Default write_bw]");
 DEFINE_bool(server, false, "Act as server for a client to test performance");
 DEFINE_string(gpu, "", "Index of GPU for memory allocation (-3=Main memory, -2=NUMA aware GPU, -1=Default GPU, 0..n=fixed GPU | multiples separated by comma without space) [Default -3]");
 DEFINE_string(remote_gpu, "", "Just for prettier result printing and therefore not required. Same as gpu flag but for remote side (should be empty or same length as gpu flag)");
@@ -44,7 +44,7 @@ DEFINE_string(writemode, "auto", "Which RDMA write mode should be used. Possible
 DEFINE_bool(ignoreerrors, false, "If an error occurs test will be skiped and execution continues");
 DEFINE_string(config, "./bin/conf/RDMA.conf", "Path to the config file");
 
-enum TEST { BANDWIDTH_TEST, LATENCY_TEST, OPERATIONS_COUNT_TEST, ATOMICS_BANDWIDTH_TEST, ATOMICS_LATENCY_TEST, ATOMICS_OPERATIONS_COUNT_TEST };
+enum TEST { BANDWIDTH_TEST=1, LATENCY_TEST=2, OPERATIONS_COUNT_TEST=3, ATOMICS_BANDWIDTH_TEST=4, ATOMICS_LATENCY_TEST=5, ATOMICS_OPERATIONS_COUNT_TEST=6 };
 const uint64_t MINIMUM_PACKET_SIZE = 1; // only GPUDirect doesn't work with smaller sizes
 
 static std::vector<int> parseIntList(std::string str){
@@ -153,14 +153,13 @@ int main(int argc, char *argv[]){
 
     if(FLAGS_fulltest || FLAGS_halftest || FLAGS_quicktest){
         FLAGS_csv = true;
-        if(FLAGS_test.empty()) FLAGS_test = "bandwidth,latency,operationscount,atomicsbandwidth,atomicslatency,atomicsoperationscount";
+        if(FLAGS_test.empty()) FLAGS_test = "write_bw,write_lat,write_ops,read_bw,read_lat,read_ops,send_bw,send_lat,send_ops,atomics_bw,atomics_lat,atomics_ops";
         if(FLAGS_gpu.empty()) FLAGS_gpu = FLAGS_server ? "-3,-2,-3,-3" : "-3,-3,-2,-2";
         if(FLAGS_remote_gpu.empty()) FLAGS_remote_gpu = FLAGS_server ? "-3,-3,-2,-2" : "-3,-2,-3,-2";
     }
     if(FLAGS_fulltest){
         // TODO for some reason GPUDirect not working for GPU memory smaller than 128 bytes
-        // packetsizes.push_back(64); packetsizes.push_back(128);
-        if(FLAGS_packetsize.empty()) FLAGS_packetsize = "128,256,512,1024,2048,4096,8192,16384,32768,65536,131072,262144,524288,1048576";
+        if(FLAGS_packetsize.empty()) FLAGS_packetsize = "256,512,1024,2048,4096,8192,16384,32768,65536,131072,262144,524288,1048576";
         if(FLAGS_threads.empty()) FLAGS_threads = "1,2,4,8,16";
         if(FLAGS_iterations.empty()) FLAGS_iterations = "500,500000";
         if(FLAGS_bufferslots.empty()) FLAGS_bufferslots = "1,16";
@@ -181,7 +180,7 @@ int main(int argc, char *argv[]){
 
 
     // Loading default values if no value is set
-    if(FLAGS_test.empty()) FLAGS_test = "bandwidth";
+    if(FLAGS_test.empty()) FLAGS_test = "write_bw";
     if(FLAGS_gpu.empty()) FLAGS_gpu = "-3"; // do not set remote_gpu
     if(FLAGS_packetsize.empty()) FLAGS_packetsize = "4096";
     if(FLAGS_bufferslots.empty()) FLAGS_bufferslots = "16";
@@ -192,6 +191,8 @@ int main(int argc, char *argv[]){
 
     // Parsing values
     std::vector<std::string> testNames = rdma::StringHelper::split(FLAGS_test);
+    std::vector<TEST> tests; // tests that should be executed (order important)
+    std::unordered_map<TEST, int> testOperations; // stores which operations should be executed per test
     std::vector<int> local_gpus = parseIntList(FLAGS_gpu);
     std::vector<int> remote_gpus = parseIntList(FLAGS_remote_gpu);
     std::vector<uint64_t> packetsizes = parseByteSizesList(FLAGS_packetsize);
@@ -268,42 +269,59 @@ int main(int argc, char *argv[]){
 
     // Parse test names
     size_t testIterations = 0, testCounter = 0;
-    std::vector<TEST> tests;
+
     auto testIt = testNames.begin();
     while(testIt != testNames.end()){
         std::string testName = *testIt;
         if(testName.length() == 0)
             continue;
-        std::transform(testName.begin(), testName.end(), testName.begin(), ::tolower);
+        std::transform(testName.begin(), testName.end(), testName.begin(), ::tolower); // lowercase
 
         size_t count = local_gpus.size() * thread_counts.size() * bufferslots.size();
-
-        if(std::string("bandwidth").rfind(testName, 0) == 0){
-            tests.push_back(BANDWIDTH_TEST);
-            count *= transfersizes.size() * packetsizes.size() * write_modes.size();
-        } else if(std::string("latency").rfind(testName, 0) == 0){
-            tests.push_back(LATENCY_TEST);
-            count *= iteration_counts.size() * packetsizes.size() * write_modes.size();
-        } else if(std::string("operationscount").rfind(testName, 0) == 0 || std::string("operationcount").rfind(testName, 0) == 0 || 
-                    std::string("ops").rfind(testName, 0) == 0){
-            tests.push_back(OPERATIONS_COUNT_TEST);
-            count *= transfersizes.size() * packetsizes.size() * write_modes.size();
-        } else if(std::string("atomicsbandwidth").rfind(testName, 0) == 0 || std::string("atomicbandwidth").rfind(testName, 0) == 0){
-            tests.push_back(ATOMICS_BANDWIDTH_TEST);
-            count *= iteration_counts.size();
-        } else if(std::string("atomicslatency").rfind(testName, 0) == 0 || std::string("atomiclatency").rfind(testName, 0) == 0){
-            tests.push_back(ATOMICS_LATENCY_TEST);
-            count *= iteration_counts.size();
-        } else if(std::string("atomicsoperationscount").rfind(testName, 0) == 0 || std::string("atomicoperationscount").rfind(testName, 0) == 0 || 
-                    std::string("atomicsoperationcount").rfind(testName, 0) == 0 || std::string("atomicoperationcount").rfind(testName, 0) == 0 ||
-                    std::string("atomicsops").rfind(testName, 0) == 0 || std::string("atomicops").rfind(testName, 0) == 0){
-            tests.push_back(ATOMICS_OPERATIONS_COUNT_TEST);
-            count *= iteration_counts.size();
+        TEST test;
+        
+        // Parse test type
+        if(testName.rfind("bw") != std::string::npos){
+            test = BANDWIDTH_TEST;
+        } else if(testName.rfind("lat") != std::string::npos){
+            test = LATENCY_TEST;
+        } else if(testName.rfind("op") != std::string::npos){
+            test = OPERATIONS_COUNT_TEST;
         } else {
-            std::cerr << "No test with name '" << *testIt << "' found" << std::endl;
-            testIt++;
+            std::cerr << "Unknown test '" << testName << "'" << std::endl;
             continue;
         }
+
+        int test_op = (testOperations.find(test) != testOperations.end() ? testOperations[test] : 0);
+
+        // Parse test operations
+        if(testName.find("wri") != std::string::npos){
+            if(test_op == 0) count *= (test!=LATENCY_TEST ? transfersizes.size() : iteration_counts.size()) * packetsizes.size() * write_modes.size();
+            test_op = (rdma::TestOperation)(test_op | (int)rdma::WRITE_OPERATION);
+        } else if(testName.find("rea") != std::string::npos){
+            if(test_op == 0) count *= (test!=LATENCY_TEST ? transfersizes.size() : iteration_counts.size()) * packetsizes.size() * write_modes.size();
+            test_op = (rdma::TestOperation)(test_op | (int)rdma::READ_OPERATION);
+        } else if(testName.find("sen") != std::string::npos || testName.find("rec") != std::string::npos){
+            if(test_op == 0) count *= (test!=LATENCY_TEST ? transfersizes.size() : iteration_counts.size()) * packetsizes.size() * write_modes.size();
+            test_op = (rdma::TestOperation)(test_op | (int)rdma::SEND_RECEIVE_OPERATION);
+        } else if(testName.find("fet") != std::string::npos || testName.find("add") != std::string::npos){
+            if(test_op == 0) count *= iteration_counts.size();
+            test_op = (rdma::TestOperation)(test_op | (int)rdma::FETCH_ADD_OPERATION);
+            test = test==BANDWIDTH_TEST?ATOMICS_BANDWIDTH_TEST:(test==LATENCY_TEST?ATOMICS_LATENCY_TEST:ATOMICS_OPERATIONS_COUNT_TEST);
+        } else if(testName.find("com") != std::string::npos || testName.find("swa") != std::string::npos){
+            if(test_op == 0) count *= iteration_counts.size();
+            test_op = (rdma::TestOperation)(test_op | (int)rdma::COMPARE_SWAP_OPERATION);
+            test = test==BANDWIDTH_TEST?ATOMICS_BANDWIDTH_TEST:(test==LATENCY_TEST?ATOMICS_LATENCY_TEST:ATOMICS_OPERATIONS_COUNT_TEST);
+        } else {
+            std::cerr << "Could not detect RDMA operation from '" << testName << "'" << std::endl;
+            continue;
+        }
+
+        if(std::find(tests.begin(), tests.end(), test) == tests.end()){
+            tests.push_back(test);
+        }
+        testOperations[test] = test_op;
+
         testIterations += count;
         testIt++;
     }
@@ -323,6 +341,7 @@ int main(int argc, char *argv[]){
     // EXECUTE TESTS
     auto totalStart = rdma::PerfTest::startTimer();
     for(TEST &t : tests){
+        int test_ops = testOperations[t];
         for(size_t gpui = 0; gpui < local_gpus.size(); gpui++){
             const int local_gpu_index = local_gpus[gpui];
             const int remote_gpu_index = remote_gpus[gpui % remote_gpus.size()];
@@ -345,12 +364,12 @@ int main(int argc, char *argv[]){
                                 if(t == BANDWIDTH_TEST){
                                     // Bandwidth Test
                                     testName = "Bandwidth";
-                                    test = new rdma::BandwidthPerfTest(FLAGS_server, addresses, FLAGS_port, ownIpPort, sequencerIpAddr, local_gpu_index, remote_gpu_index, thread_count, packet_size, buffer_slots, iterations_per_thread, write_mode);
+                                    test = new rdma::BandwidthPerfTest(test_ops, FLAGS_server, addresses, FLAGS_port, ownIpPort, sequencerIpAddr, local_gpu_index, remote_gpu_index, thread_count, packet_size, buffer_slots, iterations_per_thread, write_mode);
 
                                 } else if(t == OPERATIONS_COUNT_TEST){
                                     // Operations Count Test
                                     testName = "Operations Count";
-                                    test = new rdma::OperationsCountPerfTest(FLAGS_server, addresses, FLAGS_port, ownIpPort, sequencerIpAddr, local_gpu_index, remote_gpu_index, thread_count, packet_size, buffer_slots, iterations_per_thread, write_mode);
+                                    test = new rdma::OperationsCountPerfTest(test_ops, FLAGS_server, addresses, FLAGS_port, ownIpPort, sequencerIpAddr, local_gpu_index, remote_gpu_index, thread_count, packet_size, buffer_slots, iterations_per_thread, write_mode);
                                 }
 
                                 if(test != nullptr){
@@ -373,17 +392,17 @@ int main(int argc, char *argv[]){
                         if(t == ATOMICS_BANDWIDTH_TEST){
                             // Atomics Bandwidth Test
                             testName = "Atomics Bandwidth";
-                            test = new rdma::AtomicsBandwidthPerfTest(FLAGS_server, addresses, FLAGS_port, ownIpPort, sequencerIpAddr, local_gpu_index, remote_gpu_index, thread_count, buffer_slots, iterations_per_thread);
+                            test = new rdma::AtomicsBandwidthPerfTest(test_ops, FLAGS_server, addresses, FLAGS_port, ownIpPort, sequencerIpAddr, local_gpu_index, remote_gpu_index, thread_count, buffer_slots, iterations_per_thread);
 
                         } else if(t == ATOMICS_LATENCY_TEST){
                             // Atomics Latency Test
                             testName = "Atomics Latency";
-                            test = new rdma::AtomicsLatencyPerfTest(FLAGS_server, addresses, FLAGS_port, ownIpPort, sequencerIpAddr, local_gpu_index, remote_gpu_index, thread_count, buffer_slots, iterations_per_thread);
+                            test = new rdma::AtomicsLatencyPerfTest(test_ops, FLAGS_server, addresses, FLAGS_port, ownIpPort, sequencerIpAddr, local_gpu_index, remote_gpu_index, thread_count, buffer_slots, iterations_per_thread);
 
                         } else if(t == ATOMICS_OPERATIONS_COUNT_TEST){
                             // Atomics Operations Count Test
                             testName = "Atomics Operations Count";
-                            test = new rdma::AtomicsOperationsCountPerfTest(FLAGS_server, addresses, FLAGS_port, ownIpPort, sequencerIpAddr, local_gpu_index, remote_gpu_index, thread_count, buffer_slots, iterations_per_thread);
+                            test = new rdma::AtomicsOperationsCountPerfTest(test_ops, FLAGS_server, addresses, FLAGS_port, ownIpPort, sequencerIpAddr, local_gpu_index, remote_gpu_index, thread_count, buffer_slots, iterations_per_thread);
                         }
 
                         if(test != nullptr){
@@ -401,7 +420,7 @@ int main(int argc, char *argv[]){
                                 if(t == LATENCY_TEST){
                                     // Latency Test
                                     testName = "Latency";
-                                    test = new rdma::LatencyPerfTest(FLAGS_server, addresses, FLAGS_port, ownIpPort, sequencerIpAddr, local_gpu_index, remote_gpu_index, thread_count, packet_size, buffer_slots, iterations_per_thread, write_mode);
+                                    test = new rdma::LatencyPerfTest(test_ops, FLAGS_server, addresses, FLAGS_port, ownIpPort, sequencerIpAddr, local_gpu_index, remote_gpu_index, thread_count, packet_size, buffer_slots, iterations_per_thread, write_mode);
 
                                 }
 

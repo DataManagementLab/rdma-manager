@@ -41,7 +41,7 @@ private:
 
 class AtomicsOperationsCountPerfTest : public rdma::PerfTest {
 public:
-	AtomicsOperationsCountPerfTest(bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, std::string ownIpPort, std::string sequencerIpPort, int local_gpu_index, int remote_gpu_index, int thread_count, int buffer_slots, uint64_t iterations_per_thread);
+	AtomicsOperationsCountPerfTest(int testOperations, bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, std::string ownIpPort, std::string sequencerIpPort, int local_gpu_index, int remote_gpu_index, int thread_count, int buffer_slots, uint64_t iterations_per_thread);
 	virtual ~AtomicsOperationsCountPerfTest();
 	std::string getTestParameters();
 	void setupTest();
@@ -51,7 +51,7 @@ public:
 	static mutex waitLock;
 	static condition_variable waitCv;
 	static bool signaled;
-	static TestMode testMode;
+	static TestOperation testOperation;
 
 private:
 	bool m_is_server;
@@ -75,7 +75,7 @@ private:
 	RDMAServer<ReliableRDMA>* m_server;
 
 	std::string getTestParameters(bool forCSV);
-	void makeThreadsReady(TestMode testMode);
+	void makeThreadsReady(TestOperation testOperation);
 	void runThreads();
 };
 
