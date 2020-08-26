@@ -306,13 +306,13 @@ int main(int argc, char *argv[]){
             if(test_op == 0) count *= (test!=LATENCY_TEST ? transfersizes.size() : iteration_counts.size()) * packetsizes.size() * write_modes.size();
             test_op = (rdma::TestOperation)(test_op | (int)rdma::SEND_RECEIVE_OPERATION);
         } else if(testName.find("fet") != std::string::npos || testName.find("add") != std::string::npos){
+            test = test==BANDWIDTH_TEST?ATOMICS_BANDWIDTH_TEST:(test==LATENCY_TEST?ATOMICS_LATENCY_TEST:ATOMICS_OPERATIONS_COUNT_TEST);
             if(test_op == 0) count *= iteration_counts.size();
             test_op = (rdma::TestOperation)(test_op | (int)rdma::FETCH_ADD_OPERATION);
-            test = test==BANDWIDTH_TEST?ATOMICS_BANDWIDTH_TEST:(test==LATENCY_TEST?ATOMICS_LATENCY_TEST:ATOMICS_OPERATIONS_COUNT_TEST);
         } else if(testName.find("com") != std::string::npos || testName.find("swa") != std::string::npos){
+            test = test==BANDWIDTH_TEST?ATOMICS_BANDWIDTH_TEST:(test==LATENCY_TEST?ATOMICS_LATENCY_TEST:ATOMICS_OPERATIONS_COUNT_TEST);
             if(test_op == 0) count *= iteration_counts.size();
             test_op = (rdma::TestOperation)(test_op | (int)rdma::COMPARE_SWAP_OPERATION);
-            test = test==BANDWIDTH_TEST?ATOMICS_BANDWIDTH_TEST:(test==LATENCY_TEST?ATOMICS_LATENCY_TEST:ATOMICS_OPERATIONS_COUNT_TEST);
         } else {
             std::cerr << "Could not detect RDMA operation from '" << testName << "'" << std::endl;
             continue;
