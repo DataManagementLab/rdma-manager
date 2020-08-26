@@ -182,8 +182,7 @@ int main(int argc, char *argv[]){
 
     // Loading default values if no value is set
     if(FLAGS_test.empty()) FLAGS_test = "bandwidth";
-    if(FLAGS_gpu.empty()) FLAGS_gpu = "-3";
-    if(FLAGS_remote_gpu.empty()) FLAGS_remote_gpu = "-3";
+    if(FLAGS_gpu.empty()) FLAGS_gpu = "-3"; // do not set remote_gpu
     if(FLAGS_packetsize.empty()) FLAGS_packetsize = "4096";
     if(FLAGS_bufferslots.empty()) FLAGS_bufferslots = "16";
     if(FLAGS_threads.empty()) FLAGS_threads = "1";
@@ -326,7 +325,7 @@ int main(int argc, char *argv[]){
     for(TEST &t : tests){
         for(size_t gpui = 0; gpui < local_gpus.size(); gpui++){
             const int local_gpu_index = local_gpus[gpui];
-            const int remote_gpu_index = remote_gpus[gpui % sizeof(remote_gpu_index)];
+            const int remote_gpu_index = remote_gpus[gpui % remote_gpus.size()];
             for(int &thread_count : thread_counts){
                 for(int &buffer_slots : bufferslots){
                     bool csvAddHeader = true;
