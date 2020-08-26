@@ -45,11 +45,11 @@ public:
         return stopTimer(start, startTimer());
     }
 
-    static std::string getMemoryName(int gpu_index){
-        if(gpu_index >= 0) return "GPU."+std::to_string(gpu_index);
-        if(gpu_index == -1) return "GPU.D";
-        if(gpu_index == -2) return "GPU.NUMA";
-        if(gpu_index != -404) return "MAIN";
+    static std::string getMemoryName(int input_gpu_index, int actual_gpu_index=-1){
+        if(input_gpu_index >= 0) return "GPU."+std::to_string(input_gpu_index);
+        if(input_gpu_index == -1) return "GPU."+(actual_gpu_index>=0 ? std::to_string(actual_gpu_index)+"(D)" : "D");
+        if(input_gpu_index == -2) return "GPU."+(actual_gpu_index>=0 ? std::to_string(actual_gpu_index)+"(NUMA)" : "NUMA");
+        if(input_gpu_index != -404) return "MAIN";
         return "???";
     }
 

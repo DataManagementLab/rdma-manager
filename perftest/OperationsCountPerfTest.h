@@ -90,6 +90,7 @@ private:
 	std::string m_ownIpPort;
 	std::string m_sequencerIpPort;
 	int m_local_gpu_index;
+	int m_actual_gpu_index;
 	int m_remote_gpu_index;
 	int m_thread_count;
 	uint64_t m_packet_size;

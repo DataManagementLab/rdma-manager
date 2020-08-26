@@ -12,6 +12,11 @@ namespace rdma
 {
 class CpuNumaUtils {
 public: 
+
+static int get_current_cpu(){
+    return sched_getcpu();
+}
+
 static std::vector<std::vector<int>> get_cpu_numa_map(int &num_cpus, int &num_nodes) {
     int ncpus_ = numa_num_task_cpus();
     int nnodes_ = numa_max_node() + 1;

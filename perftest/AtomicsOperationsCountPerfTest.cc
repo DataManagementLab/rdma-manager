@@ -90,6 +90,7 @@ rdma::AtomicsOperationsCountPerfTest::AtomicsOperationsCountPerfTest(bool is_ser
 	this->m_ownIpPort = ownIpPort;
 	this->m_sequencerIpPort = sequencerIpPort;
 	this->m_local_gpu_index = local_gpu_index;
+	this->m_actual_gpu_index = -1;
 	this->m_remote_gpu_index = remote_gpu_index;
 	this->m_thread_count = thread_count;
 	this->m_memory_size = thread_count * rdma::ATOMICS_SIZE * buffer_slots;
@@ -111,7 +112,7 @@ std::string rdma::AtomicsOperationsCountPerfTest::getTestParameters(bool forCSV)
 	std::ostringstream oss;
 	oss << (m_is_server ? "Server" : "Client") << ", threads=" << m_thread_count << ", bufferslots=" << m_buffer_slots << ", packetsize=" << rdma::ATOMICS_SIZE << ", memory=";
 	oss << m_memory_size << " (" << m_thread_count << "x " << m_buffer_slots << "x " << rdma::ATOMICS_SIZE << ")";
-	oss << ", memory_type=" << getMemoryName(m_local_gpu_index) << (m_remote_gpu_index!=-404 ? "->"+getMemoryName(m_remote_gpu_index) : "");
+	oss << ", memory_type=" << getMemoryName(m_local_gpu_index, m_actual_gpu_index) << (m_remote_gpu_index!=-404 ? "->"+getMemoryName(m_remote_gpu_index) : "");
 	if(!forCSV){ oss << ", iterations=" << (m_iterations_per_thread*m_thread_count); }
 	return oss.str();
 }
@@ -144,8 +145,15 @@ void rdma::AtomicsOperationsCountPerfTest::runThreads(){
 void rdma::AtomicsOperationsCountPerfTest::setupTest(){
 	m_elapsedFetchAdd = -1;
 	m_elapsedCompareSwap = -1;
+	m_actual_gpu_index = -1;
 	#ifdef CUDA_ENABLED /* defined in CMakeLists.txt to globally enable/disable CUDA support */
-		m_memory = (m_local_gpu_index<=-3 ? (rdma::BaseMemory*)new rdma::MainMemory(m_memory_size) : (rdma::BaseMemory*)new rdma::CudaMemory(m_memory_size, m_local_gpu_index));
+		if(m_local_gpu_index <= -3){
+			m_memory = new rdma::MainMemory(m_memory_size);
+		} else {
+			rdma::CudaMemory *mem = new rdma::CudaMemory(m_memory_size, m_local_gpu_index);
+			m_memory = mem;
+			m_actual_gpu_index = mem->getDeviceIndex();
+		}
 	#else
 		m_memory = (rdma::BaseMemory*)new MainMemory(m_memory_size);
 	#endif
