@@ -195,8 +195,6 @@ int main(int argc, char *argv[]){
     std::vector<std::string> testNames = rdma::StringHelper::split(FLAGS_test);
     std::vector<int> local_gpus = parseIntList(FLAGS_gpu);
     std::vector<int> remote_gpus = parseIntList(FLAGS_remote_gpu);
-    std::cout << "BEFORE: " << FLAGS_gpu << std::endl << "AFTER:  "; // TODO REMOVE
-    for(auto &v : local_gpus){ std::cout << v << " "; } std::cout << std::endl; // TOOD REMOVE
     std::vector<uint64_t> packetsizes = parseByteSizesList(FLAGS_packetsize);
     std::vector<int> bufferslots = parseIntList(FLAGS_bufferslots);
     std::vector<int> thread_counts = parseIntList(FLAGS_threads);
