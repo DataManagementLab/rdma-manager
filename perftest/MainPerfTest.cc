@@ -23,7 +23,7 @@
 DEFINE_bool(fulltest, false, "Sets default values for flags 'test, gpu, remote_gpu, packetsize, threads, iterations, bufferslots, csv' to execute a broad variety of predefined tests. Flags can still be overwritten. If GPUs are supported then gpu=-1,-1,0,0 on client side and gpu=-1,0,-1,0 on server side to test all memory combinations: Main->Main, Main->GPU, GPU->Main, GPU->GPU");
 DEFINE_bool(halftest, false, "Sets default values for flags 'test, gpu, remote_gpu, packetsize, threads, iterations, bufferslots, csv' to execute a smaller variety of predefined tests. If GPUs are supported then gpu=-1,-1,0,0 on client side and gpu=-1,0,-1,0 on server side to test all memory combinations: Main->Main, Main->GPU, GPU->Main, GPU->GPU");
 DEFINE_bool(quicktest, false, "Sets default values for flags 'test, gpu, remote_gpu, packetsize, threads, iterations, csv' to execute a very smaller variety of predefined tests. If GPUs are supported then gpu=-1,-1,0,0 on client side and gpu=-1,0,-1,0 on server side to test all memory combinations: Main->Main, Main->GPU, GPU->Main, GPU->GPU");
-DEFINE_string(test, "", "Tests: write_bw, write_lat, write_ops, read_bw, read_lat, read_ops, send_bw, send_lat, send_ops, atomics_bw, atomics_lat, atomics_ops (multiples separated by comma without space, not full word required) [Default write_bw]");
+DEFINE_string(test, "", "Tests: write_bw, write_lat, write_ops, read_bw, read_lat, read_ops, send_bw, send_lat, send_ops, fetch_bw, fetch_lat, fetch_ops, swap_bw, swap_lat, swap_ops (multiples separated by comma without space, not full word required) [Default write_bw]");
 DEFINE_bool(server, false, "Act as server for a client to test performance");
 DEFINE_string(gpu, "", "Index of GPU for memory allocation (-3=Main memory, -2=NUMA aware GPU, -1=Default GPU, 0..n=fixed GPU | multiples separated by comma without space) [Default -3]");
 DEFINE_string(remote_gpu, "", "Just for prettier result printing and therefore not required. Same as gpu flag but for remote side (should be empty or same length as gpu flag)");
@@ -153,7 +153,7 @@ int main(int argc, char *argv[]){
 
     if(FLAGS_fulltest || FLAGS_halftest || FLAGS_quicktest){
         FLAGS_csv = true;
-        if(FLAGS_test.empty()) FLAGS_test = "write_bw,write_lat,write_ops,read_bw,read_lat,read_ops,send_bw,send_lat,send_ops,atomics_bw,atomics_lat,atomics_ops";
+        if(FLAGS_test.empty()) FLAGS_test = "write_bw,write_lat,write_ops,read_bw,read_lat,read_ops,send_bw,send_lat,send_ops,fetch_bw,fetch_lat,fetch_ops,swap_bw,swap_lat,swap_ops";
         if(FLAGS_gpu.empty()) FLAGS_gpu = FLAGS_server ? "-3,-2,-3,-3" : "-3,-3,-2,-2";
         if(FLAGS_remote_gpu.empty()) FLAGS_remote_gpu = FLAGS_server ? "-3,-3,-2,-2" : "-3,-2,-3,-2";
     }
@@ -273,6 +273,7 @@ int main(int argc, char *argv[]){
     auto testIt = testNames.begin();
     while(testIt != testNames.end()){
         std::string testName = *testIt;
+        testIt++;
         if(testName.length() == 0)
             continue;
         std::transform(testName.begin(), testName.end(), testName.begin(), ::tolower); // lowercase
@@ -323,7 +324,6 @@ int main(int argc, char *argv[]){
         testOperations[test] = test_op;
 
         testIterations += count;
-        testIt++;
     }
 
 
