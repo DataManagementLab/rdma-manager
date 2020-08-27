@@ -291,12 +291,10 @@ std::string rdma::LatencyPerfTest::getTestParameters(){
 void rdma::LatencyPerfTest::makeThreadsReady(TestOperation testOperation){
 	LatencyPerfTest::testOperation = testOperation;
 	LatencyPerfTest::signaled = false;
-	for(LatencyPerfServerThread* perfThread : m_server_threads){
-		perfThread->start();
-		while(!perfThread->ready()) {
-			usleep(Config::RDMA_SLEEP_INTERVAL);
-		}
-	}
+
+	for(LatencyPerfServerThread* perfThread : m_server_threads){ perfThread->start(); }
+	for(LatencyPerfServerThread* perfThread : m_server_threads){ while(!perfThread->ready()) usleep(Config::RDMA_SLEEP_INTERVAL); }
+
 	for(LatencyPerfClientThread* perfThread : m_client_threads){
 		perfThread->start();
 		while(!perfThread->ready()) {

@@ -23,7 +23,7 @@
 DEFINE_bool(fulltest, false, "Sets default values for flags 'test, gpu, remote_gpu, packetsize, threads, iterations, bufferslots, csv' to execute a broad variety of predefined tests. Flags can still be overwritten. If GPUs are supported then gpu=-1,-1,0,0 on client side and gpu=-1,0,-1,0 on server side to test all memory combinations: Main->Main, Main->GPU, GPU->Main, GPU->GPU");
 DEFINE_bool(halftest, false, "Sets default values for flags 'test, gpu, remote_gpu, packetsize, threads, iterations, bufferslots, csv' to execute a smaller variety of predefined tests. If GPUs are supported then gpu=-1,-1,0,0 on client side and gpu=-1,0,-1,0 on server side to test all memory combinations: Main->Main, Main->GPU, GPU->Main, GPU->GPU");
 DEFINE_bool(quicktest, false, "Sets default values for flags 'test, gpu, remote_gpu, packetsize, threads, iterations, csv' to execute a very smaller variety of predefined tests. If GPUs are supported then gpu=-1,-1,0,0 on client side and gpu=-1,0,-1,0 on server side to test all memory combinations: Main->Main, Main->GPU, GPU->Main, GPU->GPU");
-DEFINE_string(test, "", "Tests: write_bw, write_lat, write_ops, read_bw, read_lat, read_ops, send_bw, send_lat, send_ops, fetch_bw, fetch_lat, fetch_ops, swap_bw, swap_lat, swap_ops (multiples separated by comma without space, not full word required) [Default write_bw]");
+DEFINE_string(test, "", "Tests: [bandwidth, latency, operationscount, atomicsbandwidth, atomicslatency, atomicsoperationscount] OR MORE GRANULAR [write_bw, write_lat, write_ops, read_bw, read_lat, read_ops, send_bw, send_lat, send_ops, fetch_bw, fetch_lat, fetch_ops, swap_bw, swap_lat, swap_ops] (multiples separated by comma without space, not full word required) [Default bandwidth]");
 DEFINE_bool(server, false, "Act as server for a client to test performance");
 DEFINE_string(gpu, "", "Index of GPU for memory allocation (-3=Main memory, -2=NUMA aware GPU, -1=Default GPU, 0..n=fixed GPU | multiples separated by comma without space) [Default -3]");
 DEFINE_string(remote_gpu, "", "Just for prettier result printing and therefore not required. Same as gpu flag but for remote side (should be empty or same length as gpu flag)");
@@ -180,7 +180,7 @@ int main(int argc, char *argv[]){
 
 
     // Loading default values if no value is set
-    if(FLAGS_test.empty()) FLAGS_test = "write_bw";
+    if(FLAGS_test.empty()) FLAGS_test = "bandwidth";
     if(FLAGS_gpu.empty()) FLAGS_gpu = "-3"; // do not set remote_gpu
     if(FLAGS_packetsize.empty()) FLAGS_packetsize = "4096";
     if(FLAGS_bufferslots.empty()) FLAGS_bufferslots = "16";
@@ -280,50 +280,91 @@ int main(int argc, char *argv[]){
 
         size_t count = local_gpus.size() * thread_counts.size() * bufferslots.size();
         TEST test;
-        
+        int test_ops = 0;
+        bool parse_op = true;
+
         // Parse test type
-        if(testName.rfind("bw") != std::string::npos){
+        if(std::string("bandwidth").find(testName) == 0){
             test = BANDWIDTH_TEST;
-        } else if(testName.rfind("lat") != std::string::npos){
+            test_ops = (testOperations.find(test) != testOperations.end() ? testOperations[test] : 0);
+            if(test_ops == 0){ count *= transfersizes.size() * packetsizes.size() * write_modes.size(); }
+            parse_op = false;
+        } else if(std::string("latency").find(testName) == 0){
             test = LATENCY_TEST;
-        } else if(testName.rfind("op") != std::string::npos){
+            test_ops = (testOperations.find(test) != testOperations.end() ? testOperations[test] : 0);
+            if(test_ops == 0){ count *= iteration_counts.size() * packetsizes.size() * write_modes.size(); }
+            parse_op = false;
+        } else if(std::string("operationscount").find(testName) == 0 || std::string("ops").find(testName) == 0){
             test = OPERATIONS_COUNT_TEST;
-        } else {
-            std::cerr << "Unknown test '" << testName << "'" << std::endl;
-            continue;
+            test_ops = (testOperations.find(test) != testOperations.end() ? testOperations[test] : 0);
+            if(test_ops == 0){ count *= transfersizes.size() * packetsizes.size() * write_modes.size(); }
+            parse_op = false;
+        } else if(std::string("atomicbandwidth").find(testName) == 0 || std::string("atomicsbandwidth").find(testName) == 0){
+            test = ATOMICS_BANDWIDTH_TEST;
+            test_ops = (testOperations.find(test) != testOperations.end() ? testOperations[test] : 0);
+            if(test_ops == 0){ count *= iteration_counts.size(); }
+            parse_op = false;
+        } else if(std::string("atomiclatency").find(testName) == 0 || std::string("atomicslatency").find(testName) == 0){
+            test = ATOMICS_LATENCY_TEST;
+            test_ops = (testOperations.find(test) != testOperations.end() ? testOperations[test] : 0);
+            if(test_ops == 0){ count *= iteration_counts.size(); }
+            parse_op = false;
+        } else if(std::string("atomicoperationscount").find(testName) == 0 || std::string("atomicops").find(testName) == 0 || 
+                    std::string("atomicsoperationscount").find(testName) == 0 || std::string("atomicsops").find(testName) == 0){
+            test = ATOMICS_OPERATIONS_COUNT_TEST;
+            test_ops = (testOperations.find(test) != testOperations.end() ? testOperations[test] : 0);
+            if(test_ops == 0){ count *= iteration_counts.size(); }
+            parse_op = false;
+
+        } else { 
+
+            if(testName.rfind("bw") != std::string::npos){
+                test = BANDWIDTH_TEST;
+            } else if(testName.rfind("lat") != std::string::npos){
+                test = LATENCY_TEST;
+            } else if(testName.rfind("op") != std::string::npos){
+                test = OPERATIONS_COUNT_TEST;
+            } else {
+                std::cerr << "Unknown test '" << testName << "'" << std::endl;
+                continue;
+            }
+            test_ops = (testOperations.find(test) != testOperations.end() ? testOperations[test] : 0);
         }
 
-        int test_op = (testOperations.find(test) != testOperations.end() ? testOperations[test] : 0);
-
         // Parse test operations
-        if(testName.find("wri") != std::string::npos){
-            if(test_op == 0) count *= (test!=LATENCY_TEST ? transfersizes.size() : iteration_counts.size()) * packetsizes.size() * write_modes.size();
-            test_op = (rdma::TestOperation)(test_op | (int)rdma::WRITE_OPERATION);
-        } else if(testName.find("rea") != std::string::npos){
-            if(test_op == 0) count *= (test!=LATENCY_TEST ? transfersizes.size() : iteration_counts.size()) * packetsizes.size() * write_modes.size();
-            test_op = (rdma::TestOperation)(test_op | (int)rdma::READ_OPERATION);
-        } else if(testName.find("sen") != std::string::npos || testName.find("rec") != std::string::npos){
-            if(test_op == 0) count *= (test!=LATENCY_TEST ? transfersizes.size() : iteration_counts.size()) * packetsizes.size() * write_modes.size();
-            test_op = (rdma::TestOperation)(test_op | (int)rdma::SEND_RECEIVE_OPERATION);
-        } else if(testName.find("fet") != std::string::npos || testName.find("add") != std::string::npos){
-            test = (test==BANDWIDTH_TEST?ATOMICS_BANDWIDTH_TEST:(test==LATENCY_TEST?ATOMICS_LATENCY_TEST:ATOMICS_OPERATIONS_COUNT_TEST));
-            test_op = (testOperations.find(test) != testOperations.end() ? testOperations[test] : 0);
-            if(test_op == 0) count *= iteration_counts.size();
-            test_op = (rdma::TestOperation)(test_op | (int)rdma::FETCH_ADD_OPERATION);
-        } else if(testName.find("com") != std::string::npos || testName.find("swa") != std::string::npos){
-            test = (test==BANDWIDTH_TEST?ATOMICS_BANDWIDTH_TEST:(test==LATENCY_TEST?ATOMICS_LATENCY_TEST:ATOMICS_OPERATIONS_COUNT_TEST));
-            test_op = (testOperations.find(test) != testOperations.end() ? testOperations[test] : 0);
-            if(test_op == 0) count *= iteration_counts.size();
-            test_op = (rdma::TestOperation)(test_op | (int)rdma::COMPARE_SWAP_OPERATION);
+        if(parse_op){
+            if(testName.find("wri") != std::string::npos){
+                if(test_ops == 0){ count *= (test!=LATENCY_TEST ? transfersizes.size() : iteration_counts.size()) * packetsizes.size() * write_modes.size(); }
+                test_ops = (test_ops | (int)rdma::WRITE_OPERATION);
+            } else if(testName.find("rea") != std::string::npos){
+                if(test_ops == 0){ count *= (test!=LATENCY_TEST ? transfersizes.size() : iteration_counts.size()) * packetsizes.size() * write_modes.size(); }
+                test_ops = (test_ops | (int)rdma::READ_OPERATION);
+            } else if(testName.find("sen") != std::string::npos || testName.find("rec") != std::string::npos){
+                if(test_ops == 0){ count *= (test!=LATENCY_TEST ? transfersizes.size() : iteration_counts.size()) * packetsizes.size() * write_modes.size(); }
+                test_ops = (test_ops | (int)rdma::SEND_RECEIVE_OPERATION);
+            } else if(testName.find("fet") != std::string::npos || testName.find("add") != std::string::npos){
+                test = (test==BANDWIDTH_TEST?ATOMICS_BANDWIDTH_TEST:(test==LATENCY_TEST?ATOMICS_LATENCY_TEST:ATOMICS_OPERATIONS_COUNT_TEST));
+                test_ops = (testOperations.find(test) != testOperations.end() ? testOperations[test] : 0);
+                if(test_ops == 0){ count *= iteration_counts.size(); }
+                test_ops = (test_ops | (int)rdma::FETCH_ADD_OPERATION);
+            } else if(testName.find("com") != std::string::npos || testName.find("swa") != std::string::npos){
+                test = (test==BANDWIDTH_TEST?ATOMICS_BANDWIDTH_TEST:(test==LATENCY_TEST?ATOMICS_LATENCY_TEST:ATOMICS_OPERATIONS_COUNT_TEST));
+                test_ops = (testOperations.find(test) != testOperations.end() ? testOperations[test] : 0);
+                if(test_ops == 0){ count *= iteration_counts.size(); }
+                test_ops = (test_ops | (int)rdma::COMPARE_SWAP_OPERATION);
+            } else {
+                std::cerr << "Could not detect RDMA operation from '" << testName << "'" << std::endl;
+                continue;
+            }
         } else {
-            std::cerr << "Could not detect RDMA operation from '" << testName << "'" << std::endl;
-            continue;
+            test_ops = (int)rdma::WRITE_OPERATION | (int)rdma::READ_OPERATION | (int)rdma::SEND_RECEIVE_OPERATION |
+                        (int)rdma::FETCH_ADD_OPERATION | (int)rdma::COMPARE_SWAP_OPERATION;  // all operations
         }
 
         if(std::find(tests.begin(), tests.end(), test) == tests.end()){
             tests.push_back(test);
         }
-        testOperations[test] = test_op;
+        testOperations[test] = test_ops;
 
         testIterations += count;
     }

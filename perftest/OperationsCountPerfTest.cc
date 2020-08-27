@@ -324,12 +324,10 @@ std::string rdma::OperationsCountPerfTest::getTestParameters(){
 void rdma::OperationsCountPerfTest::makeThreadsReady(TestOperation testOperation){
 	OperationsCountPerfTest::testOperation = testOperation;
 	OperationsCountPerfTest::signaled = false;
-	for(OperationsCountPerfServerThread* perfThread : m_server_threads){
-		perfThread->start();
-		while(!perfThread->ready()) {
-			usleep(Config::RDMA_SLEEP_INTERVAL);
-		}
-	}
+
+	for(OperationsCountPerfServerThread* perfThread : m_server_threads){ perfThread->start(); }
+	for(OperationsCountPerfServerThread* perfThread : m_server_threads){ while(!perfThread->ready()) usleep(Config::RDMA_SLEEP_INTERVAL); }
+
 	for(OperationsCountPerfClientThread* perfThread : m_client_threads){
 		perfThread->start();
 		while(!perfThread->ready()) {

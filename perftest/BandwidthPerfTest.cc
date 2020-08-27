@@ -324,12 +324,10 @@ std::string rdma::BandwidthPerfTest::getTestParameters(){
 void rdma::BandwidthPerfTest::makeThreadsReady(TestOperation testOperation){
 	BandwidthPerfTest::testOperation = testOperation;
 	BandwidthPerfTest::signaled = false;
-	for(BandwidthPerfServerThread* perfThread : m_server_threads){
-		perfThread->start();
-		while(!perfThread->ready()) {
-			usleep(Config::RDMA_SLEEP_INTERVAL);
-		}
-	}
+
+	for(BandwidthPerfServerThread* perfThread : m_server_threads){ perfThread->start(); }
+	for(BandwidthPerfServerThread* perfThread : m_server_threads){ while(!perfThread->ready()) usleep(Config::RDMA_SLEEP_INTERVAL); }
+
 	for(BandwidthPerfClientThread* perfThread : m_client_threads){
 		perfThread->start();
 		while(!perfThread->ready()) {
