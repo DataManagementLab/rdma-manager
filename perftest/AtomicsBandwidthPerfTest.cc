@@ -226,8 +226,8 @@ std::string rdma::AtomicsBandwidthPerfTest::getTestResults(std::string csvFileNa
 		const long double tu = (long double)NANO_SEC; // 1sec (nano to seconds as time unit)
 		
 		const uint64_t iters = m_iterations_per_thread * m_thread_count;
-		uint64_t transferedBytesFetchAdd = iters * rdma::ATOMICS_SIZE * 2; // 8 bytes send + 8 bytes receive
-		uint64_t transferedBytesCompSwap = iters * rdma::ATOMICS_SIZE * 3; // 16 bytes send + 8 bytes receive
+		uint64_t transferedBytesFetchAdd = iters * rdma::ATOMICS_SIZE * 1; // 8 bytes send (IGNORE: + 8 bytes receive)
+		uint64_t transferedBytesCompSwap = iters * rdma::ATOMICS_SIZE * 2; // 16 bytes send (IGNORE: + 8 bytes receive)
 		int64_t maxFetchAddMs=-1, minFetchAddMs=std::numeric_limits<int64_t>::max();
 		int64_t maxCompareSwapMs=-1, minCompareSwapMs=std::numeric_limits<int64_t>::max();
 		int64_t arrFetchAddMs[m_thread_count];

@@ -31,8 +31,9 @@ DEFINE_string(packetsize, "", "Packet size in bytes (multiples separated by comm
 DEFINE_string(bufferslots, "", "How many packets the buffer can hold (round-robin distribution of packets inside buffer | multiples separated by comma without space) [Default 16]");
 DEFINE_string(threads, "", "How many individual clients connect to the server. Server has to run same number of threads as all connecting clients together (multiples separated by comma without space) [Default 1]");
 DEFINE_string(iterations, "", "Amount of transfers for latency and all atomics tests (multiples separated by comma without space) [Default 500000]");
+DEFINE_string(maxtransfersize, "24GB", "Limits the iterations base on the maximal transfer size just for the latency tests. Set to zero or negative to disable this flag. Doesn't affect  --transfersize  or  --maxiterations  flag or atomics tests");
 DEFINE_string(transfersize, "", "How much data should be transfered in bandwidth and operations/sec tests but not for atomics tests (multiples separated by comma without space) [Default 24GB]");
-DEFINE_int32(maxiterations, 500000, "Amount of iterations for bandwidth and operations/sec are calculated via transfersize/packetsize and this flag sets a maximum limit to speed up tests for very small packetsizes. Set to negative value to ignore this flag. Doesn't effect the  --iterations  flags");
+DEFINE_int32(maxiterations, 500000, "Amount of iterations for bandwidth and operations/sec are calculated via transfersize/packetsize and this flag sets a maximum limit to speed up tests for very small packetsizes. Set to zero or negative value to ignore this flag. Doesn't affect the  --iterations  or  --maxtransfersize  flag");
 DEFINE_bool(csv, false, "Results will be written into an automatically generated CSV file");
 DEFINE_string(csvfile, "", "Results will be written into a given CSV file");
 DEFINE_string(seqaddr, "", "Address of NodeIDSequencer to connect/bind to. If empty then config value will be used");
@@ -199,6 +200,7 @@ int main(int argc, char *argv[]){
     std::vector<int> bufferslots = parseIntList(FLAGS_bufferslots);
     std::vector<int> thread_counts = parseIntList(FLAGS_threads);
     std::vector<uint64_t> iteration_counts = parseUInt64List(FLAGS_iterations);
+    int64_t maxtransfersize = rdma::StringHelper::parseByteSize(FLAGS_maxtransfersize);
     std::vector<uint64_t> transfersizes = parseByteSizesList(FLAGS_transfersize);
     std::vector<std::string> writeModeNames = rdma::StringHelper::split(FLAGS_writemode);
     std::vector<std::string> addresses = rdma::StringHelper::split(FLAGS_addr);
@@ -391,6 +393,7 @@ int main(int argc, char *argv[]){
             for(int &thread_count : thread_counts){
                 for(int &buffer_slots : bufferslots){
                     bool csvAddHeader = true;
+                    
                     for(uint64_t &transfersize : transfersizes){
                         rdma::PerfTest *test = nullptr;
                         std::string testName;
@@ -400,7 +403,7 @@ int main(int argc, char *argv[]){
                             for(uint64_t &packet_size : packetsizes){
                                 test = nullptr;
                                 uint64_t iterations_per_thread = (uint64_t)((long double)transfersize / (long double)packet_size + 0.5);
-                                if(FLAGS_maxiterations >= 0 && iterations_per_thread > (uint64_t)FLAGS_maxiterations) iterations_per_thread = FLAGS_maxiterations;
+                                if(FLAGS_maxiterations > 0 && iterations_per_thread > (uint64_t)FLAGS_maxiterations) iterations_per_thread = FLAGS_maxiterations;
                                 iterations_per_thread = (uint64_t)((long double)iterations_per_thread / (long double)thread_count + 0.5);
                                 if(iterations_per_thread==0) iterations_per_thread = 1;
 
@@ -459,6 +462,14 @@ int main(int argc, char *argv[]){
                             csvAddHeader = true;
                             for(uint64_t &packet_size : packetsizes){
                                 test = nullptr;
+
+                                if(maxtransfersize > 0){
+                                    uint64_t maxiters = (uint64_t)((long double)maxtransfersize / (long double)packet_size + 0.5);
+                                    if(iterations > maxiters){
+                                        iterations_per_thread = maxiters / thread_count;
+                                        if(iterations_per_thread==0) iterations_per_thread = 1;
+                                    }
+                                }
 
                                 if(t == LATENCY_TEST){
                                     // Latency Test
