@@ -34,8 +34,9 @@ BaseRDMA::BaseRDMA(size_t mem_size, bool huge, int numaNode) : BaseRDMA(new Main
 BaseRDMA::BaseRDMA(size_t mem_size, MEMORY_TYPE mem_type) : BaseRDMA(mem_size, (int)mem_type, HUGEPAGE, (int)Config::RDMA_NUMAREGION){}
 BaseRDMA::BaseRDMA(size_t mem_size, MEMORY_TYPE mem_type, bool huge, int numaNode) : BaseRDMA(mem_size, (int)mem_type, huge, numaNode){}
 BaseRDMA::BaseRDMA(size_t mem_size, int mem_type, bool huge, int numaNode) : BaseRDMA(
+  (mem_type <= (int)MEMORY_TYPE::MAIN ? (BaseMemory*)new MainMemory(mem_size, huge, numaNode) : 
 #ifdef CUDA_ENABLED /* defined in CMakeLists.txt to globally enable/disable CUDA support */
-  (mem_type <= (int)MEMORY_TYPE::MAIN ? (BaseMemory*)new MainMemory(mem_size, huge, numaNode) : (BaseMemory*)new CudaMemory(mem_size, mem_type))
+  (BaseMemory*)new CudaMemory(mem_size, mem_type))
 #else
   new MainMemory(mem_size, huge, numaNode)
 #endif
