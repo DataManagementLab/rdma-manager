@@ -27,6 +27,16 @@ public:
      * Allocates CUDA (GPU) memory
      *
      * mem_size:      size how much memory should be allocated
+     * memory_type:   enum instead of device index. Type MAIN is not allowed!
+     *
+     */
+    CudaMemory(size_t mem_size, MEMORY_TYPE memory_type);
+
+    /* Constructor
+     * --------------
+     * Allocates CUDA (GPU) memory
+     *
+     * mem_size:      size how much memory should be allocated
      * device_index:  index of the GPU device that should be used to
      *                allocate the memory. If -1 the currently 
      *                selected device will be used. If -2 a device 

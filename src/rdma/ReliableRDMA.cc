@@ -2,14 +2,21 @@
 
 #include "ReliableRDMA.h"
 
+#ifndef HUGEPAGE
+#define HUGEPAGE false
+#endif
+
 using namespace rdma;
 
 //------------------------------------------------------------------------------------//
 
-ReliableRDMA::ReliableRDMA(size_t mem_size) : ReliableRDMA(mem_size, true){}
-ReliableRDMA::ReliableRDMA(size_t mem_size, int numaNode) : ReliableRDMA(mem_size, true, numaNode){}
+ReliableRDMA::ReliableRDMA(size_t mem_size) : ReliableRDMA(mem_size, HUGEPAGE){}
+ReliableRDMA::ReliableRDMA(size_t mem_size, int numaNode) : ReliableRDMA(mem_size, HUGEPAGE, numaNode){}
 ReliableRDMA::ReliableRDMA(size_t mem_size, bool huge) : ReliableRDMA(mem_size, huge, (int)Config::RDMA_NUMAREGION){}
-ReliableRDMA::ReliableRDMA(size_t mem_size, bool huge, int numaNode) : BaseRDMA(mem_size, huge, numaNode){
+ReliableRDMA::ReliableRDMA(size_t mem_size, bool huge, int numaNode) : ReliableRDMA(mem_size, MEMORY_TYPE::MAIN, huge, numaNode){}
+ReliableRDMA::ReliableRDMA(size_t mem_size, MEMORY_TYPE mem_type) : ReliableRDMA(mem_size, (int)mem_type, HUGEPAGE, (int)Config::RDMA_NUMAREGION){}
+ReliableRDMA::ReliableRDMA(size_t mem_size, MEMORY_TYPE mem_type, bool huge, int numaNode) : ReliableRDMA(mem_size, (int)mem_type, huge, numaNode){}
+ReliableRDMA::ReliableRDMA(size_t mem_size, int mem_type, bool huge, int numaNode) : BaseRDMA(mem_size, mem_type, huge, numaNode){
   m_qpType = IBV_QPT_RC;
 }
 ReliableRDMA::ReliableRDMA(BaseMemory *buffer) : BaseRDMA(buffer) {

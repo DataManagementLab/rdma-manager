@@ -24,6 +24,16 @@ class ReliableRDMA : public BaseRDMA {
   ReliableRDMA(size_t mem_size, bool huge);
   ReliableRDMA(size_t mem_size, int numaNode);
   ReliableRDMA(size_t mem_size, bool huge, int numaNode);
+  ReliableRDMA(size_t mem_size, MEMORY_TYPE mem_type);
+  /**
+   * Parameters huge and numaNode are only used if memory type is MAIN
+   */
+  ReliableRDMA(size_t mem_size, MEMORY_TYPE mem_type, bool huge, int numaNode);
+  /**
+   * Parameters huge and numaNode are only used if memory type is MAIN
+   */
+  ReliableRDMA(size_t mem_size, int mem_type, bool huge, int numaNode);
+  
   ReliableRDMA(BaseMemory *buffer);
   ~ReliableRDMA();
 

@@ -38,6 +38,16 @@ class UnreliableRDMA : public BaseRDMA {
   UnreliableRDMA(size_t mem_size, bool huge);
   UnreliableRDMA(size_t mem_size, int numaNode);
   UnreliableRDMA(size_t mem_size, bool huge, int numaNode);
+  UnreliableRDMA(size_t mem_size, MEMORY_TYPE mem_type);
+  /**
+   * Parameters huge and numaNode are only used if memory type is MAIN
+   */
+  UnreliableRDMA(size_t mem_size, MEMORY_TYPE mem_type, bool huge, int numaNode);
+  /**
+   * Parameters huge and numaNode are only used if memory type is MAIN
+   */
+  UnreliableRDMA(size_t mem_size, int mem_type, bool huge, int numaNode);
+
   UnreliableRDMA(BaseMemory *buffer);
   ~UnreliableRDMA();
 

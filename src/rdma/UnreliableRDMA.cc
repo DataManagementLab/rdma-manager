@@ -1,11 +1,18 @@
 #include "UnreliableRDMA.h"
 
+#ifndef HUGEPAGE
+#define HUGEPAGE false
+#endif
+
 using namespace rdma;
 
-UnreliableRDMA::UnreliableRDMA(size_t mem_size) : BaseRDMA(mem_size, true){}
-UnreliableRDMA::UnreliableRDMA(size_t mem_size, bool huge) : BaseRDMA(mem_size, huge, Config::RDMA_NUMAREGION){}
-UnreliableRDMA::UnreliableRDMA(size_t mem_size, int numaNode) : BaseRDMA(mem_size, true, numaNode){}
-UnreliableRDMA::UnreliableRDMA(size_t mem_size, bool huge, int numaNode) : BaseRDMA(mem_size, huge, numaNode) {
+UnreliableRDMA::UnreliableRDMA(size_t mem_size) : UnreliableRDMA(mem_size, HUGEPAGE){}
+UnreliableRDMA::UnreliableRDMA(size_t mem_size, bool huge) : UnreliableRDMA(mem_size, huge, (int)Config::RDMA_NUMAREGION){}
+UnreliableRDMA::UnreliableRDMA(size_t mem_size, int numaNode) : UnreliableRDMA(mem_size, HUGEPAGE, numaNode){}
+UnreliableRDMA::UnreliableRDMA(size_t mem_size, bool huge, int numaNode) : UnreliableRDMA(mem_size, MEMORY_TYPE::MAIN, huge, numaNode){}
+UnreliableRDMA::UnreliableRDMA(size_t mem_size, MEMORY_TYPE mem_type) : UnreliableRDMA(mem_size, (int)mem_type, HUGEPAGE, (int)Config::RDMA_NUMAREGION){}
+UnreliableRDMA::UnreliableRDMA(size_t mem_size, MEMORY_TYPE mem_type, bool huge, int numaNode) : UnreliableRDMA(mem_size, (int)mem_type, huge, numaNode){}
+UnreliableRDMA::UnreliableRDMA(size_t mem_size, int mem_type, bool huge, int numaNode) : BaseRDMA(mem_size, mem_type, huge, numaNode) {
   m_qpType = IBV_QPT_UD;
   m_lastMCastConnKey = 0;
 

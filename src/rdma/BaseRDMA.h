@@ -88,6 +88,15 @@ class BaseRDMA {
   BaseRDMA(size_t mem_size, bool huge);
   BaseRDMA(size_t mem_size, int numaNode);
   BaseRDMA(size_t mem_size, bool huge, int numaNode);
+  BaseRDMA(size_t mem_size, MEMORY_TYPE mem_type);
+  /**
+   * Parameters huge and numaNode are only used if memory type is MAIN
+   */
+  BaseRDMA(size_t mem_size, MEMORY_TYPE mem_type, bool huge, int numaNode);
+  /**
+   * Parameters huge and numaNode are only used if memory type is MAIN
+   */
+  BaseRDMA(size_t mem_size, int mem_type, bool huge, int numaNode);
 
   virtual ~BaseRDMA();
 

@@ -7,8 +7,10 @@ using namespace rdma;
 
 // constructors
 CudaMemory::CudaMemory(size_t mem_size) : CudaMemory(mem_size, -2){}
+CudaMemory::CudaMemory(size_t mem_size, MEMORY_TYPE memory_type) : CudaMemory(mem_size, (int)memory_type){}
 CudaMemory::CudaMemory(size_t mem_size, int device_index) : AbstractBaseMemory(mem_size), AbstractCudaMemory(mem_size, device_index), BaseMemory(mem_size){
-    if(this->device_index < -1) this->device_index = GpuNumaUtils::get_cuda_device_index_by_numa();
+    if(this->device_index < -2) throw std::invalid_argument("Device index cannot be smaller than -2. See documentation");
+    if(this->device_index == -2) this->device_index = GpuNumaUtils::get_cuda_device_index_by_numa();
 
     // allocate CUDA memory
     openContext();
