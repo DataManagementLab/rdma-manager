@@ -41,6 +41,7 @@ void ExReliableRDMA::initXRC() {
     xrc_fd = -1;
   }
 
+  struct ibv_xrcd_init_attr xrcd_attr;
   memset(&xrcd_attr, 0, sizeof xrcd_attr);
   xrcd_attr.comp_mask = IBV_XRCD_INIT_ATTR_FD | IBV_XRCD_INIT_ATTR_OFLAGS;
   xrcd_attr.fd = xrc_fd;
@@ -85,12 +86,12 @@ void ReliableRDMA::connectQP(const rdmaConnID rdmaConnID) {
 }
 
 //------------------------------------------------------------------------------------//
-//------------------------------------------------------------------------------------//
 
-void ExReliableRDMA::createQP(struct ib_qp_t *qp) {
+//TODO qp_type?
+void ExReliableRDMA::createQP(struct ib_qp_t *qp, ibv_qp_type* qp_type) {
   // initialize QP attributes
-  struct ibv_qp_init_attr qp_init_attr;
-  memset(&qp_init_attr, 0, sizeof(qp_init_attr));
+  struct ibv_qp_init_attr_ex qp_init_attr_ex;
+  memset(&qp_init_attr, 0, sizeof(qp_init_attr_ex));
   memset(&(m_res.device_attr), 0, sizeof(m_res.device_attr));
   // m_res.device_attr.comp_mask |= IBV_EXP_DEVICE_ATTR_EXT_ATOMIC_ARGS
   //         | IBV_EXP_DEVICE_ATTR_EXP_CAP_FLAGS;
@@ -102,10 +103,25 @@ void ExReliableRDMA::createQP(struct ib_qp_t *qp) {
   }
 
     // qp_init_attr.pd = m_res.pd
-  qp_init_attr.send_cq = qp->send_cq;
-  qp_init_attr.recv_cq = qp->recv_cq;
-  qp_init_attr.sq_sig_all = 0;  // In every WR, it must be decided whether to generate a WC or not
-  qp_init_attr.cap.max_inline_data = Config::MAX_RC_INLINE_SEND;
+  if(qp_type == IBV_QPT_XRC_SEND) {
+    qp_init_attr_ex.send_cq = qp->send_cq;
+    qp_init_attr_ex.cap.max_send_wr = Config::RDMA_MAX_WR;
+    qp_init_attr_ex.cap.max_send_sge = Config::RDMA_MAX_SGE;
+  } else if(qp_type == IBV_QPT_XRC_RECV) {
+    qp_init_attr_ex.recv_cq = qp->recv_cq;
+    qp_init_attr_ex.cap.max_recv_wr = Config::RDMA_MAX_WR;
+    qp_init_attr_ex.cap.max_recv_sge = Config::RDMA_MAX_SGE;
+  } else {
+    throw runtime_error("Unknown qp_type in ExReliableRDMA::createQP");
+  }
+  qp_init_attr_ex.sq_sig_all = 0;  // In every WR, it must be decided whether to generate a WC or not
+  qp_init_attr_ex.cap.max_inline_data = Config::MAX_RC_INLINE_SEND;
+
+  // enable XRC
+  qp_init_attr_ex.qp_type = qp_type;
+  qp_init_attr_ex.comp_mask = IBV_QP_INIT_ATTR_XRCD;
+  qp_init_attr_ex.xrcd = xrcd;
+  qp_init_attr_ex.pd = m_res.pd;
 
   // TODO: Enable atomic for DM cluster
   // qp_init_attr.max_atomic_arg = 32;
@@ -114,16 +130,10 @@ void ExReliableRDMA::createQP(struct ib_qp_t *qp) {
   // IBV_EXP_QP_INIT_ATTR_PD; qp_init_attr.comp_mask |=
   // IBV_EXP_QP_INIT_ATTR_ATOMICS_ARG;
 
-  qp_init_attr.srq = NULL;  // Shared receive queue
-  qp_init_attr.qp_type = m_qpType;
-
-  qp_init_attr.cap.max_send_wr = Config::RDMA_MAX_WR;
-  qp_init_attr.cap.max_recv_wr = Config::RDMA_MAX_WR;
-  qp_init_attr.cap.max_send_sge = Config::RDMA_MAX_SGE;
-  qp_init_attr.cap.max_recv_sge = Config::RDMA_MAX_SGE;
+  //qp_init_attr.srq = NULL;  // Shared receive queue
 
   // create queue pair
-  if (!(qp->qp = ibv_create_qp(m_res.pd, &qp_init_attr))) {
+  if (!(qp->qp = ibv_create_qp_ex(m_res.ib_ctx, &qp_init_attr_ex))) {
     throw runtime_error("Cannot create queue pair!");
   }
 }
@@ -163,8 +173,8 @@ void ExReliableRDMA::modifyQPToRTR(struct ibv_qp *qp, uint32_t remote_qpn,
   memset(&attr, 0, sizeof(attr));
   attr.qp_state = IBV_QPS_RTR;
   attr.path_mtu = IBV_MTU_4096;
-  attr.dest_qp_num = remote_qpn;
-  attr.rq_psn = 0;
+  attr.dest_qp_num = remote_qpn; //pingping: send_qpn
+  attr.rq_psn = 0; //pingpong: is different/exchanged
   attr.max_dest_rd_atomic = 16;
   attr.min_rnr_timer = 0x12;
   attr.ah_attr.is_global = 0;
@@ -181,6 +191,8 @@ void ExReliableRDMA::modifyQPToRTR(struct ibv_qp *qp, uint32_t remote_qpn,
     attr.ah_attr.grh.sgid_index = m_gidIdx;
     attr.ah_attr.grh.traffic_class = 0;
   }
+
+  //TODO XRC attr.dest_qp_num = remote.recv_qpn for send_qp
 
   if ((errno = ibv_modify_qp(qp, &attr, flags)) > 0) {
     throw runtime_error("Failed modifyQPToRTR!");
@@ -201,7 +213,7 @@ void ExReliableRDMA::modifyQPToRTS(struct ibv_qp *qp) {
   attr.timeout = 0x12;
   attr.retry_cnt = 6;
   attr.rnr_retry = 0;
-  attr.sq_psn = 0;
+  attr.sq_psn = 0; //pingpong: is recv/send_psn
   attr.max_rd_atomic = 16;
 
   if ((errno = ibv_modify_qp(qp, &attr, flags)) > 0) {
@@ -217,22 +229,29 @@ void ExReliableRDMA::createSharedReceiveQueue(size_t &ret_srq_id) {
 
   //TODO XRC use init_attr_ex and ibv_create_srq_ex equivalent to pingpong
 
-  struct ibv_srq_init_attr srq_init_attr;
+  struct ibv_srq_init_attr_ex srq_init_attr_ex;
   sharedrq_t srq;
   memset(&srq_init_attr, 0, sizeof(srq_init_attr));
 
-  srq_init_attr.attr.max_wr = Config::RDMA_MAX_WR;
-  srq_init_attr.attr.max_sge = Config::RDMA_MAX_SGE;
-
-  srq.shared_rq = ibv_create_srq(m_res.pd, &srq_init_attr);
-  if (!srq.shared_rq) {
-    throw runtime_error("Error, ibv_create_srq() failed!");
-  }
+  srq_init_attr_ex.attr.max_wr = Config::RDMA_MAX_WR;
+  srq_init_attr_ex.attr.max_sge = Config::RDMA_MAX_SGE;
+  srq_init_attr_ex.comp_mask = IBV_SRQ_INIT_ATTR_TYPE | IBV_SRQ_INIT_ATTR_XRCD |
+                               IBV_SRQ_INIT_ATTR_CQ | IBV_SRQ_INIT_ATTR_PD;
+  srq_init_attr_ex.srq_type = IBV_SRQT_XRC;
+  srq_init_attr_ex.xrcd = xrcd;
+  srq_init_attr_ex.cq = ; // TODO: recv_cq
+  srq_init_attr_ex.pd = m_res.pd;
 
   if (!(srq.recv_cq =
             ibv_create_cq(srq.shared_rq->context, Config::RDMA_MAX_WR + 1,
                           nullptr, nullptr, 0))) {
-    throw runtime_error("Cannot create receive CQ!");
+    throw runtime_error("Cannot create receive CQ for SRQ!");
+  }
+  srq_init_attr_ex.cq = srq.recv_cq;
+
+  srq.shared_rq = ibv_create_srq_ex(m_res.pd, &srq_init_attr);
+  if (!srq.shared_rq) {
+    throw runtime_error("Error, ibv_create_srq() failed!");
   }
 
   Logging::debug(__FILE__, __LINE__, "Created shared receive queue");
