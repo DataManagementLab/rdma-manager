@@ -99,39 +99,39 @@ void ExReliableRDMA::connectQP(const rdmaConnID rdmaConnID) {
 
 //TODO qp_type?
 void ExReliableRDMA::createQP(struct ib_qp_t *qp, ibv_qp_type qp_type) {
+  Logging::debug(__FILE__, __LINE__, "ExReliableRDMA::createQP: ");
   // initialize QP attributes
   struct ibv_qp_init_attr_ex qp_init_attr_ex;
   memset(&qp_init_attr_ex, 0, sizeof(qp_init_attr_ex));
   memset(&(m_res.device_attr), 0, sizeof(m_res.device_attr));
   // m_res.device_attr.comp_mask |= IBV_EXP_DEVICE_ATTR_EXT_ATOMIC_ARGS
   //         | IBV_EXP_DEVICE_ATTR_EXP_CAP_FLAGS;
-  
+
   //TODO XRC need to use qp_init_attr_ex and using ib_create_qp_ex
 
   if (ibv_query_device(m_res.ib_ctx, &(m_res.device_attr))) {
     throw runtime_error("Error, ibv_query_device() failed");
   }
 
-    // qp_init_attr.pd = m_res.pd
+  qp_init_attr_ex.qp_type = qp_type;
+
   if(qp_type == IBV_QPT_XRC_SEND) {
     qp_init_attr_ex.send_cq = qp->send_cq;
     qp_init_attr_ex.cap.max_send_wr = Config::RDMA_MAX_WR;
     qp_init_attr_ex.cap.max_send_sge = Config::RDMA_MAX_SGE;
+    qp_init_attr_ex.comp_mask        = IBV_QP_INIT_ATTR_PD;
+    qp_init_attr_ex.pd = m_res.pd;
   } else if(qp_type == IBV_QPT_XRC_RECV) {
     qp_init_attr_ex.recv_cq = qp->recv_cq;
     qp_init_attr_ex.cap.max_recv_wr = Config::RDMA_MAX_WR;
     qp_init_attr_ex.cap.max_recv_sge = Config::RDMA_MAX_SGE;
+    qp_init_attr_ex.xrcd = xrcd;
+    qp_init_attr_ex.comp_mask = IBV_QP_INIT_ATTR_XRCD;
   } else {
     throw runtime_error("Unknown qp_type in ExReliableRDMA::createQP");
   }
   qp_init_attr_ex.sq_sig_all = 0;  // In every WR, it must be decided whether to generate a WC or not
   qp_init_attr_ex.cap.max_inline_data = Config::MAX_RC_INLINE_SEND;
-
-  // enable XRC
-  qp_init_attr_ex.qp_type = qp_type;
-  qp_init_attr_ex.comp_mask = IBV_QP_INIT_ATTR_XRCD;
-  qp_init_attr_ex.xrcd = xrcd;
-  qp_init_attr_ex.pd = m_res.pd;
 
   // TODO: Enable atomic for DM cluster
   // qp_init_attr.max_atomic_arg = 32;
@@ -161,9 +161,12 @@ void ExReliableRDMA::modifyQPToInit(struct ibv_qp *qp) {
   attr.qp_state = IBV_QPS_INIT;
   attr.port_num = m_ibPort;
   attr.pkey_index = 0;
-  //attr.qp_access_flags = IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ |
-  //                       IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_ATOMIC;
-  attr.qp_access_flags = IBV_ACCESS_REMOTE_READ | IBV_ACCESS_REMOTE_WRITE;
+  if(qp->send_cq) {
+    attr.qp_access_flags = IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ |
+                           IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_ATOMIC;
+  } else {
+    attr.qp_access_flags = 0;
+  }
 
   if ((errno = ibv_modify_qp(qp, &attr, flags)) > 0) {
     throw runtime_error("Failed modifyQPToInit!");
@@ -292,7 +295,9 @@ void ExReliableRDMA::initQPWithSuppliedID(const rdmaConnID rdmaConnID) {
 
   //createCQ(send_qp->send_cq, recv_qp->recv_cq);
   send_qp.send_cq = this->send_cq;
+  send_qp.recv_cq = 0;
   recv_qp.recv_cq = this->recv_cq;
+  recv_qp.send_cq = 0;
 
   // create queues
   createQP(&recv_qp, IBV_QPT_XRC_RECV);
