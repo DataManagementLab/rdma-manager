@@ -10,6 +10,7 @@
 #define SRC_TEST_NET_TestRDMAServerXRC_H_
 
 #include "../../src/utils/Config.h"
+#include "../../src/rdma/ExReliableRDMA.h"
 #include "../../src/rdma/RDMAServer.h"
 #include "../../src/rdma/RDMAClient.h"
 #include <gtest/gtest.h>

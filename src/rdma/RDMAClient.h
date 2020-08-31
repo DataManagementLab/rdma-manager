@@ -196,7 +196,10 @@ class RDMAClient : public RDMA_API_T, public ProtoClient {
 
         //srq Server to Server is not yet working
         //init QP but dont add it to the members yet
-      RDMA_API_T::initQPWithSuppliedID(&qpPt,&localConnPt);
+      //RDMA_API_T::initQPWithSuppliedID(&qpPt,&localConnPt);
+      RDMA_API_T::initQPWithSuppliedID(retServerNodeID);
+      localConn = RDMA_API_T::getLocalConnData(retServerNodeID);
+      qp = RDMA_API_T::m_qps[retServerNodeID];
 
 
 
@@ -230,7 +233,7 @@ class RDMAClient : public RDMA_API_T, public ProtoClient {
         remoteConn.buffer = connResponse.buffer();
         remoteConn.rc.rkey = connResponse.rkey();
         remoteConn.qp_num = connResponse.qp_num();
-        remoteConn.xrc.qp_num = connResponse.recv_qp_num();
+        remoteConn.xrc.recv_qp_num = connResponse.recv_qp_num();
         remoteConn.xrc.srqn = connResponse.srqn();
         remoteConn.lid = connResponse.lid();
         remoteConn.ud.psn = connResponse.psn();

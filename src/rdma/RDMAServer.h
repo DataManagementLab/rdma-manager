@@ -216,7 +216,7 @@ class RDMAServer : public ProtoServer, public RDMAClient<RDMA_API_T> {
     remoteConn.buffer = connRequest->buffer();
     remoteConn.rc.rkey = connRequest->rkey();
     remoteConn.qp_num = connRequest->qp_num();
-    remoteConn.xrc.qp_num = connRequest->recv_qp_num();
+    remoteConn.xrc.recv_qp_num = connRequest->recv_qp_num();
     remoteConn.xrc.srqn = connRequest->srqn();
     remoteConn.lid = connRequest->lid();
     for (int i = 0; i < 16; ++i) {

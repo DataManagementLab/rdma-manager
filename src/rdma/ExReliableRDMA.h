@@ -20,22 +20,22 @@ class ExReliableRDMA : public ReliableRDMA {
   ExReliableRDMA(size_t mem_size, int numaNode);
   ~ExReliableRDMA();
 
-  void initQPWithSuppliedID(const rdmaConnID suppliedID) override;
+  void initQPWithSuppliedID(const rdmaConnID suppliedID) ;
+  //void initQPWithSuppliedID(struct ib_qp_t** qp ,struct ib_conn_t ** localConn) override;
 
-  void initQP(rdmaConnID& retRdmaConnID) override;
+  void initQP(const rdmaConnID retRdmaConnID) ;
   void connectQP(const rdmaConnID rdmaConnID) override;
 
   void write(const rdmaConnID rdmaConnID, size_t offset, const void* memAddr,
              size_t size, bool signaled);
 
-  void createSharedReceiveQueue() override;
+  void createSharedReceiveQueue();
 
  protected:
   void initXRC();
   void destroyXRC();
-  virtual void destroyQPs() override;
-  void createQP(struct ib_qp_t* qp) override;
-  void createQP(size_t srq_id, struct ib_qp_t& qp);
+  //virtual void destroyQPs() override;
+  void createQP(struct ib_qp_t*, ibv_qp_type qp_type);
 
   void modifyQPToInit(struct ibv_qp* qp);
   void modifyQPToRTR(struct ibv_qp* qp, uint32_t remote_qpn, uint16_t dlid,

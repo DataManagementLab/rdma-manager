@@ -1,6 +1,8 @@
 
 
 #include "ExReliableRDMA.h"
+#include <fcntl.h>
+#include <stdlib.h>
 
 using namespace rdma;
 
@@ -60,7 +62,7 @@ void ExReliableRDMA::initXRC() {
 
 void ExReliableRDMA::destroyXRC() {
   if (xrcd) {
-    ibv_clse_xrcd(xrcd);
+    ibv_close_xrcd(xrcd);
   }
   if (xrc_fd >= 0) {
     close(xrc_fd);
@@ -96,10 +98,10 @@ void ExReliableRDMA::connectQP(const rdmaConnID rdmaConnID) {
 //------------------------------------------------------------------------------------//
 
 //TODO qp_type?
-void ExReliableRDMA::createQP(struct ib_qp_t *qp, ibv_qp_type* qp_type) {
+void ExReliableRDMA::createQP(struct ib_qp_t *qp, ibv_qp_type qp_type) {
   // initialize QP attributes
   struct ibv_qp_init_attr_ex qp_init_attr_ex;
-  memset(&qp_init_attr, 0, sizeof(qp_init_attr_ex));
+  memset(&qp_init_attr_ex, 0, sizeof(qp_init_attr_ex));
   memset(&(m_res.device_attr), 0, sizeof(m_res.device_attr));
   // m_res.device_attr.comp_mask |= IBV_EXP_DEVICE_ATTR_EXT_ATOMIC_ARGS
   //         | IBV_EXP_DEVICE_ATTR_EXP_CAP_FLAGS;
@@ -239,7 +241,7 @@ void ExReliableRDMA::createSharedReceiveQueue() {
 
   struct ibv_srq_init_attr_ex srq_init_attr_ex;
   sharedrq_t srq;
-  memset(&srq_init_attr, 0, sizeof(srq_init_attr));
+  memset(&srq_init_attr_ex, 0, sizeof(srq_init_attr_ex));
 
   srq_init_attr_ex.attr.max_wr = Config::RDMA_MAX_WR;
   srq_init_attr_ex.attr.max_sge = Config::RDMA_MAX_SGE;
@@ -247,17 +249,17 @@ void ExReliableRDMA::createSharedReceiveQueue() {
                                IBV_SRQ_INIT_ATTR_CQ | IBV_SRQ_INIT_ATTR_PD;
   srq_init_attr_ex.srq_type = IBV_SRQT_XRC;
   srq_init_attr_ex.xrcd = xrcd;
-  srq_init_attr_ex.cq = ; // TODO: recv_cq
+  //srq_init_attr_ex.cq = ; // TODO: recv_cq --- is set below
   srq_init_attr_ex.pd = m_res.pd;
 
   if (!(srq.recv_cq =
-            ibv_create_cq(m_res.pd, Config::RDMA_MAX_WR + 1,
+            ibv_create_cq(m_res.ib_ctx, Config::RDMA_MAX_WR + 1,
                           nullptr, nullptr, 0))) {
     throw runtime_error("Cannot create receive CQ for SRQ!");
   }
   srq_init_attr_ex.cq = srq.recv_cq;
 
-  srq.shared_rq = ibv_create_srq_ex(m_res.pd, &srq_init_attr);
+  srq.shared_rq = ibv_create_srq_ex(m_res.ib_ctx, &srq_init_attr_ex);
   if (!srq.shared_rq) {
     throw runtime_error("Error, ibv_create_srq() failed!");
   }
@@ -284,16 +286,17 @@ void ExReliableRDMA::initQPWithSuppliedID(const rdmaConnID rdmaConnID) {
   Logging::debug(
       __FILE__, __LINE__,
       "ExReliableRDMA::initQPWithSuppliedID: Method Called");
+  unsigned int srq_id = 0;
   struct ib_qp_t send_qp;
   struct ib_qp_t recv_qp;
 
   //createCQ(send_qp->send_cq, recv_qp->recv_cq);
-  send_qp->send_cq = this->send_cq;
-  recv_qp->recv_cq = this->recv_cq;
+  send_qp.send_cq = this->send_cq;
+  recv_qp.recv_cq = this->recv_cq;
 
   // create queues
-  createQP(recv_qp, IBV_QPT_XRC_RECV);
-  createQP(send_qp, IBV_QPT_XRC_SEND);
+  createQP(&recv_qp, IBV_QPT_XRC_RECV);
+  createQP(&send_qp, IBV_QPT_XRC_SEND);
 
   // create local connection data
   struct ib_conn_t localConn;
@@ -301,9 +304,10 @@ void ExReliableRDMA::initQPWithSuppliedID(const rdmaConnID rdmaConnID) {
   memset(&my_gid, 0, sizeof my_gid);
 
   uint32_t srq_num; //TODO more dynamic for current srqNum
-  if (ibv_get_srq_num(m_srqs[0], &srq_num)) {
+  if (ibv_get_srq_num(m_srqs[0].shared_rq, &srq_num)) {
     fprintf(stderr, "Couldn't get SRQ num\n");
-    return -1;
+    //TODO Logging::error(__FILE__, __LINE__, "Couldn't get SRQ num");
+    return ;
   }
 
   localConn.buffer = (uint64_t)m_res.buffer;
@@ -319,14 +323,16 @@ void ExReliableRDMA::initQPWithSuppliedID(const rdmaConnID rdmaConnID) {
   modifyQPToInit(recv_qp.qp);
 
   //TODO XRC create and init both send and recv qp using ib_create_qp_ex
+  m_xrc_recv_qps.resize(rdmaConnID + 1);
   m_xrc_recv_qps[rdmaConnID] = recv_qp;
 
   // done
   setQP(rdmaConnID, send_qp);
   setLocalConnData(rdmaConnID, localConn);
   m_connectedQPs[srq_id].push_back(rdmaConnID);
-  Logging::debug(__FILE__, __LINE__, "Created RC queue pair");
+  Logging::debug(__FILE__, __LINE__, "Created XRC queue pair");
 }
+
 
 ////------------------------------------------------------------------------------------//
 //

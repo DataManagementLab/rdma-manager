@@ -112,7 +112,7 @@ class ReliableRDMA : public BaseRDMA {
     // calculate remote address using offset in local buffer
     sr.wr.rdma.remote_addr = remoteConn.buffer + offset;
     sr.wr.rdma.rkey = remoteConn.rc.rkey;
-    sr.wr.qp_type.xrc.remote_srqn = remoteConn.xrc.srqn;
+    sr.qp_type.xrc.remote_srqn = remoteConn.xrc.srqn;
 
     if(imm!= nullptr)
         sr.imm_data = *imm;

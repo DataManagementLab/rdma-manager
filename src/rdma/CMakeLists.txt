@@ -3,6 +3,8 @@ set(NET_RDMA_SRC
   BaseRDMA.cc
   ReliableRDMA.h
   ReliableRDMA.cc
+  ExReliableRDMA.h
+  ExReliableRDMA.cc
   UnreliableRDMA.h
   UnreliableRDMA.cc
   RDMAServer.h
