@@ -473,8 +473,7 @@ std::string rdma::BandwidthPerfTest::getTestResults(std::string csvFileName, boo
 		int64_t arrReadMs[m_thread_count];
 		int64_t arrSendMs[m_thread_count];
 		long double avgWriteMs=0, medianWriteMs, avgReadMs=0, medianReadMs, avgSendMs=0, medianSendMs;
-		const long double div = 1; // TODO not sure why additional   m_thread_count  is too much
-		const long double divAvg = m_client_threads.size() * div;
+		const long double divAvg = m_client_threads.size();
 		for(size_t i=0; i<m_client_threads.size(); i++){
 			BandwidthPerfClientThread *thr = m_client_threads[i];
 			if(thr->m_elapsedWriteMs < minWriteMs) minWriteMs = thr->m_elapsedWriteMs;
@@ -490,20 +489,18 @@ std::string rdma::BandwidthPerfTest::getTestResults(std::string csvFileName, boo
 			avgSendMs += (long double) thr->m_elapsedSendMs / divAvg;
 			arrSendMs[i] = thr->m_elapsedSendMs;
 		}
-		minWriteMs /= div; maxWriteMs /= div;
-		minReadMs /= div; maxReadMs /= div;
-		minSendMs /= div; maxSendMs /= div;
 
 		std::sort(arrWriteMs, arrWriteMs + m_thread_count);
 		std::sort(arrReadMs, arrReadMs + m_thread_count);
 		std::sort(arrSendMs, arrSendMs + m_thread_count);
-		medianWriteMs = arrWriteMs[(int)(m_thread_count/2)] / div;
-		medianReadMs = arrReadMs[(int)(m_thread_count/2)] / div;
-		medianSendMs = arrSendMs[(int)(m_thread_count/2)] / div;
+
+		medianWriteMs = arrWriteMs[(int)(m_thread_count/2)];
+		medianReadMs = arrReadMs[(int)(m_thread_count/2)];
+		medianSendMs = arrSendMs[(int)(m_thread_count/2)];
 
 		// write results into CSV file
 		if(!csvFileName.empty()){
-			const uint64_t su = 1000*1000*1000; // size unit (bytes to GigaBytes) | use 1024*1024 for MebiBytes
+			const long double su = 1000*1000*1000; // size unit (bytes to GigaBytes) | use 1024*1024 for MebiBytes
 			std::ofstream ofs;
 			ofs.open(csvFileName, std::ofstream::out | std::ofstream::app);
 			ofs << rdma::CSV_PRINT_NOTATION << rdma::CSV_PRINT_PRECISION;

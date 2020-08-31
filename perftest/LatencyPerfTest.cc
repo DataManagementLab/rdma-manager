@@ -452,7 +452,7 @@ std::string rdma::LatencyPerfTest::getTestResults(std::string csvFileName, bool 
 
 		// write results into CSV file
 		if(!csvFileName.empty()){
-			const uint64_t ustu = 1000; // nanosec to microsec
+			const long double ustu = 1000; // nanosec to microsec
 			std::ofstream ofs;
 			ofs.open(csvFileName, std::ofstream::out | std::ofstream::app);
 			ofs << rdma::CSV_PRINT_NOTATION << rdma::CSV_PRINT_PRECISION;

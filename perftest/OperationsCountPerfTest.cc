@@ -505,7 +505,7 @@ std::string rdma::OperationsCountPerfTest::getTestResults(std::string csvFileNam
 
 		// write results into CSV file
 		if(!csvFileName.empty()){
-			const uint64_t su = 1000*1000; // size unit (operations to megaOps)
+			const long double su = 1000*1000; // size unit (operations to megaOps)
 			std::ofstream ofs;
 			ofs.open(csvFileName, std::ofstream::out | std::ofstream::app);
 			ofs << rdma::CSV_PRINT_NOTATION << rdma::CSV_PRINT_PRECISION;
