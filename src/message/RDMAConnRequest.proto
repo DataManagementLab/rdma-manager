@@ -10,5 +10,6 @@ message RDMAConnRequest {
    	uint32 psn = 6;
     uint64 nodeid = 7;
   uint32 recv_qp_num = 8;
+  uint32 srqn = 9;
 }
 

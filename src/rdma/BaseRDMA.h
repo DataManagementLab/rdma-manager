@@ -56,7 +56,8 @@ struct ib_conn_t {
     struct ibv_ah *ah; /* Route to remote QP*/
   } ud;
   struct {
-    uint64_t recv_qp_num; /*  Recv QP number, using qp_num as sending one */
+    uint32_t recv_qp_num; /*  Recv QP number, using qp_num as sending one */
+    uint32_t srqn; /*  Destination SRQN */
   } xrc;
 };
 

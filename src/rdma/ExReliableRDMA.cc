@@ -300,10 +300,17 @@ void ExReliableRDMA::initQPWithSuppliedID(const rdmaConnID rdmaConnID) {
   union ibv_gid my_gid;
   memset(&my_gid, 0, sizeof my_gid);
 
+  uint32_t srq_num; //TODO more dynamic for current srqNum
+  if (ibv_get_srq_num(m_srqs[0], &srq_num)) {
+    fprintf(stderr, "Couldn't get SRQ num\n");
+    return -1;
+  }
+
   localConn.buffer = (uint64_t)m_res.buffer;
   localConn.rc.rkey = m_res.mr->rkey;
   localConn.qp_num = send_qp.qp->qp_num;
   localConn.xrc.recv_qp_num = recv_qp.qp->qp_num;
+  localConn.xrc.srqn = srq_num;
   localConn.lid = m_res.port_attr.lid;
   memcpy(localConn.gid, &my_gid, sizeof my_gid);
 
