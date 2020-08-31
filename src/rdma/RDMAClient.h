@@ -206,6 +206,7 @@ class RDMAClient : public RDMA_API_T, public ProtoClient {
       connRequest.set_buffer(localConnPt->buffer);
       connRequest.set_rkey(localConnPt->rc.rkey);
       connRequest.set_qp_num(localConnPt->qp_num);
+      connRequest.set_recv_qp_num(localConnPt->xrc.recv_qp_num);
       connRequest.set_lid(localConnPt->lid);
       for (int i = 0; i < 16; ++i) {
         connRequest.add_gid(localConnPt->gid[i]);
@@ -229,6 +230,8 @@ class RDMAClient : public RDMA_API_T, public ProtoClient {
         remoteConn.buffer = connResponse.buffer();
         remoteConn.rc.rkey = connResponse.rkey();
         remoteConn.qp_num = connResponse.qp_num();
+        remoteConn.xrc.qp_num = connResponse.recv_qp_num();
+        remoteConn.xrc.srqn = connResponse.srqn();
         remoteConn.lid = connResponse.lid();
         remoteConn.ud.psn = connResponse.psn();
         for (int i = 0; i < 16; ++i) {

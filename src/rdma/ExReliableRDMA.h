@@ -1,6 +1,6 @@
 /**
  * @file ExReliableRDMA.h
- * @author cbinnig, tziegler, dfailing
+ * @author cbinnig, tziegler, dfailing, anewswanger
  * @date 2020-08-27
  */
 
