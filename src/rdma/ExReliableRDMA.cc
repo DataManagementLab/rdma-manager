@@ -50,6 +50,10 @@ void ExReliableRDMA::initXRC() {
   if (!xrcd) {
     throw runtime_error("Failed initXRC, could not open XRC Domain!");
   }
+
+  createCQ(send_cq, recv_cq);
+
+  createSharedReceiveQueue();
 }
 
 //------------------------------------------------------------------------------------//
@@ -65,7 +69,7 @@ void ExReliableRDMA::destroyXRC() {
 
 //------------------------------------------------------------------------------------//
 
-void ReliableRDMA::connectQP(const rdmaConnID rdmaConnID) {
+void ExReliableRDMA::connectQP(const rdmaConnID rdmaConnID) {
   // if QP is connected return
 
   //TODO XRC we need to connect two pairs and both need to be set to RTS
@@ -75,11 +79,15 @@ void ReliableRDMA::connectQP(const rdmaConnID rdmaConnID) {
 
   Logging::debug(__FILE__, __LINE__, "ExReliableRDMA::connectQP: CONNECT");
   // connect local and remote QP
-  struct ib_qp_t qp = m_qps[rdmaConnID];
+  struct ib_qp_t send_qp = m_qps[rdmaConnID];
+  struct ib_qp_t recv_qp = m_xrc_recv_qps[rdmaConnID];
   struct ib_conn_t remoteConn = m_rconns[rdmaConnID];
-  modifyQPToRTR(qp.qp, remoteConn.qp_num, remoteConn.lid, remoteConn.gid);
 
-  modifyQPToRTS(qp.qp);
+  modifyQPToRTR(send_qp.qp, remoteConn.xrc.recv_qp_num, remoteConn.lid, remoteConn.gid);
+  modifyQPToRTS(send_qp.qp);
+
+  modifyQPToRTR(recv_qp.qp, remoteConn.qp_num, remoteConn.lid, remoteConn.gid);
+  modifyQPToRTS(recv_qp.qp);
 
   m_connected[rdmaConnID] = true;
   Logging::debug(__FILE__, __LINE__, "ExConnected RC queue pair!");
@@ -173,7 +181,7 @@ void ExReliableRDMA::modifyQPToRTR(struct ibv_qp *qp, uint32_t remote_qpn,
   memset(&attr, 0, sizeof(attr));
   attr.qp_state = IBV_QPS_RTR;
   attr.path_mtu = IBV_MTU_4096;
-  attr.dest_qp_num = remote_qpn; //pingping: send_qpn
+  attr.dest_qp_num = remote_qpn; //pingping: send_qpn (as parameter from connectQP)
   attr.rq_psn = 0; //pingpong: is different/exchanged
   attr.max_dest_rd_atomic = 16;
   attr.min_rnr_timer = 0x12;
@@ -223,7 +231,7 @@ void ExReliableRDMA::modifyQPToRTS(struct ibv_qp *qp) {
 
 //------------------------------------------------------------------------------------//
 
-void ExReliableRDMA::createSharedReceiveQueue(size_t &ret_srq_id) {
+void ExReliableRDMA::createSharedReceiveQueue() {
   Logging::debug(__FILE__, __LINE__,
                  "ExReliableRDMA::createSharedReceiveQueue: Method Called");
 
@@ -243,7 +251,7 @@ void ExReliableRDMA::createSharedReceiveQueue(size_t &ret_srq_id) {
   srq_init_attr_ex.pd = m_res.pd;
 
   if (!(srq.recv_cq =
-            ibv_create_cq(srq.shared_rq->context, Config::RDMA_MAX_WR + 1,
+            ibv_create_cq(m_res.pd, Config::RDMA_MAX_WR + 1,
                           nullptr, nullptr, 0))) {
     throw runtime_error("Cannot create receive CQ for SRQ!");
   }
@@ -256,21 +264,36 @@ void ExReliableRDMA::createSharedReceiveQueue(size_t &ret_srq_id) {
 
   Logging::debug(__FILE__, __LINE__, "Created shared receive queue");
 
-  ret_srq_id = m_srqCounter;
-  m_srqs[ret_srq_id] = srq;
+  //ret_srq_id = m_srqCounter;
+  //m_srqs[ret_srq_id] = srq;
+  m_srqs[m_srqCounter] = srq;
   m_srqCounter++;
 }
-
+ 
 //------------------------------------------------------------------------------------//
-
-void ExReliableRDMA::initQPForSRQWithSuppliedID(size_t srq_id,
-                                              const rdmaConnID rdmaConnID) {
+void ExReliableRDMA::initQP(const rdmaConnID rdmaConnID) {
   Logging::debug(
       __FILE__, __LINE__,
-      "ExReliableRDMA::initQP: Method Called with SRQID" + to_string(srq_id));
-  struct ib_qp_t qp;
+      "ExReliableRDMA::initQP: Method Called");
+  initQPWithSuppliedID(rdmaConnID);
+  //TODO what is the difference between this and ...WithSuppliedID
+}
+//------------------------------------------------------------------------------------//
+
+void ExReliableRDMA::initQPWithSuppliedID(const rdmaConnID rdmaConnID) {
+  Logging::debug(
+      __FILE__, __LINE__,
+      "ExReliableRDMA::initQPWithSuppliedID: Method Called");
+  struct ib_qp_t send_qp;
+  struct ib_qp_t recv_qp;
+
+  //createCQ(send_qp->send_cq, recv_qp->recv_cq);
+  send_qp->send_cq = this->send_cq;
+  recv_qp->recv_cq = this->recv_cq;
+
   // create queues
-  createQP(srq_id, qp);
+  createQP(recv_qp, IBV_QPT_XRC_RECV);
+  createQP(send_qp, IBV_QPT_XRC_SEND);
 
   // create local connection data
   struct ib_conn_t localConn;
@@ -279,80 +302,83 @@ void ExReliableRDMA::initQPForSRQWithSuppliedID(size_t srq_id,
 
   localConn.buffer = (uint64_t)m_res.buffer;
   localConn.rc.rkey = m_res.mr->rkey;
-  localConn.qp_num = qp.qp->qp_num;
+  localConn.qp_num = send_qp.qp->qp_num;
+  localConn.xrc.recv_qp_num = recv_qp.qp->qp_num;
   localConn.lid = m_res.port_attr.lid;
   memcpy(localConn.gid, &my_gid, sizeof my_gid);
 
   // init queue pair
-  modifyQPToInit(qp.qp);
+  modifyQPToInit(send_qp.qp);
+  modifyQPToInit(recv_qp.qp);
 
   //TODO XRC create and init both send and recv qp using ib_create_qp_ex
+  m_xrc_recv_qps[rdmaConnID] = recv_qp;
 
   // done
-  setQP(rdmaConnID, qp);
+  setQP(rdmaConnID, send_qp);
   setLocalConnData(rdmaConnID, localConn);
   m_connectedQPs[srq_id].push_back(rdmaConnID);
   Logging::debug(__FILE__, __LINE__, "Created RC queue pair");
 }
 
+////------------------------------------------------------------------------------------//
+//
+//void ExReliableRDMA::initQPForSRQ(size_t srq_id, rdmaConnID &retRdmaConnID) {
+//  retRdmaConnID = nextConnKey();  // qp.qp->qp_num;
+//  initQPForSRQWithSuppliedID(srq_id, retRdmaConnID);
+//
+//  //TODO XRC create and init both send and recv qp using ib_create_qp_ex
+//  //TODO XRC is this method required for XRC here?
+//
+//}
+
 //------------------------------------------------------------------------------------//
 
-void ExReliableRDMA::initQPForSRQ(size_t srq_id, rdmaConnID &retRdmaConnID) {
-  retRdmaConnID = nextConnKey();  // qp.qp->qp_num;
-  initQPForSRQWithSuppliedID(srq_id, retRdmaConnID);
-
-  //TODO XRC create and init both send and recv qp using ib_create_qp_ex
-  //TODO XRC is this method required for XRC here?
-
-}
-
-//------------------------------------------------------------------------------------//
-
-void ExReliableRDMA::createQP(size_t srq_id, struct ib_qp_t &qp) {
-  //TODO XRC probably this method could be erased, how does this method differ to createQP(ib_qp_t&)?
-
-  // initialize QP attributes
-  struct ibv_qp_init_attr qp_init_attr;
-  memset(&qp_init_attr, 0, sizeof(qp_init_attr));
-  memset(&(m_res.device_attr), 0, sizeof(m_res.device_attr));
-  // m_res.device_attr.comp_mask |= IBV_EXP_DEVICE_ATTR_EXT_ATOMIC_ARGS
-  //         | IBV_EXP_DEVICE_ATTR_EXP_CAP_FLAGS;
-
-  if (ibv_query_device(m_res.ib_ctx, &(m_res.device_attr))) {
-    throw runtime_error("Error, ibv_query_device() failed");
-  }
-
-  // send queue
-  if (!(qp.send_cq = ibv_create_cq(m_res.ib_ctx, Config::RDMA_MAX_WR + 1,
-                                   nullptr, nullptr, 0))) {
-    throw runtime_error("Cannot create send CQ!");
-  }
-
-  qp.recv_cq = m_srqs[srq_id].recv_cq;
-
-  qp_init_attr.send_cq = qp.send_cq;
-  qp_init_attr.recv_cq = m_srqs[srq_id].recv_cq;
-  qp_init_attr.sq_sig_all =
-      0;  // In every WR, it must be decided whether to generate a WC or not
-  qp_init_attr.cap.max_inline_data = Config::MAX_RC_INLINE_SEND;
-
-  // TODO: Enable atomic for DM cluster
-  // qp_init_attr.max_atomic_arg = 32;
-  // qp_init_attr.exp_create_flags = IBV_EXP_QP_CREATE_ATOMIC_BE_REPLY;
-  // qp_init_attr.comp_mask = IBV_EXP_QP_INIT_ATTR_CREATE_FLAGS |
-  // IBV_EXP_QP_INIT_ATTR_PD; qp_init_attr.comp_mask |=
-  // IBV_EXP_QP_INIT_ATTR_ATOMICS_ARG;
-
-  qp_init_attr.srq = m_srqs[srq_id].shared_rq;  // Shared receive queue
-  qp_init_attr.qp_type = m_qpType;
-
-  qp_init_attr.cap.max_send_wr = Config::RDMA_MAX_WR;
-  qp_init_attr.cap.max_recv_wr = Config::RDMA_MAX_WR;
-  qp_init_attr.cap.max_send_sge = Config::RDMA_MAX_SGE;
-  qp_init_attr.cap.max_recv_sge = Config::RDMA_MAX_SGE;
-
-  // create queue pair
-  if (!(qp.qp = ibv_create_qp(m_res.pd, &qp_init_attr))) {
-    throw runtime_error("Cannot create queue pair!");
-  }
-}
+//void ExReliableRDMA::createQP(size_t srq_id, struct ib_qp_t &qp) {
+//  //TODO XRC probably this method could be erased, how does this method differ to createQP(ib_qp_t&)?
+//
+//  // initialize QP attributes
+//  struct ibv_qp_init_attr qp_init_attr;
+//  memset(&qp_init_attr, 0, sizeof(qp_init_attr));
+//  memset(&(m_res.device_attr), 0, sizeof(m_res.device_attr));
+//  // m_res.device_attr.comp_mask |= IBV_EXP_DEVICE_ATTR_EXT_ATOMIC_ARGS
+//  //         | IBV_EXP_DEVICE_ATTR_EXP_CAP_FLAGS;
+//
+//  if (ibv_query_device(m_res.ib_ctx, &(m_res.device_attr))) {
+//    throw runtime_error("Error, ibv_query_device() failed");
+//  }
+//
+//  // send queue
+//  if (!(qp.send_cq = ibv_create_cq(m_res.ib_ctx, Config::RDMA_MAX_WR + 1,
+//                                   nullptr, nullptr, 0))) {
+//    throw runtime_error("Cannot create send CQ!");
+//  }
+//
+//  qp.recv_cq = m_srqs[srq_id].recv_cq;
+//
+//  qp_init_attr.send_cq = qp.send_cq;
+//  qp_init_attr.recv_cq = m_srqs[srq_id].recv_cq;
+//  qp_init_attr.sq_sig_all =
+//      0;  // In every WR, it must be decided whether to generate a WC or not
+//  qp_init_attr.cap.max_inline_data = Config::MAX_RC_INLINE_SEND;
+//
+//  // TODO: Enable atomic for DM cluster
+//  // qp_init_attr.max_atomic_arg = 32;
+//  // qp_init_attr.exp_create_flags = IBV_EXP_QP_CREATE_ATOMIC_BE_REPLY;
+//  // qp_init_attr.comp_mask = IBV_EXP_QP_INIT_ATTR_CREATE_FLAGS |
+//  // IBV_EXP_QP_INIT_ATTR_PD; qp_init_attr.comp_mask |=
+//  // IBV_EXP_QP_INIT_ATTR_ATOMICS_ARG;
+//
+//  qp_init_attr.srq = m_srqs[srq_id].shared_rq;  // Shared receive queue
+//  qp_init_attr.qp_type = m_qpType;
+//
+//  qp_init_attr.cap.max_send_wr = Config::RDMA_MAX_WR;
+//  qp_init_attr.cap.max_recv_wr = Config::RDMA_MAX_WR;
+//  qp_init_attr.cap.max_send_sge = Config::RDMA_MAX_SGE;
+//  qp_init_attr.cap.max_recv_sge = Config::RDMA_MAX_SGE;
+//
+//  // create queue pair
+//  if (!(qp.qp = ibv_create_qp(m_res.pd, &qp_init_attr))) {
+//    throw runtime_error("Cannot create queue pair!");
+//  }
+//}

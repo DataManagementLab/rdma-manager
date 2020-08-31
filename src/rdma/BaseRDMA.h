@@ -44,6 +44,7 @@ struct ib_qp_t {
 struct ib_conn_t {
   uint64_t buffer; /*  Buffer address */
   uint64_t qp_num; /*  QP number */
+  //TODO why are qpns 64bit, when they could be 32bit (at least RDMAConnRequest is 32bit)
   uint16_t lid;    /*  LID of the IB port */
   uint8_t gid[16]; /* GID */
 
@@ -54,6 +55,9 @@ struct ib_conn_t {
     uint32_t psn;      /* PSN*/
     struct ibv_ah *ah; /* Route to remote QP*/
   } ud;
+  struct {
+    uint64_t recv_qp_num; /*  Recv QP number, using qp_num as sending one */
+  } xrc;
 };
 
 struct rdma_mem_t {

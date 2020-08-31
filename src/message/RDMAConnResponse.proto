@@ -8,4 +8,5 @@ message RDMAConnResponse {
     uint32 lid = 4;
     uint32 psn = 5;
     repeated uint32 gid = 6 [packed=true];
+    uint32 recv_qp_num = 7;
 }

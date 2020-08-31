@@ -193,6 +193,7 @@ class RDMAServer : public ProtoServer, public RDMAClient<RDMA_API_T> {
             "RDMAServer: initializing queue pair - " + to_string(nodeID));
         RDMA_API_T::initQPWithSuppliedID(nodeID);
       } else {
+        // TODO XRC activation of SRQ removes XRC capability
         if constexpr (std::is_same_v<RDMA_API_T, ReliableRDMA>) {
           
         Logging::debug(__FILE__, __LINE__,
@@ -215,6 +216,7 @@ class RDMAServer : public ProtoServer, public RDMAClient<RDMA_API_T> {
     remoteConn.buffer = connRequest->buffer();
     remoteConn.rc.rkey = connRequest->rkey();
     remoteConn.qp_num = connRequest->qp_num();
+    remoteConn.xrc.qp_num = connRequest->recv_qp_num();
     remoteConn.lid = connRequest->lid();
     for (int i = 0; i < 16; ++i) {
       remoteConn.gid[i] = connRequest->gid(i);
@@ -238,6 +240,7 @@ class RDMAServer : public ProtoServer, public RDMAClient<RDMA_API_T> {
     connResponse->set_buffer(localConn.buffer);
     connResponse->set_rkey(localConn.rc.rkey);
     connResponse->set_qp_num(localConn.qp_num);
+    connResponse->set_recv_qp_num(localConn.xrc.recv_qp_num);
     connResponse->set_lid(localConn.lid);
     connResponse->set_psn(localConn.ud.psn);
     for (int i = 0; i < 16; ++i) {

@@ -21,7 +21,6 @@ class ExReliableRDMA : public ReliableRDMA {
   ~ExReliableRDMA();
 
   void initQPWithSuppliedID(const rdmaConnID suppliedID) override;
-  void initQPWithSuppliedID( struct ib_qp_t** qp ,struct ib_conn_t ** localConn) ;
 
   void initQP(rdmaConnID& retRdmaConnID) override;
   void connectQP(const rdmaConnID rdmaConnID) override;
@@ -29,7 +28,7 @@ class ExReliableRDMA : public ReliableRDMA {
   void write(const rdmaConnID rdmaConnID, size_t offset, const void* memAddr,
              size_t size, bool signaled);
 
-  void createSharedReceiveQueue(size_t &ret_srq_id) override;
+  void createSharedReceiveQueue() override;
 
  protected:
   void initXRC();
@@ -37,6 +36,7 @@ class ExReliableRDMA : public ReliableRDMA {
   virtual void destroyQPs() override;
   void createQP(struct ib_qp_t* qp) override;
   void createQP(size_t srq_id, struct ib_qp_t& qp);
+
   void modifyQPToInit(struct ibv_qp* qp);
   void modifyQPToRTR(struct ibv_qp* qp, uint32_t remote_qpn, uint16_t dlid,
                      uint8_t* dgid);
@@ -51,6 +51,9 @@ class ExReliableRDMA : public ReliableRDMA {
   ibv_xrcd* xrcd;
   int xrc_fd; //!< file descriptor for xrcd file/socket
   //TODO XRC one ib_qp_t can be stored in combination with the connection, but the other one need to be stored seperatly (recv or send qp)
+  vector<ib_qp_t> m_xrc_recv_qps;
+  ibv_cq* send_cq;
+  ibv_cq* recv_cq;
 };
 
 }  // namespace rdma
