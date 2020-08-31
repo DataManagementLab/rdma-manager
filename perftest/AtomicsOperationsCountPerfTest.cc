@@ -292,7 +292,7 @@ std::string rdma::AtomicsOperationsCountPerfTest::getTestResults(std::string csv
 				ofs << (round(iters*tu/su/minCompareSwap * 100000)/100000.0) << ", "; // max comp&swap Op/s
 				ofs << (round(m_elapsedCompareSwap/tu * 100000)/100000.0) << ", "; // comp&swap Sec
 				ofs << (round(avgCompareSwap/tu * 100000)/100000.0) << ", "; // avg comp&swap Sec
-				ofs << (round(medianCompareSwap/tu * 100000)/100000.0); // median fetch&add, comp&swap Sec
+				ofs << (round(medianCompareSwap/tu * 100000)/100000.0) << ", "; // median fetch&add, comp&swap Sec
 				ofs << (round(minCompareSwap/tu * 100000)/100000.0) << ", "; // min comp&swap Sec
 				ofs << (round(maxCompareSwap/tu * 100000)/100000.0) << ", "; // max comp&swap Sec
 			}

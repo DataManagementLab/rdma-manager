@@ -463,7 +463,7 @@ std::string rdma::LatencyPerfTest::getTestResults(std::string csvFileName, bool 
 					ofs << ", Avg Write [usec], Median Write [usec], Min Write [usec], Max Write [usec]";
 				}
 				if(hasTestOperation(READ_OPERATION)){
-					ofs << ", Avg Read [usec], Median Read [usec], Min Read [usec], Min Send/Recv [usec], Max Read [usec]";
+					ofs << ", Avg Read [usec], Median Read [usec], Min Read [usec], Max Read [usec]";
 				}
 				if(hasTestOperation(SEND_RECEIVE_OPERATION)){
 					ofs << ", Avg Send/Recv [usec], Median Send/Recv [usec], Min Send/Recv [usec], Max Send/Recv [usec]";

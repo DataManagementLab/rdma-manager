@@ -25,8 +25,8 @@ DEFINE_bool(halftest, false, "Sets default values for flags 'test, gpu, remote_g
 DEFINE_bool(quicktest, false, "Sets default values for flags 'test, gpu, remote_gpu, packetsize, threads, iterations, csv' to execute a very smaller variety of predefined tests. If GPUs are supported then gpu=-1,-1,0,0 on client side and gpu=-1,0,-1,0 on server side to test all memory combinations: Main->Main, Main->GPU, GPU->Main, GPU->GPU");
 DEFINE_string(test, "", "Tests: [bandwidth, latency, operationscount, atomicsbandwidth, atomicslatency, atomicsoperationscount] OR MORE GRANULAR [write_bw, write_lat, write_ops, read_bw, read_lat, read_ops, send_bw, send_lat, send_ops, fetch_bw, fetch_lat, fetch_ops, swap_bw, swap_lat, swap_ops] (multiples separated by comma without space, not full word required) [Default bandwidth]");
 DEFINE_bool(server, false, "Act as server for a client to test performance");
-DEFINE_string(gpu, "", "Index of GPU for memory allocation (-3=Main memory, -2=NUMA aware GPU, -1=Default GPU, 0..n=fixed GPU | multiples separated by comma without space) [Default -3]");
-DEFINE_string(remote_gpu, "", "Just for prettier result printing and therefore not required. Same as gpu flag but for remote side (should be empty or same length as gpu flag)");
+DEFINE_string(memtype, "", "Memory type or index of GPU for memory allocation ('-3' or 'MAIN' for Main memory, '-2' or 'GPU.NUMA' for NUMA aware GPU, '-1' or 'GPU.D' for default GPU, '0..n' or 'GPU.i' i index for fixed GPU | multiples separated by comma without space) [Default -3]");
+DEFINE_string(remote_memtype, "", "Just for prettier result printing and therefore not essential. Same as  --memtype  flag but for remote side (should be empty or same length as  --memtype  flag)");
 DEFINE_string(packetsize, "", "Packet size in bytes (multiples separated by comma without space) [Default 4096B]");
 DEFINE_string(bufferslots, "", "How many packets the buffer can hold (round-robin distribution of packets inside buffer | multiples separated by comma without space) [Default 16]");
 DEFINE_string(threads, "", "How many individual clients connect to the server. Server has to run same number of threads as all connecting clients together (multiples separated by comma without space) [Default 1]");
@@ -87,6 +87,41 @@ static std::vector<uint64_t> parseByteSizesList(std::string str){
             v.push_back((uint64_t)rdma::StringHelper::parseByteSize(str));
         } catch (std::exception const &e){
             std::cerr << "Could not parse integer from '" << str << "'" << std::endl;
+        }
+    } return v;
+}
+static std::vector<int> parseMemoryTypeList(std::string str){
+    std::vector<int> v;
+    if(str.empty()) return v;
+    std::stringstream ss(str);
+    while((std::getline(ss, str, ','))){
+        if(str.length() == 0)
+            continue;
+        try {
+            v.push_back(std::stoi(str));
+        } catch (std::exception const &e){
+            std::transform(str.begin(), str.end(), str.begin(), ::toupper);
+            if(std::string("MAIN").find(str) != std::string::npos){
+                v.push_back(-3);
+            } else if(str.find("G") != std::string::npos){
+                size_t start = str.find(".");
+                if(start != std::string::npos){
+                    str = str.substr(start+1);
+                    try {
+                        v.push_back(std::stoi(str));
+                    } catch (std::exception const &ex){
+                        if(str.find("D") != std::string::npos){
+                            v.push_back(-1); // default
+                        } else { v.push_back(-2); } // NUMA
+                    }
+                } else {
+                    v.push_back(-2); // NUMA
+                }
+            } else if(std::string("NUMA").find(str) != std::string::npos){
+                v.push_back(-2); // GPU NUMA
+            } else {
+                std::cerr << "Unknown memory type '" << str << "'. Use flag --help for details" << std::endl;
+            }
         }
     } return v;
 }
@@ -155,8 +190,8 @@ int main(int argc, char *argv[]){
     if(FLAGS_fulltest || FLAGS_halftest || FLAGS_quicktest){
         FLAGS_csv = true;
         if(FLAGS_test.empty()) FLAGS_test = "write_bw,write_lat,write_ops,read_bw,read_lat,read_ops,send_bw,send_lat,send_ops,fetch_bw,fetch_lat,fetch_ops,swap_bw,swap_lat,swap_ops";
-        if(FLAGS_gpu.empty()) FLAGS_gpu = FLAGS_server ? "-3,-2,-3,-3" : "-3,-3,-2,-2";
-        if(FLAGS_remote_gpu.empty()) FLAGS_remote_gpu = FLAGS_server ? "-3,-3,-2,-2" : "-3,-2,-3,-2";
+        if(FLAGS_memtype.empty()) FLAGS_memtype = FLAGS_server ? "-3,-2,-3,-3" : "-3,-3,-2,-2";
+        if(FLAGS_remote_memtype.empty()) FLAGS_remote_memtype = FLAGS_server ? "-3,-3,-2,-2" : "-3,-2,-3,-2";
     }
     if(FLAGS_fulltest){
         // TODO for some reason GPUDirect not working for GPU memory smaller than 128 bytes
@@ -182,7 +217,7 @@ int main(int argc, char *argv[]){
 
     // Loading default values if no value is set
     if(FLAGS_test.empty()) FLAGS_test = "bandwidth";
-    if(FLAGS_gpu.empty()) FLAGS_gpu = "-3"; // do not set remote_gpu
+    if(FLAGS_memtype.empty()) FLAGS_memtype = "-3"; // do not set remote_memtype
     if(FLAGS_packetsize.empty()) FLAGS_packetsize = "4096";
     if(FLAGS_bufferslots.empty()) FLAGS_bufferslots = "16";
     if(FLAGS_threads.empty()) FLAGS_threads = "1";
@@ -194,8 +229,8 @@ int main(int argc, char *argv[]){
     std::vector<std::string> testNames = rdma::StringHelper::split(FLAGS_test);
     std::vector<TEST> tests; // tests that should be executed (order important)
     std::unordered_map<TEST, int> testOperations; // stores which operations should be executed per test
-    std::vector<int> local_gpus = parseIntList(FLAGS_gpu);
-    std::vector<int> remote_gpus = parseIntList(FLAGS_remote_gpu);
+    std::vector<int> local_memtypes = parseMemoryTypeList(FLAGS_memtype);
+    std::vector<int> remote_memtypes = parseMemoryTypeList(FLAGS_remote_memtype);
     std::vector<uint64_t> packetsizes = parseByteSizesList(FLAGS_packetsize);
     std::vector<int> bufferslots = parseIntList(FLAGS_bufferslots);
     std::vector<int> thread_counts = parseIntList(FLAGS_threads);
@@ -244,10 +279,10 @@ int main(int argc, char *argv[]){
 
     // check CUDA support
     #ifndef CUDA_ENABLED /* defined in CMakeLists.txt to globally enable/disable CUDA support */
-		local_gpus.clear(); local_gpus.push_back(-3);
+		local_memtypes.clear(); local_memtypes.push_back(-3);
 	#endif
 
-    if(remote_gpus.size() == 0) remote_gpus.push_back(-404);
+    if(remote_memtypes.size() == 0) remote_memtypes.push_back(-404);
 
     // Parse write mode names
     std::vector<rdma::WriteMode> write_modes;
@@ -280,7 +315,7 @@ int main(int argc, char *argv[]){
             continue;
         std::transform(testName.begin(), testName.end(), testName.begin(), ::tolower); // lowercase
 
-        size_t count = local_gpus.size() * thread_counts.size() * bufferslots.size();
+        size_t count = local_memtypes.size() * thread_counts.size() * bufferslots.size();
         TEST test;
         int test_ops = 0;
         bool parse_op = true;
@@ -387,9 +422,9 @@ int main(int argc, char *argv[]){
     auto totalStart = rdma::PerfTest::startTimer();
     for(TEST &t : tests){
         int test_ops = testOperations[t];
-        for(size_t gpui = 0; gpui < local_gpus.size(); gpui++){
-            const int local_gpu_index = local_gpus[gpui];
-            const int remote_gpu_index = remote_gpus[gpui % remote_gpus.size()];
+        for(size_t gpui = 0; gpui < local_memtypes.size(); gpui++){
+            const int local_gpu_index = local_memtypes[gpui];
+            const int remote_gpu_index = remote_memtypes[gpui % remote_memtypes.size()];
             for(int &thread_count : thread_counts){
                 for(int &buffer_slots : bufferslots){
                     bool csvAddHeader = true;

@@ -294,7 +294,7 @@ std::string rdma::AtomicsBandwidthPerfTest::getTestResults(std::string csvFileNa
 				ofs << (round(transferedBytesCompSwap*tu/su/minCompareSwapMs * 100000)/100000.0) << ", "; // max comp&swap MB/s
 				ofs << (round(m_elapsedCompareSwapMs/tu * 100000)/100000.0) << ", "; // comp&swap Sec
 				ofs << (round(avgCompareSwapMs/tu * 100000)/100000.0) << ", "; // avg comp&swap Sec
-				ofs << (round(medianCompareSwapMs/tu * 100000)/100000.0); // median comp&swap Sec
+				ofs << (round(medianCompareSwapMs/tu * 100000)/100000.0) << ", "; // median comp&swap Sec
 				ofs << (round(minCompareSwapMs/tu * 100000)/100000.0) << ", "; // min comp&swap Sec
 				ofs << (round(maxCompareSwapMs/tu * 100000)/100000.0); // max comp&swap Sec
 			}
