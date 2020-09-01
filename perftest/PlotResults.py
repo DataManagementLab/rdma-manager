@@ -72,6 +72,8 @@ def parse_bracket_value(label: str) -> str:
     for i in range(len(label)):
         if label[i] in numbers:
             num = num + label[i]
+        else:
+            break
     return label if len(num) <= 0 else int(num)
 
 
@@ -82,7 +84,7 @@ def get_line_color(label: str, ordered_possible_values: []) -> str:
     values_len = len(ordered_possible_values)
     for i in range(values_len):
         if value == ordered_possible_values[i]:
-            h1 = hex(95 + int((values_len - i) * 160 / values_len))[2:]  # remove '0x' at
+            h1 = hex(75 + int((values_len - i) * 180 / values_len))[2:]  # remove '0x' at
             # beginning
             while len(h1) < 2:
                 h1 = "0" + h1
@@ -1698,7 +1700,7 @@ def plot_atomics_bandwidth(test_params: [TestParameters], test_columns: [{}], ou
 
     for entry in compare_memory_types.values():
         if len(entry["plots"][0]["columns"]) > MAX_LINES_PER_PLOT_BEFORE_SPLITTING + 1:
-            entry["plots"] = split_plot_by_write_read_send(  # split columns into multiple plots
+            entry["plots"] = split_plot_by_fetch_compare(  # split columns into multiple plots
                 entry["plots"][0]
             )
     compare_memory_types = transform_and_sort_plots(compare_memory_types.values())  # TRANSFORMS !
@@ -1707,7 +1709,7 @@ def plot_atomics_bandwidth(test_params: [TestParameters], test_columns: [{}], ou
 
     for entry in compare_threads.values():
         if len(entry["plots"][0]["columns"]) > MAX_LINES_PER_PLOT_BEFORE_SPLITTING + 1:
-            entry["plots"] = split_plot_by_write_read_send(  # split columns into multiple plots
+            entry["plots"] = split_plot_by_fetch_compare(  # split columns into multiple plots
                 entry["plots"][0]
             )
     compare_threads = transform_and_sort_plots(compare_threads.values())  # TRANSFORMS !
@@ -1716,7 +1718,7 @@ def plot_atomics_bandwidth(test_params: [TestParameters], test_columns: [{}], ou
 
     for entry in compare_buffer_slots.values():
         if len(entry["plots"][0]["columns"]) > MAX_LINES_PER_PLOT_BEFORE_SPLITTING + 1:
-            entry["plots"] = split_plot_by_write_read_send(  # split columns into multiple plots
+            entry["plots"] = split_plot_by_fetch_compare(  # split columns into multiple plots
                 entry["plots"][0]
             )
     compare_buffer_slots = transform_and_sort_plots(compare_buffer_slots.values())  # TRANSFORMS !
@@ -1970,7 +1972,7 @@ def plot_atomics_latency(test_params: [TestParameters], test_columns: [{}], outp
 
     for entry in compare_memory_types.values():
         if len(entry["plots"][0]["columns"]) > MAX_LINES_PER_PLOT_BEFORE_SPLITTING + 1:
-            entry["plots"] = split_plot_by_write_read_send(  # split columns into multiple plots
+            entry["plots"] = split_plot_by_fetch_compare(  # split columns into multiple plots
                 entry["plots"][0]
             )
     compare_memory_types = transform_and_sort_plots(compare_memory_types.values())  # TRANSFORMS !
@@ -1979,7 +1981,7 @@ def plot_atomics_latency(test_params: [TestParameters], test_columns: [{}], outp
 
     for entry in compare_threads.values():
         if len(entry["plots"][0]["columns"]) > MAX_LINES_PER_PLOT_BEFORE_SPLITTING + 1:
-            entry["plots"] = split_plot_by_write_read_send(  # split columns into multiple plots
+            entry["plots"] = split_plot_by_fetch_compare(  # split columns into multiple plots
                 entry["plots"][0]
             )
     compare_threads = transform_and_sort_plots(compare_threads.values())  # TRANSFORMS !
@@ -1988,7 +1990,7 @@ def plot_atomics_latency(test_params: [TestParameters], test_columns: [{}], outp
 
     for entry in compare_buffer_slots.values():
         if len(entry["plots"][0]["columns"]) > MAX_LINES_PER_PLOT_BEFORE_SPLITTING + 1:
-            entry["plots"] = split_plot_by_write_read_send(  # split columns into multiple plots
+            entry["plots"] = split_plot_by_fetch_compare(  # split columns into multiple plots
                 entry["plots"][0]
             )
     compare_buffer_slots = transform_and_sort_plots(compare_buffer_slots.values())  # TRANSFORMS !
@@ -2024,7 +2026,7 @@ def plot_atomics_latency(test_params: [TestParameters], test_columns: [{}], outp
                 y_label = "Atomics Latency " + tmp[1]
                 y_label_update = False
             ax.plot(x_values, y_values, label=col_label, antialiased=False,
-                    **get_latency_raw_line_style(col_label))
+                    **get_compare_line_style(col_label, []))  # use compare style for raw data
         ax.set(xlabel="Packet Size [Bytes]", ylabel=y_label, title=subtitle)
         ax.legend(fontsize="xx-small")
         if isinstance(output_file_name, PdfPages):
@@ -2242,7 +2244,7 @@ def plot_atomics_operations_count(test_params: [TestParameters], test_columns: [
 
     for entry in compare_memory_types.values():
         if len(entry["plots"][0]["columns"]) > MAX_LINES_PER_PLOT_BEFORE_SPLITTING + 1:
-            entry["plots"] = split_plot_by_write_read_send(  # split columns into multiple plots
+            entry["plots"] = split_plot_by_fetch_compare(  # split columns into multiple plots
                 entry["plots"][0]
             )
     compare_memory_types = transform_and_sort_plots(compare_memory_types.values())  # TRANSFORMS !
@@ -2251,7 +2253,7 @@ def plot_atomics_operations_count(test_params: [TestParameters], test_columns: [
 
     for entry in compare_threads.values():
         if len(entry["plots"][0]["columns"]) > MAX_LINES_PER_PLOT_BEFORE_SPLITTING + 1:
-            entry["plots"] = split_plot_by_write_read_send(  # split columns into multiple plots
+            entry["plots"] = split_plot_by_fetch_compare(  # split columns into multiple plots
                 entry["plots"][0]
             )
     compare_threads = transform_and_sort_plots(compare_threads.values())  # TRANSFORMS !
@@ -2260,7 +2262,7 @@ def plot_atomics_operations_count(test_params: [TestParameters], test_columns: [
 
     for entry in compare_buffer_slots.values():
         if len(entry["plots"][0]["columns"]) > MAX_LINES_PER_PLOT_BEFORE_SPLITTING + 1:
-            entry["plots"] = split_plot_by_write_read_send(  # split columns into multiple plots
+            entry["plots"] = split_plot_by_fetch_compare(  # split columns into multiple plots
                 entry["plots"][0]
             )
     compare_buffer_slots = transform_and_sort_plots(compare_buffer_slots.values())  # TRANSFORMS !
@@ -2531,6 +2533,7 @@ def plot_csv_file(csv_file_name, output_file_name, output_format):
                 pass
             output_file_name = output_file_name + "/"
         for row in reader:
+            row = [str(x).strip() for x in row if len(str(x).strip()) > 0]
             if len(row) == 0:  # prepare for next test block
                 prev_test_name = test_name.lower()
                 test_name = ""
@@ -2559,22 +2562,23 @@ def plot_csv_file(csv_file_name, output_file_name, output_format):
                         "values": []
                     })
                 continue
-            has_values = True
-            for i in range(len(row)):
-                row_value = str(row[i])
-                if CSV_COMMA in row_value:
-                    try:
-                        row_value = float(row_value)
-                    except ValueError:
-                        pass
-                else:
-                    try:
-                        row_value = int(row_value)
-                    except ValueError:
-                        pass
-                column = test_columns[test_index]
-                column[i]["values"].append(row_value)
-                test_columns[test_index] = column
+            else:
+                has_values = True
+                for i in range(len(row)):
+                    row_value = str(row[i])
+                    if CSV_COMMA in row_value:
+                        try:
+                            row_value = float(row_value)
+                        except ValueError:
+                            pass
+                    else:
+                        try:
+                            row_value = int(row_value)
+                        except ValueError:
+                            pass
+                    column = test_columns[test_index]
+                    column[i]["values"].append(row_value)
+                    test_columns[test_index] = column
         if has_values:
             plot_test_values(test_name, test_params, test_columns, output_file_name, output_format)
 
