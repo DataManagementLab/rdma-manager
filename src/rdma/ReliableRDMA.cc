@@ -316,6 +316,7 @@ void ReliableRDMA::send(const rdmaConnID rdmaConnID, const void *memAddr,
   checkSignaled(signaled, rdmaConnID);
 
   struct ib_qp_t localQP = m_qps[rdmaConnID];
+  struct ib_conn_t remoteConn = m_rconns[rdmaConnID];
 
   struct ibv_send_wr sr;
   struct ibv_sge sge;
