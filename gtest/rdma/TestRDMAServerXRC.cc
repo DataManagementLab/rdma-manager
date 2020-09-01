@@ -222,7 +222,7 @@ TEST_F(TestRDMAServerXRC, testWriteImmReceive) {
     ASSERT_NO_THROW(m_rdmaServer->receiveSRQ(m_srq_id, 1,nullptr, 0));
 
     uint32_t imm1 = 12345678;
-    uint32_t imm2 = 87654321;
+    uint32_t imm2 = 87654321; 
 
 
     ASSERT_NO_THROW( m_rdmaClient_0->writeImm(m_nodeId,m_rdmaServer->convertPointerToOffset((void*)remotestruct),(void*)localstruct1, sizeof(testMsg),imm1,false));
@@ -339,3 +339,62 @@ TEST_F(TestRDMAServerXRC, DISABLED_testPollReceiveBatch) {
     ASSERT_EQ(localstruct1->a, remotestructs[i]->a);
   }
 }
+
+TEST_F(TestRDMAServerXRC, testWrite) {
+  size_t remoteOffset = 0;
+  size_t memSize = sizeof(int) * 2;
+
+  //allocate local array
+  int* localValues = (int*) m_rdmaClient_0->localAlloc(memSize);
+  ASSERT_TRUE(localValues!=nullptr);
+
+  //remote allocate array
+  ASSERT_TRUE(
+      m_rdmaClient_0->remoteAlloc(m_connection, memSize, remoteOffset));
+
+  //write to remote machine
+  localValues[0] = 1;
+  localValues[1] = 2;
+  m_rdmaClient_0->write(m_nodeId, remoteOffset, localValues, memSize, true);
+
+  //read from remote machine
+  int* remoteVals = (int*) m_rdmaServer->getBuffer(remoteOffset);
+  ASSERT_EQ(remoteVals[0], localValues[0]);
+  ASSERT_EQ(remoteVals[1], localValues[1]);
+
+  //remote free
+  ASSERT_TRUE(m_rdmaClient_0->remoteFree(m_connection, memSize, remoteOffset));
+}
+
+TEST_F(TestRDMAServerXRC, testAtomics) {
+  size_t remoteOffset = 0;
+  size_t memSize = sizeof(int64_t);
+
+  //allocate local array
+  int64_t* localValues = (int64_t*) m_rdmaClient_0->localAlloc(memSize);
+  ASSERT_TRUE(localValues!=nullptr);
+
+  //remote allocate array
+  ASSERT_TRUE(
+      m_rdmaClient_0->remoteAlloc(m_connection, memSize, remoteOffset));
+
+  //write to remote machine
+  localValues[0] = 1;
+  ASSERT_NO_THROW(m_rdmaClient_0->fetchAndAdd(m_nodeId,remoteOffset,localValues, sizeof(uint64_t), true));
+  ASSERT_NO_THROW(m_rdmaClient_0->fetchAndAdd(m_nodeId,remoteOffset,localValues, sizeof(uint64_t), true));
+
+
+  int* remoteVals = (int*) m_rdmaServer->getBuffer(remoteOffset);
+
+  ASSERT_EQ(remoteVals[0], 2);
+  
+  // Compare and swap to zero
+  ASSERT_NO_THROW(m_rdmaClient_0->compareAndSwap(m_nodeId,remoteOffset,localValues,2,0, sizeof(uint64_t), true));
+  ASSERT_EQ(remoteVals[0], 0);
+
+  ASSERT_NO_THROW(m_rdmaClient_0->fetchAndAdd(m_nodeId,remoteOffset,localValues,10,sizeof(uint64_t), true));
+  ASSERT_EQ(remoteVals[0], 10);
+
+  //remote free
+  ASSERT_TRUE(m_rdmaClient_0->remoteFree(m_connection, memSize, remoteOffset));
+} 

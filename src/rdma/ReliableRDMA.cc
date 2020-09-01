@@ -215,6 +215,8 @@ void ReliableRDMA::fetchAndAdd(const rdmaConnID rdmaConnID, size_t offset,
   } else {
     sr.send_flags = 0;
   }
+  sr.qp_type.xrc.remote_srqn = remoteConn.xrc.srqn;
+
   // calculate remote address using offset in local buffer
   sr.wr.atomic.remote_addr = remoteConn.buffer + offset;
   sr.wr.atomic.rkey = remoteConn.rc.rkey;
@@ -272,6 +274,7 @@ void ReliableRDMA::compareAndSwap(const rdmaConnID rdmaConnID, size_t offset,
   } else {
     sr.send_flags = 0;
   }
+  sr.qp_type.xrc.remote_srqn = remoteConn.xrc.srqn;
 
   // calculate remote address using offset in local buffer
   sr.wr.atomic.remote_addr = remoteConn.buffer + offset;
@@ -589,6 +592,7 @@ void rdma::ReliableRDMA::fetchAndAdd(const rdmaConnID rdmaConnID, size_t offset,
   } else {
     sr.send_flags = 0;
   }
+  sr.qp_type.xrc.remote_srqn = remoteConn.xrc.srqn;
   // calculate remote address using offset in local buffer
   sr.wr.atomic.remote_addr = remoteConn.buffer + offset;
   sr.wr.atomic.rkey = remoteConn.rc.rkey;

@@ -26,8 +26,8 @@ class ExReliableRDMA : public ReliableRDMA {
   void initQP(const rdmaConnID retRdmaConnID) ;
   void connectQP(const rdmaConnID rdmaConnID) override;
 
-  void write(const rdmaConnID rdmaConnID, size_t offset, const void* memAddr,
-             size_t size, bool signaled);
+  // void write(const rdmaConnID rdmaConnID, size_t offset, const void* memAddr,
+  //            size_t size, bool signaled);
 
   void createSharedReceiveQueue();
 
