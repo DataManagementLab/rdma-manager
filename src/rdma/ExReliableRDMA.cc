@@ -333,6 +333,7 @@ void ExReliableRDMA::initQPWithSuppliedID(const rdmaConnID rdmaConnID) {
 
   // done
   setQP(rdmaConnID, send_qp);
+  m_qpNum2connID[recv_qp.qp->qp_num] = rdmaConnID;
   setLocalConnData(rdmaConnID, localConn);
   m_connectedQPs[srq_id].push_back(rdmaConnID);
   Logging::debug(__FILE__, __LINE__, "Created XRC queue pair");

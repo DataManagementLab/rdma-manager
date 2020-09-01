@@ -328,6 +328,7 @@ void ReliableRDMA::send(const rdmaConnID rdmaConnID, const void *memAddr,
   sr.num_sge = 1;
   sr.opcode = IBV_WR_SEND;
   sr.next = NULL;
+  sr.qp_type.xrc.remote_srqn = remoteConn.xrc.srqn;
 
   if (signaled) {
     sr.send_flags = IBV_SEND_SIGNALED;
