@@ -25,11 +25,12 @@ DEFINE_bool(halftest, false, "Sets default values for flags 'test, gpu, remote_g
 DEFINE_bool(quicktest, false, "Sets default values for flags 'test, gpu, remote_gpu, packetsize, threads, iterations, csv' to execute a very smaller variety of predefined tests. If GPUs are supported then gpu=-1,-1,0,0 on client side and gpu=-1,0,-1,0 on server side to test all memory combinations: Main->Main, Main->GPU, GPU->Main, GPU->GPU");
 DEFINE_string(test, "", "Tests: [bandwidth, latency, operationscount, atomicsbandwidth, atomicslatency, atomicsoperationscount] OR MORE GRANULAR [write_bw, write_lat, write_ops, read_bw, read_lat, read_ops, send_bw, send_lat, send_ops, fetch_bw, fetch_lat, fetch_ops, swap_bw, swap_lat, swap_ops] (multiples separated by comma without space, not full word required) [Default bandwidth]");
 DEFINE_bool(server, false, "Act as server for a client to test performance");
+DEFINE_int32(clients, 1, "Just required by server to know how many clients will connect. Multiplies amount of threads by this amount of clients");
 DEFINE_string(memtype, "", "Memory type or index of GPU for memory allocation ('-3' or 'MAIN' for Main memory, '-2' or 'GPU.NUMA' for NUMA aware GPU, '-1' or 'GPU.D' for default GPU, '0..n' or 'GPU.i' i index for fixed GPU | multiples separated by comma without space) [Default -3]");
 DEFINE_string(remote_memtype, "", "Just for prettier result printing and therefore not essential. Same as  --memtype  flag but for remote side (should be empty or same length as  --memtype  flag)");
 DEFINE_string(packetsize, "", "Packet size in bytes (multiples separated by comma without space) [Default 4096B]");
 DEFINE_string(bufferslots, "", "How many packets the buffer can hold (round-robin distribution of packets inside buffer | multiples separated by comma without space) [Default 16]");
-DEFINE_string(threads, "", "How many individual clients connect to the server. Server has to run same number of threads as all connecting clients together (multiples separated by comma without space) [Default 1]");
+DEFINE_string(threads, "", "Each thread starts its own connection to the server. Server and other clients need exactly the same value (multiples separated by comma without space) [Default 1]");
 DEFINE_string(iterations, "", "Amount of transfers for latency and all atomics tests (multiples separated by comma without space) [Default 500000]");
 DEFINE_string(maxtransfersize, "24GB", "Limits the iterations base on the maximal transfer size just for the latency tests. Set to zero or negative to disable this flag. Doesn't affect  --transfersize  or  --maxiterations  flag or atomics tests");
 DEFINE_string(transfersize, "", "How much data should be transfered in bandwidth and operations/sec tests but not for atomics tests (multiples separated by comma without space) [Default 24GB]");
@@ -244,9 +245,10 @@ int main(int argc, char *argv[]){
 		addr += ":" + to_string(FLAGS_port);
 	}
 
-    // check thread counts
+    // check thread counts and if server then multiply by amount of clients
     for(int &tc : thread_counts){
         if(tc < 1) throw runtime_error("Thread count cannot be smaller than 1");
+        if(FLAGS_server){ tc = tc * FLAGS_clients; }
         if(tc > (int)rdma::Config::RDMA_MAX_WR){
             std::cerr << "Cannot handle " << tc << " threads because Config::RDMA_MAX_WR=" << rdma::Config::RDMA_MAX_WR << " which is also maximum thread number for this tests" << std::endl;
             throw runtime_error("Cannot handle so many threads");

@@ -367,7 +367,7 @@ void rdma::BandwidthPerfTest::setupTest(){
 		m_memory = (rdma::BaseMemory*)new MainMemory(m_memory_size);
 	#endif
 
-	const int max_rdma_wr_per_thread = rdma::Config::RDMA_MAX_WR / m_thread_count;
+	const size_t max_rdma_wr_per_thread = rdma::Config::RDMA_MAX_WR;
 
 	if(m_is_server){
 		// Server
@@ -565,6 +565,7 @@ std::string rdma::BandwidthPerfTest::getTestResults(std::string csvFileName, boo
 		// generate result string
 		std::ostringstream oss;
 		oss << rdma::CONSOLE_PRINT_NOTATION << rdma::CONSOLE_PRINT_PRECISION;
+		oss << " measurement for sending and writeImm is executed as alternating send/receive bursts with " << Config::RDMA_MAX_WR << " operations per burst" << std::endl;
 		oss << "transfered = " << rdma::PerfTest::convertByteSize(transferedBytes) << std::endl;
 		if(hasTestOperation(WRITE_OPERATION)){
 			oss << " - Write:         bandwidth = " << rdma::PerfTest::convertBandwidth(transferedBytes*tu/m_elapsedWriteMs); 

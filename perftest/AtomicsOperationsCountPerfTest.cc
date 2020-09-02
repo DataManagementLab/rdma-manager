@@ -302,6 +302,7 @@ std::string rdma::AtomicsOperationsCountPerfTest::getTestResults(std::string csv
 		// generate result string
 		std::ostringstream oss;
 		oss << rdma::CONSOLE_PRINT_NOTATION << rdma::CONSOLE_PRINT_PRECISION;
+		oss << " measurements are executed as bursts with " << Config::RDMA_MAX_WR << " operations per burst" << std::endl;
 		oss << std::endl << " - Fetch&Add:     operations = " << rdma::PerfTest::convertCountPerSec(iters*tu/m_elapsedFetchAdd);
 		oss << "  (range = " << rdma::PerfTest::convertCountPerSec(iters*tu/maxFetchAdd) << " - ";
 		oss << rdma::PerfTest::convertCountPerSec(iters*tu/minFetchAdd);

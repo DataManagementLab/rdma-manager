@@ -367,7 +367,7 @@ void rdma::OperationsCountPerfTest::setupTest(){
 		m_memory = (rdma::BaseMemory*)new MainMemory(m_memory_size);
 	#endif
 
-	size_t max_rdma_wr_per_thread = rdma::Config::RDMA_MAX_WR / m_thread_count;
+	const size_t max_rdma_wr_per_thread = rdma::Config::RDMA_MAX_WR;
 
 	if(m_is_server){
 		// Server
@@ -569,7 +569,7 @@ std::string rdma::OperationsCountPerfTest::getTestResults(std::string csvFileNam
 		// generate result string
 		std::ostringstream oss;
 		oss << rdma::CONSOLE_PRINT_NOTATION << rdma::CONSOLE_PRINT_PRECISION;
-		oss << " measurement for sending and writeImm is executed as alternating send/receive bursts with " << (Config::RDMA_MAX_WR/m_thread_count) << " operations per burst" << std::endl;
+		oss << " measurement for sending and writeImm is executed as alternating send/receive bursts with " << Config::RDMA_MAX_WR << " operations per burst" << std::endl;
 		if(hasTestOperation(WRITE_OPERATION)){
 			oss << " - Write:         operations = " << rdma::PerfTest::convertCountPerSec(iters*tu/m_elapsedWrite); 
 			oss << "  (range = " << rdma::PerfTest::convertCountPerSec(iters*tu/maxWriteNs) << " - " << rdma::PerfTest::convertCountPerSec(iters*tu/minWriteNs);

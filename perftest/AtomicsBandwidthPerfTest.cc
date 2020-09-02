@@ -304,6 +304,7 @@ std::string rdma::AtomicsBandwidthPerfTest::getTestResults(std::string csvFileNa
 		// generate result string
 		std::ostringstream oss;
 		oss << rdma::CONSOLE_PRINT_NOTATION << rdma::CONSOLE_PRINT_PRECISION;
+		oss << " measurements are executed as bursts with " << Config::RDMA_MAX_WR << " operations per burst" << std::endl;
 		if(hasTestOperation(FETCH_ADD_OPERATION)){
 			oss << std::endl << " - Fetch&Add:     bandwidth = " << rdma::PerfTest::convertBandwidth(transferedBytesFetchAdd*tu/m_elapsedFetchAddMs);
 			oss << "  (range = " << rdma::PerfTest::convertBandwidth(transferedBytesFetchAdd*tu/maxFetchAddMs) << " - ";
