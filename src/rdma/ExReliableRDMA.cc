@@ -27,9 +27,10 @@ ExReliableRDMA::ExReliableRDMA(size_t mem_size, int numaNode) : ReliableRDMA(mem
 
 ExReliableRDMA::~ExReliableRDMA() {
   // destroy QPS
-  //destroyQPs();
+  destroyQPs();
   //m_qps.clear();
   destroyXRC();
+  BaseRDMA::destroyCQ(send_cq, recv_cq);
 }
 
 //------------------------------------------------------------------------------------//
@@ -145,6 +146,46 @@ void ExReliableRDMA::createQP(struct ib_qp_t *qp, ibv_qp_type qp_type) {
   // create queue pair
   if (!(qp->qp = ibv_create_qp_ex(m_res.ib_ctx, &qp_init_attr_ex))) {
     throw runtime_error("Cannot create queue pair!");
+  }
+}
+
+//------------------------------------------------------------------------------------//
+
+void ExReliableRDMA::destroyQPs() {
+  for( auto& qp : m_xrc_recv_qps ) {
+    if (qp.qp != nullptr) {
+      if (ibv_destroy_qp(qp.qp) != 0) {
+        throw runtime_error("Error, ibv_destroy_qp() failed");
+      }
+    }
+  }
+  m_xrc_recv_qps.clear();
+
+  ibv_cq* tmp = nullptr; // for send_cq, which is empty
+  for(auto kv : m_srqs) {
+       destroyCQ(tmp, kv.second.recv_cq);
+  }
+  ReliableRDMA::destroyQPs();
+}
+
+//------------------------------------------------------------------------------------//
+void ExReliableRDMA::destroyCQ(ibv_cq *&snd_cq, ibv_cq *&rcv_cq) {
+  if(snd_cq != 0 && snd_cq != this->send_cq) {
+    auto err = ibv_destroy_cq(snd_cq);
+    if (err != 0) {
+      throw runtime_error("Cannot delete send CQ. errno: " + to_string(err));
+    }
+  }
+
+  if(rcv_cq != 0 && rcv_cq != this->recv_cq ) {
+    auto err = ibv_destroy_cq(rcv_cq);
+    if (err == EBUSY) {
+      Logging::info(
+          "Could not destroy receive queue in destroyCQ(): One or more Work "
+          "Queues is still associated with the CQ");
+    } else if (err != 0) {
+      throw runtime_error("Cannot delete receive CQ. errno: " + to_string(err));
+    }
   }
 }
 

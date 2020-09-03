@@ -167,18 +167,22 @@ void BaseRDMA::createCQ(ibv_cq *&send_cq, ibv_cq *&rcv_cq) {
 //------------------------------------------------------------------------------------//
 
 void BaseRDMA::destroyCQ(ibv_cq *&send_cq, ibv_cq *&rcv_cq) {
-  auto err = ibv_destroy_cq(send_cq);
-  if (err != 0) {
-    throw runtime_error("Cannot delete send CQ. errno: " + to_string(err));
+  if(send_cq) {
+    auto err = ibv_destroy_cq(send_cq);
+    if (err != 0) {
+      throw runtime_error("Cannot delete send CQ. errno: " + to_string(err));
+    }
   }
 
-  err = ibv_destroy_cq(rcv_cq);
-  if (err == EBUSY) {
-    Logging::info(
-        "Could not destroy receive queue in destroyCQ(): One or more Work "
-        "Queues is still associated with the CQ");
-  } else if (err != 0) {
-    throw runtime_error("Cannot delete receive CQ. errno: " + to_string(err));
+  if(rcv_cq) {
+    err = ibv_destroy_cq(rcv_cq);
+    if (err == EBUSY) {
+      Logging::info(
+          "Could not destroy receive queue in destroyCQ(): One or more Work "
+          "Queues is still associated with the CQ");
+    } else if (err != 0) {
+      throw runtime_error("Cannot delete receive CQ. errno: " + to_string(err));
+    }
   }
 }
 

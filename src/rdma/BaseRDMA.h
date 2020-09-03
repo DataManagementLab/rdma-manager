@@ -168,7 +168,7 @@ class BaseRDMA {
   void setLocalConnData(const rdmaConnID rdmaConnID, ib_conn_t &conn);
 
   void createCQ(ibv_cq *&send_cq, ibv_cq *&rcv_cq);
-  void destroyCQ(ibv_cq *&send_cq, ibv_cq *&rcv_cq);
+  virtual void destroyCQ(ibv_cq *&send_cq, ibv_cq *&rcv_cq);
   virtual void createQP(struct ib_qp_t *qp) = 0;
 
   inline void __attribute__((always_inline))

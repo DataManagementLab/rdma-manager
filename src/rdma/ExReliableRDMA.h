@@ -34,8 +34,9 @@ class ExReliableRDMA : public ReliableRDMA {
  protected:
   void initXRC();
   void destroyXRC();
-  //virtual void destroyQPs() override;
+  virtual void destroyQPs() override;
   void createQP(struct ib_qp_t*, ibv_qp_type qp_type);
+  virtual void destroyCQ(ibv_cq *&send_cq, ibv_cq *&rcv_cq) override;
 
   void modifyQPToInit(struct ibv_qp* qp);
   void modifyQPToRTR(struct ibv_qp* qp, uint32_t remote_qpn, uint16_t dlid,
