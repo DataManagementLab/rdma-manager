@@ -51,7 +51,7 @@ class ExReliableRDMA : public ReliableRDMA {
   // XRC related
   ibv_xrcd* xrcd;
   int xrc_fd; //!< file descriptor for xrcd file/socket
-  //TODO XRC one ib_qp_t can be stored in combination with the connection, but the other one need to be stored seperatly (recv or send qp)
+
   vector<ib_qp_t> m_xrc_recv_qps;
   ibv_cq* send_cq;
   ibv_cq* recv_cq;

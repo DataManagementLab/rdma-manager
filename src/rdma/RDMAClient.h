@@ -200,6 +200,7 @@ class RDMAClient : public RDMA_API_T, public ProtoClient {
       RDMA_API_T::initQPWithSuppliedID(retServerNodeID);
       localConn = RDMA_API_T::getLocalConnData(retServerNodeID);
       qp = RDMA_API_T::m_qps[retServerNodeID];
+      //TODO XRC: changed previous lines, probably need to be looked at
 
 
 

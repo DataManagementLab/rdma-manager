@@ -75,7 +75,6 @@ void ExReliableRDMA::destroyXRC() {
 void ExReliableRDMA::connectQP(const rdmaConnID rdmaConnID) {
   // if QP is connected return
 
-  //TODO XRC we need to connect two pairs and both need to be set to RTS
   if (m_connected.find(rdmaConnID) != m_connected.end()) {
     return;
   }
@@ -86,6 +85,7 @@ void ExReliableRDMA::connectQP(const rdmaConnID rdmaConnID) {
   struct ib_qp_t recv_qp = m_xrc_recv_qps[rdmaConnID];
   struct ib_conn_t remoteConn = m_rconns[rdmaConnID];
 
+  //we need to connect two pairs and both need to be set to RTS
   modifyQPToRTR(send_qp.qp, remoteConn.xrc.recv_qp_num, remoteConn.lid, remoteConn.gid);
   modifyQPToRTS(send_qp.qp);
 
@@ -107,8 +107,6 @@ void ExReliableRDMA::createQP(struct ib_qp_t *qp, ibv_qp_type qp_type) {
   memset(&(m_res.device_attr), 0, sizeof(m_res.device_attr));
   // m_res.device_attr.comp_mask |= IBV_EXP_DEVICE_ATTR_EXT_ATOMIC_ARGS
   //         | IBV_EXP_DEVICE_ATTR_EXP_CAP_FLAGS;
-
-  //TODO XRC need to use qp_init_attr_ex and using ib_create_qp_ex
 
   if (ibv_query_device(m_res.ib_ctx, &(m_res.device_attr))) {
     throw runtime_error("Error, ibv_query_device() failed");
@@ -196,18 +194,12 @@ void ExReliableRDMA::modifyQPToInit(struct ibv_qp *qp) {
       IBV_QP_STATE | IBV_QP_PKEY_INDEX | IBV_QP_PORT | IBV_QP_ACCESS_FLAGS;
   struct ibv_qp_attr attr;
 
-  //TODO XRC check, but this can probably remain the same, access_flags differ somewhat to the pingpong example
-
   memset(&attr, 0, sizeof(attr));
   attr.qp_state = IBV_QPS_INIT;
   attr.port_num = m_ibPort;
   attr.pkey_index = 0;
-  if(qp->send_cq) {
-    attr.qp_access_flags = IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ |
-                           IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_ATOMIC;
-  } else {
-    attr.qp_access_flags = 0;
-  }
+  attr.qp_access_flags = IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ |
+                         IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_ATOMIC;
 
   if ((errno = ibv_modify_qp(qp, &attr, flags)) > 0) {
     throw runtime_error("Failed modifyQPToInit!");
@@ -218,17 +210,14 @@ void ExReliableRDMA::modifyQPToInit(struct ibv_qp *qp) {
 
 void ExReliableRDMA::modifyQPToRTR(struct ibv_qp *qp, uint32_t remote_qpn,
                                  uint16_t dlid, uint8_t *dgid) {
-
-  //TODO XRC check, but this can probably remain the same
-
   struct ibv_qp_attr attr;
   int flags = IBV_QP_STATE | IBV_QP_AV | IBV_QP_PATH_MTU | IBV_QP_DEST_QPN |
               IBV_QP_RQ_PSN | IBV_QP_MAX_DEST_RD_ATOMIC | IBV_QP_MIN_RNR_TIMER;
   memset(&attr, 0, sizeof(attr));
   attr.qp_state = IBV_QPS_RTR;
   attr.path_mtu = IBV_MTU_4096;
-  attr.dest_qp_num = remote_qpn; //pingping: send_qpn (as parameter from connectQP)
-  attr.rq_psn = 0; //pingpong: is different/exchanged
+  attr.dest_qp_num = remote_qpn; //XRC pingpong example: send_qpn (as parameter from connectQP)
+  attr.rq_psn = 0; //XRC pingpong example: is different/exchanged
   attr.max_dest_rd_atomic = 16;
   attr.min_rnr_timer = 0x12;
   attr.ah_attr.is_global = 0;
@@ -246,7 +235,7 @@ void ExReliableRDMA::modifyQPToRTR(struct ibv_qp *qp, uint32_t remote_qpn,
     attr.ah_attr.grh.traffic_class = 0;
   }
 
-  //TODO XRC attr.dest_qp_num = remote.recv_qpn for send_qp
+  //TODO XRC attr.dest_qp_num = remote.recv_qpn for send_qp (?)
 
   if ((errno = ibv_modify_qp(qp, &attr, flags)) > 0) {
     throw runtime_error("Failed modifyQPToRTR!");
@@ -256,8 +245,6 @@ void ExReliableRDMA::modifyQPToRTR(struct ibv_qp *qp, uint32_t remote_qpn,
 //------------------------------------------------------------------------------------//
 
 void ExReliableRDMA::modifyQPToRTS(struct ibv_qp *qp) {
-
-  //TODO XRC check, but this can probably remain the same
 
   struct ibv_qp_attr attr;
   int flags = IBV_QP_STATE | IBV_QP_TIMEOUT | IBV_QP_RETRY_CNT |
@@ -280,8 +267,6 @@ void ExReliableRDMA::modifyQPToRTS(struct ibv_qp *qp) {
 void ExReliableRDMA::createSharedReceiveQueue() {
   Logging::debug(__FILE__, __LINE__,
                  "ExReliableRDMA::createSharedReceiveQueue: Method Called");
-
-  //TODO XRC use init_attr_ex and ibv_create_srq_ex equivalent to pingpong
 
   struct ibv_srq_init_attr_ex srq_init_attr_ex;
   sharedrq_t srq;
@@ -368,7 +353,6 @@ void ExReliableRDMA::initQPWithSuppliedID(const rdmaConnID rdmaConnID) {
   modifyQPToInit(send_qp.qp);
   modifyQPToInit(recv_qp.qp);
 
-  //TODO XRC create and init both send and recv qp using ib_create_qp_ex
   m_xrc_recv_qps.resize(rdmaConnID + 1);
   m_xrc_recv_qps[rdmaConnID] = recv_qp;
 
