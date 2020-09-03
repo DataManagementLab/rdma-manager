@@ -175,7 +175,7 @@ void BaseRDMA::destroyCQ(ibv_cq *&send_cq, ibv_cq *&rcv_cq) {
   }
 
   if(rcv_cq) {
-    err = ibv_destroy_cq(rcv_cq);
+    auto err = ibv_destroy_cq(rcv_cq);
     if (err == EBUSY) {
       Logging::info(
           "Could not destroy receive queue in destroyCQ(): One or more Work "
