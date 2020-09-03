@@ -24,7 +24,6 @@ ReliableRDMA::ReliableRDMA(size_t mem_size, int numaNode) : BaseRDMA(mem_size, n
 ReliableRDMA::~ReliableRDMA() {
   // destroy QPS
   destroyQPs();
-  m_qps.clear();
 }
 
 //------------------------------------------------------------------------------------//
@@ -148,6 +147,7 @@ void ReliableRDMA::destroyQPs() {
       destroyCQ(qp.send_cq, qp.recv_cq);
     }
   }
+  m_qps.clear();
 
   // destroy srq's
   for (auto &kv : m_srqs) {
@@ -155,7 +155,10 @@ void ReliableRDMA::destroyQPs() {
       throw runtime_error(
           "ReliableRDMASRQ::destroyQPs: ibv_destroy_srq() failed");
     }
+    //TODO probably destroy associated recv_cq also
   }
+  m_srqs.clear();
+  m_srqCounter = 0;
 }
 
 //------------------------------------------------------------------------------------//
