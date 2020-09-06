@@ -37,10 +37,10 @@ rdma::PerfTest* createTest(config_t& config) {
             test = new rdma::RemoteMemoryPerf(config, false);
             break;
         case 11:
-            test = new rdma::RemoteMemoryPerf(config, true);
+            test = new rdma::XRC_RemoteMemoryPerf(config, true);
             break;
         case 12:
-            test = new rdma::RemoteMemoryPerf(config, false);
+            test = new rdma::XRC_RemoteMemoryPerf(config, false);
             break;
         case 3:
             //test = new RemoteScanPerf(config, true);

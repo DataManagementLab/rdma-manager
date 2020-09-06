@@ -7,8 +7,8 @@
  *  Author: dfailing
  */
 
-#ifndef RemoteMemory_BW_H_
-#define RemoteMemory_BW_H_
+#ifndef XRC_RemoteMemoryPerf_H_
+#define XRC_RemoteMemoryPerf_H_
 
 #include "../utils/Config.h"
 #include "../utils/StringHelper.h"
@@ -27,6 +27,7 @@
 #include <mutex>
 #include <condition_variable>
 #include <iostream>
+#include <memory>
 
 namespace rdma {
 
@@ -107,4 +108,4 @@ private:
 
 }
 
-#endif /* RemoteMemory_BW_H_ */
+#endif /* XRC_RemoteMemoryPerf_H_ */
