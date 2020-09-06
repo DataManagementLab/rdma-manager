@@ -10,6 +10,7 @@
 
 #include "RemoteMemoryPerf.h"
 
+#include "XRC_RemoteMemoryPerf.h"
 #include "RPCPerf.h"
 // #include "RemoteScanPerf.h"
 #include "MulticastPerf.h"

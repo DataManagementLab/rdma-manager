@@ -12,6 +12,8 @@ static void printUsage() {
     cout << "Tests:" << endl;
     cout << "1: \t RemoteMemoryClient" << endl;
     cout << "2: \t RemoteMemoryServer" << endl;
+    cout << "11: \t XRC_RemoteMemoryClient" << endl;
+    cout << "12: \t XRC_RemoteMemoryServer" << endl;
     // cout << "3: \t RemoteScanClient" << endl;
     // cout << "4: \t RemoteScanServer" << endl;
     cout << "101: \t MulticastClient" << endl;
@@ -32,6 +34,12 @@ rdma::PerfTest* createTest(config_t& config) {
             test = new rdma::RemoteMemoryPerf(config, true);
             break;
         case 2:
+            test = new rdma::RemoteMemoryPerf(config, false);
+            break;
+        case 11:
+            test = new rdma::RemoteMemoryPerf(config, true);
+            break;
+        case 12:
             test = new rdma::RemoteMemoryPerf(config, false);
             break;
         case 3:
@@ -85,8 +93,15 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    // create test and check if test is runnable
+    // create test and validate
     rdma::PerfTest* test = createTest(config);
+    // check if test number is a valid test
+    if (test == nullptr) {
+        cout << "Invalid Test specified." << endl;
+        printUsage();
+        return -1;
+    }
+    // and check if test is runnable
     if (!test->isRunnable()) {
         test->printUsage();
         return -1;
