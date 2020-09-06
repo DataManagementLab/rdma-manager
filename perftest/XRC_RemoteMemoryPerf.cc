@@ -1,8 +1,10 @@
 /*
- * RemoteMemory_BW.cc
+ * XRC_RemoteMemoryPerf.cc
  *
- *  Created on: 26.11.2015
- *      Author: cbinnig
+ *  Created on: 06.09.2020
+ *  Original: RemoteMemoryPerf.cc
+ *  OrigAuthor: cbinnig
+ *  Author: dfailing
  */
 
 #include "XRC_RemoteMemoryPerf.h"
@@ -12,6 +14,7 @@
 #include "analyzing_scope.hpp"
 #include "rdma_aggregator.hpp"
 #include "perf_aggregator.hpp"
+#include "time_aggregator.hpp"
 #include "stdout_output.hpp"
 
 mutex rdma::XRC_RemoteMemoryPerf::waitLock;
@@ -37,8 +40,10 @@ rdma::XRC_RemoteMemoryPerfThread::XRC_RemoteMemoryPerfThread(vector<string>& con
 		m_client.remoteAlloc(conn, m_size, m_remOffsets[i]);
 	}
 
-  reporter.addAggregator(std::make_shared<RdmaAggregator>(rx_write_requests));
-  reporter.addOutput(std::make_shared<StdOut_Output>());
+	reporter->addAggregator(std::make_shared<TimeAggregator>());
+	reporter->addAggregator(std::make_shared<RdmaAggregator>(rx_write_requests));
+	reporter->addAggregator(std::make_shared<RdmaAggregator>(rx_read_requests));
+	reporter->addOutput(std::make_shared<StdOut_Output>());
   
 	m_data = m_client.localAlloc(m_size);
 	memset(m_data, 1, m_size);
@@ -67,7 +72,7 @@ void rdma::XRC_RemoteMemoryPerfThread::run() {
 	{
 		std::cout << "Perf Measurement enabled" << std::endl;
 		PerfEventBlock pb(m_iter);
-    AnalyzingScope scope(reporter);
+		AnalyzingScope scope(reporter);
 		startTimer();
 		for (size_t i = 0; i < m_iter; ++i) {
 			size_t connIdx = i % m_conns.size();

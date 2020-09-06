@@ -27,6 +27,7 @@ target_include_directories(perftest PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
   
 target_link_libraries(
   perftest rdma_lib
+  performance_counter_lib
 )
 
 add_executable(perf_test MainPerf.cc)

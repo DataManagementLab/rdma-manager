@@ -1,8 +1,10 @@
 /*
- * RemoteMemory_BW.h
+ * XRC_RemoteMemoryPerf.h
  *
- *  Created on: 26.11.2015
- *      Author: cbinnig
+ *  Created on: 06.09.2020
+ *  Original: RemoteMemoryPerf.h
+ *  OrigAuthor: cbinnig
+ *  Author: dfailing
  */
 
 #ifndef RemoteMemory_BW_H_
@@ -46,7 +48,7 @@ private:
 	size_t m_iter;
 	vector<string> m_conns;
 	vector<NodeID> m_addr;
-  Reporter reporter;
+	std::shared_ptr<Reporter> reporter = std::make_shared<Reporter>();
 	size_t* m_remOffsets;
 };
 
