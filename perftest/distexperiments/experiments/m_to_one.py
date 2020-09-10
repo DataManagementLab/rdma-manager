@@ -4,7 +4,7 @@ from general_memory_experiment import memory_experiment
 
 servers = ['dm-node07', 'dm-node08']
 rdma_servers = ['dm-node07']
-rdma_clients = ['dm-node08']
+rdma_clients = ['dm-node07', 'dm-node08']
 
 
 server_list = ServerList(
