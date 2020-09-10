@@ -1,3 +1,6 @@
 [submodule "perftest/performance_counter"]
   path = perftest/performance_counter
   url = https://github.com/DataManagementLab/lab20-rdma-performance-counter
+[submodule "perftest/distexperiments/distexprunner"]
+	path = perftest/distexperiments/distexprunner
+	url = https://github.com/mjasny/distexprunner
