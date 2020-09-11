@@ -11,12 +11,14 @@
 #include "PerfEvent.hpp"
 
 // perf-counter
+#include "timed_reporter.hpp"
 #include "analyzing_scope.hpp"
 #include "rdma_aggregator.hpp"
 #include "perf_aggregator.hpp"
 #include "time_aggregator.hpp"
 #include "stdout_output.hpp"
 #include "csv_output.hpp"
+#include <chrono>
 
 mutex rdma::XRC_RemoteMemoryPerf::waitLock;
 condition_variable rdma::XRC_RemoteMemoryPerf::waitCv;
@@ -137,6 +139,20 @@ void rdma::XRC_RemoteMemoryPerf::runServer() {
 	}
 	
 	std::cout << "Starting RDMAServer on: " << rdma::Config::getIP(rdma::Config::RDMA_INTERFACE) << ":" << m_serverPort << std::endl;
+
+  // starting 
+  auto reporter = std::make_shared<TimedReporter>(std::chrono::seconds(1));
+	reporter->addAggregator(std::make_shared<TimeAggregator>());
+	reporter->addAggregator(std::make_shared<FileAggregator>("/sys/class/infiniband_verbs/uverbs0/num_page_faults"));
+	reporter->addAggregator(std::make_shared<FileAggregator>("/sys/class/infiniband_verbs/uverbs1/num_page_faults"));
+	reporter->addAggregator(std::make_shared<RdmaAggregator>(rx_write_requests));
+	reporter->addAggregator(std::make_shared<RdmaAggregator>(rx_read_requests));
+	reporter->addOutput(std::make_shared<StdOut_Output>());
+	if(!logfile.empty()) {
+		reporter->addOutput(std::make_shared<Csv_Output>(logfile));
+	}
+  reporter->activate();
+
 	m_dServer = new RDMAServer<ExReliableRDMA>("test", m_serverPort);
 	m_dServer->startServer();
 	while (m_dServer->isRunning()) {
