@@ -23,7 +23,7 @@ condition_variable rdma::XRC_RemoteMemoryPerf::waitCv;
 bool rdma::XRC_RemoteMemoryPerf::signaled;
 
 rdma::XRC_RemoteMemoryPerfThread::XRC_RemoteMemoryPerfThread(vector<string>& conns,
-		size_t size, size_t iter) {
+		size_t size, size_t iter, std::string logfile) {
 	m_size = size;
 	m_iter = iter;
 	m_conns = conns;
@@ -47,8 +47,9 @@ rdma::XRC_RemoteMemoryPerfThread::XRC_RemoteMemoryPerfThread(vector<string>& con
 	reporter->addAggregator(std::make_shared<RdmaAggregator>(rx_write_requests));
 	reporter->addAggregator(std::make_shared<RdmaAggregator>(rx_read_requests));
 	reporter->addOutput(std::make_shared<StdOut_Output>());
-  if(!m_logfile.empty())
-  	reporter->addOutput(std::make_shared<Csv_Output>(m_logfile));
+	if(!logfile.empty()) {
+		reporter->addOutput(std::make_shared<Csv_Output>(logfile));
+	}
   
 	m_data = m_client.localAlloc(m_size);
 	memset(m_data, 1, m_size);
@@ -93,7 +94,8 @@ void rdma::XRC_RemoteMemoryPerfThread::run() {
 
 rdma::XRC_RemoteMemoryPerf::XRC_RemoteMemoryPerf(config_t config, bool isClient) :
 		XRC_RemoteMemoryPerf(config.server, config.port, config.data, config.iter,
-				config.threads), m_logfile(config.logfile) {
+				config.threads) {
+	this->m_logfile = config.logfile;
 	this->isClient(isClient);
 
 	//check parameters
@@ -146,7 +148,7 @@ void rdma::XRC_RemoteMemoryPerf::runClient() {
 	//start all client threads
 	for (size_t i = 0; i < m_numThreads; i++) {
 		XRC_RemoteMemoryPerfThread* perfThread = new XRC_RemoteMemoryPerfThread(m_conns,
-				m_size, m_iter);
+				m_size, m_iter, m_logfile);
 		perfThread->start();
 		if (!perfThread->ready()) {
 			usleep(Config::RDMA_SLEEP_INTERVAL);

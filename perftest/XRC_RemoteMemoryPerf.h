@@ -28,13 +28,14 @@
 #include <condition_variable>
 #include <iostream>
 #include <memory>
+#include <string>
 
 namespace rdma {
 
 
 class XRC_RemoteMemoryPerfThread: public Thread {
 public:
-	XRC_RemoteMemoryPerfThread(vector<string>& conns, size_t size, size_t iter);
+	XRC_RemoteMemoryPerfThread(vector<string>& conns, size_t size, size_t iter, std::string logfile = "");
 	~XRC_RemoteMemoryPerfThread();
 	void run();
 	bool ready() {
@@ -100,7 +101,7 @@ private:
 	size_t m_size;
 	size_t m_iter;
 	size_t m_numThreads;
-  std::string m_logfile;
+	std::string m_logfile;
 
 	vector<XRC_RemoteMemoryPerfThread*> m_threads;
 
