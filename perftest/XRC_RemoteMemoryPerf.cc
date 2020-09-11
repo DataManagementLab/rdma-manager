@@ -148,8 +148,8 @@ void rdma::XRC_RemoteMemoryPerf::runServer() {
 	reporter->addAggregator(std::make_shared<RdmaAggregator>(rx_write_requests));
 	reporter->addAggregator(std::make_shared<RdmaAggregator>(rx_read_requests));
 	reporter->addOutput(std::make_shared<StdOut_Output>());
-	if(!logfile.empty()) {
-		reporter->addOutput(std::make_shared<Csv_Output>(logfile));
+	if(!m_logfile.empty()) {
+		reporter->addOutput(std::make_shared<Csv_Output>(m_logfile));
 	}
   reporter->activate();
 
