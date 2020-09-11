@@ -1,4 +1,5 @@
 import config
+import time
 from distexprunner import *
 
 def memory_experiment(servers, rdma_servers, rdma_clients, size, transport, threads=1):
@@ -43,6 +44,9 @@ def memory_experiment(servers, rdma_servers, rdma_clients, size, transport, thre
 
     for cmd in server_procs:
         cmd.stdin('stop\n')
+    
+    time.sleep(2)
+    for cmd in server_procs:
         if cmd.wait(block=False) is None:
             cmd.kill()
             # TODO cmd.kill sends SIGKILL, we cannot handle

@@ -159,14 +159,17 @@ void rdma::XRC_RemoteMemoryPerf::runServer() {
       std::string s;
       while(true) {
         std::cin >> s;
-        if(s.find("stop") != std::string::npos)
+        if(s.find("stop") != std::string::npos) {
           m_dServer->stopServer();
+          return;
+        }
       }
     });
 	while (m_dServer->isRunning()) {
 		usleep(Config::RDMA_SLEEP_INTERVAL);
 	}
   t.join();
+  reporter->deactivate();
 }
 
 void rdma::XRC_RemoteMemoryPerf::runClient() {
