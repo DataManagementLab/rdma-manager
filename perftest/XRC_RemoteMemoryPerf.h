@@ -100,6 +100,7 @@ private:
 	size_t m_size;
 	size_t m_iter;
 	size_t m_numThreads;
+  std::string m_logfile;
 
 	vector<XRC_RemoteMemoryPerfThread*> m_threads;
 
