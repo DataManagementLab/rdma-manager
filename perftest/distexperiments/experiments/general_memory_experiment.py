@@ -16,7 +16,10 @@ def memory_experiment(servers, rdma_servers, rdma_clients, size, transport, thre
     print("Server cmd: " + server_cmd)
     print("Client cmd: " + client_cmd)
 
-    server_procs = [servers[server_id].run_cmd(server_cmd) for server_id in rdma_servers]
+    server_procs = [
+            servers[server_id].run_cmd(server_cmd,
+                stdout=[Console(fmt=f'{server_id}: %s'), File(logfile)])
+            for server_id in rdma_servers]
 
     client_procs = []
     sentries = []
