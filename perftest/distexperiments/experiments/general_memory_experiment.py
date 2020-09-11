@@ -40,3 +40,10 @@ def memory_experiment(servers, rdma_servers, rdma_clients, size, transport, thre
 
     for cmd in client_procs:
         cmd.wait()
+
+    for cmd in server_procs:
+        cmd.stdin('stop\n')
+        if cmd.wait(block=False) is None:
+            cmd.kill()
+            # TODO cmd.kill sends SIGKILL, we cannot handle
+            cmd.wait()

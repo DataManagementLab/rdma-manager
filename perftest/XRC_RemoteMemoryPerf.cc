@@ -155,9 +155,18 @@ void rdma::XRC_RemoteMemoryPerf::runServer() {
 
 	m_dServer = new RDMAServer<ExReliableRDMA>("test", m_serverPort);
 	m_dServer->startServer();
+  auto t = std::thread([this](){
+      std::string s;
+      while(true) {
+        std::cin >> s;
+        if(s.find("stop") != std::string::npos)
+          m_dServer->stopServer();
+      }
+    });
 	while (m_dServer->isRunning()) {
 		usleep(Config::RDMA_SLEEP_INTERVAL);
 	}
+  t.join();
 }
 
 void rdma::XRC_RemoteMemoryPerf::runClient() {
