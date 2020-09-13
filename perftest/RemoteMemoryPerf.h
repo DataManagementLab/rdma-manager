@@ -17,6 +17,8 @@
 #include "../rdma/RDMAServer.h"
 #include "PerfTest.h"
 
+// perf-counter
+#include "reporter.hpp"
 
 #include <vector>
 #include <mutex>
@@ -28,7 +30,7 @@ namespace rdma {
 
 class RemoteMemoryPerfThread: public Thread {
 public:
-	RemoteMemoryPerfThread(vector<string>& conns, size_t size, size_t iter);
+	RemoteMemoryPerfThread(vector<string>& conns, size_t size, size_t iter, std::string logfile = "");
 	~RemoteMemoryPerfThread();
 	void run();
 	bool ready() {
@@ -43,6 +45,7 @@ private:
 	size_t m_iter;
 	vector<string> m_conns;
 	vector<NodeID> m_addr;
+	std::shared_ptr<Reporter> reporter = std::make_shared<Reporter>();
 	size_t* m_remOffsets;
 };
 
@@ -93,6 +96,7 @@ private:
 	size_t m_size;
 	size_t m_iter;
 	size_t m_numThreads;
+	std::string m_logfile;
 
 	vector<RemoteMemoryPerfThread*> m_threads;
 

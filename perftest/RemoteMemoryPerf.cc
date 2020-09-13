@@ -8,12 +8,22 @@
 #include "RemoteMemoryPerf.h"
 #include "PerfEvent.hpp"
 
+// perf-counter
+#include "timed_reporter.hpp"
+#include "analyzing_scope.hpp"
+#include "rdma_aggregator.hpp"
+#include "perf_aggregator.hpp"
+#include "time_aggregator.hpp"
+#include "stdout_output.hpp"
+#include "csv_output.hpp"
+#include <chrono>
+
 mutex rdma::RemoteMemoryPerf::waitLock;
 condition_variable rdma::RemoteMemoryPerf::waitCv;
 bool rdma::RemoteMemoryPerf::signaled;
 
 rdma::RemoteMemoryPerfThread::RemoteMemoryPerfThread(vector<string>& conns,
-		size_t size, size_t iter) {
+		size_t size, size_t iter, std::string logfile) {
 	m_size = size;
 	m_iter = iter;
 	m_conns = conns;
@@ -29,6 +39,16 @@ rdma::RemoteMemoryPerfThread::RemoteMemoryPerfThread(vector<string>& conns,
 		}
 		m_addr.push_back(nodeId);
 		m_client.remoteAlloc(conn, m_size, m_remOffsets[i]);
+	}
+
+	reporter->addAggregator(std::make_shared<TimeAggregator>());
+	reporter->addAggregator(std::make_shared<FileAggregator>("/sys/class/infiniband_verbs/uverbs0/num_page_faults"));
+	reporter->addAggregator(std::make_shared<FileAggregator>("/sys/class/infiniband_verbs/uverbs1/num_page_faults"));
+	reporter->addAggregator(std::make_shared<RdmaAggregator>(rx_write_requests));
+	reporter->addAggregator(std::make_shared<RdmaAggregator>(rx_read_requests));
+	reporter->addOutput(std::make_shared<StdOut_Output>());
+	if(!logfile.empty()) {
+		reporter->addOutput(std::make_shared<Csv_Output>(logfile));
 	}
 
 	m_data = m_client.localAlloc(m_size);
@@ -74,6 +94,7 @@ void rdma::RemoteMemoryPerfThread::run() {
 rdma::RemoteMemoryPerf::RemoteMemoryPerf(config_t config, bool isClient) :
 		RemoteMemoryPerf(config.server, config.port, config.data, config.iter,
 				config.threads) {
+	this->m_logfile = config.logfile;
 	this->isClient(isClient);
 
 	//check parameters
@@ -115,18 +136,44 @@ void rdma::RemoteMemoryPerf::runServer() {
 	}
 	
 	std::cout << "Starting RDMAServer on: " << rdma::Config::getIP(rdma::Config::RDMA_INTERFACE) << ":" << m_serverPort << std::endl;
+  //
+  // starting 
+  auto reporter = std::make_shared<TimedReporter>(std::chrono::seconds(1));
+	reporter->addAggregator(std::make_shared<TimeAggregator>());
+	reporter->addAggregator(std::make_shared<FileAggregator>("/sys/class/infiniband_verbs/uverbs0/num_page_faults"));
+	reporter->addAggregator(std::make_shared<FileAggregator>("/sys/class/infiniband_verbs/uverbs1/num_page_faults"));
+	reporter->addAggregator(std::make_shared<RdmaAggregator>(rx_write_requests));
+	reporter->addAggregator(std::make_shared<RdmaAggregator>(rx_read_requests));
+	reporter->addOutput(std::make_shared<StdOut_Output>());
+	if(!m_logfile.empty()) {
+		reporter->addOutput(std::make_shared<Csv_Output>(m_logfile));
+	}
+  reporter->activate();
+
 	m_dServer = new RDMAServer<ReliableRDMA>("test", m_serverPort);
 	m_dServer->startServer();
+  auto t = std::thread([this](){
+      std::string s;
+      while(true) {
+        std::cin >> s;
+        if(s.find("stop") != std::string::npos) {
+          m_dServer->stopServer();
+          return;
+        }
+      }
+    });
 	while (m_dServer->isRunning()) {
 		usleep(Config::RDMA_SLEEP_INTERVAL);
 	}
+  t.join();
+  reporter->deactivate();
 }
 
 void rdma::RemoteMemoryPerf::runClient() {
 	//start all client threads
 	for (size_t i = 0; i < m_numThreads; i++) {
 		RemoteMemoryPerfThread* perfThread = new RemoteMemoryPerfThread(m_conns,
-				m_size, m_iter);
+				m_size, m_iter, m_logfile);
 		perfThread->start();
 		if (!perfThread->ready()) {
 			usleep(Config::RDMA_SLEEP_INTERVAL);
