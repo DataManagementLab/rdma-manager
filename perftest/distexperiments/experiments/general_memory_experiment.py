@@ -17,18 +17,26 @@ def memory_experiment(servers, rdma_servers, rdma_clients, size, transport, thre
     print("Server cmd: " + server_cmd)
     print("Client cmd: " + client_cmd)
 
-    server_procs = [
-            servers[server_id].run_cmd(server_cmd,
-                stdout=[Console(fmt=f'{server_id}: %s'), File(logfile)])
-            for server_id in rdma_servers]
+    server_procs = []
+    for server_id in rdma_servers:
+        args = ""
+        if "-1" in client_id:
+            args += " -q 1 -e ib1"
+
+        servers[server_id].run_cmd(server_cmd + args,
+            stdout=[Console(fmt=f'{server_id}: %s'), File(logfile)])
 
     client_procs = []
     sentries = []
     for client in rdma_clients:
+        args = ""
+        if "-1" in client:
+            args += " -q 1 -e ib1"
+
         sentry = SubstrMatcher('Press Enter to run Benchmark!')
         sentries.append(sentry)
         outputs = [sentry, Console(fmt=f'{client}: %s'), File(logfile)]
-        proc = servers[client].run_cmd(client_cmd, stdout=outputs)
+        proc = servers[client].run_cmd(client_cmd + args, stdout=outputs)
         client_procs.append(proc)
 
     for sentry in sentries:
