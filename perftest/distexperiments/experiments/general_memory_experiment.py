@@ -23,8 +23,9 @@ def memory_experiment(servers, rdma_servers, rdma_clients, size, transport, thre
         if "-1" in server_id:
             args += " -q 1 -e ib1"
 
-        servers[server_id].run_cmd(server_cmd + args,
+        proc = servers[server_id].run_cmd(server_cmd + args,
             stdout=[Console(fmt=f'{server_id}: %s'), File(logfile)])
+        server_procs.append(proc)
 
     client_procs = []
     sentries = []
