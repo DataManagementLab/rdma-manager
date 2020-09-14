@@ -27,7 +27,7 @@ struct config_t {
 	std::size_t returnMethod = 0;
 	bool old = false;
 	bool signaled = false;
-
+  string interface = "ib0";
 };
 
 class PerfTest {
@@ -46,11 +46,12 @@ public:
 					{ "iterations", optional_argument, nullptr, 'i' },
                     { "return", optional_argument, nullptr, 'r' },
 					{ "numa_region", optional_argument, 0, 'q' },
+                    { "interface", optional_argument, nullptr, 'e' },
                     { "old", no_argument, nullptr, 'o' },
                     { "signaled", no_argument, nullptr, 'g' }
 			};
 
-			int c = getopt_long(argc, argv, "n:d:s:t:p:f:i:r:q:og", long_options, nullptr);
+			int c = getopt_long(argc, argv, "n:d:s:t:p:f:i:r:q:e:og", long_options, nullptr);
 			if (c == -1)
 				break;
 
@@ -87,6 +88,9 @@ public:
                 break;
             case 'g':
                 config.signaled = true;
+                break;
+            case 'e':
+                config.interface = string(optarg);
                 break;
             default:
                 break;

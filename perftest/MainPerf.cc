@@ -86,6 +86,7 @@ int main(int argc, char *argv[])
     // load configuration
     static Config conf(argv[0]);
     conf.RDMA_NUMAREGION = config.numa;
+    conf.RDMA_INTERFACE = config.interface;
 
     // check if test number is defined
     if (config.number <= 0) {
