@@ -32,9 +32,9 @@ ReliableRDMA::~ReliableRDMA() {
 void *ReliableRDMA::localAlloc(const size_t &size) {
   rdma_mem_t memRes = internalAlloc(size);
   if (!memRes.isnull) {
-    return (void *)((char *)m_res.buffer + memRes.offset);
+    return reinterpret_cast<char*>(m_res.buffer) + memRes.offset;
   }
-  throw runtime_error("Could not allocate local rdma memory");
+  throw runtime_error("Could not allocate local rdma memory. Requested size: " + to_string(size) + ". Total buffer size: " + to_string(m_memSize));
 }
 
 //------------------------------------------------------------------------------------//
