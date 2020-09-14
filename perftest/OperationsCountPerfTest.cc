@@ -60,6 +60,8 @@ void rdma::OperationsCountPerfClientThread::run() {
 		OperationsCountPerfTest::waitCv.wait(lck);
 	}
 	lck.unlock();
+	m_ready = false;
+	
 	int sendCounter = 0, receiveCounter = 0, totalBudget = m_iterations_per_thread;
 	uint32_t localBaseOffset = (uint32_t)m_local_memory->getRootOffset();
 	auto start = rdma::PerfTest::startTimer();
@@ -174,6 +176,8 @@ void rdma::OperationsCountPerfServerThread::run() {
 		OperationsCountPerfTest::waitCv.wait(lck);
 	}
 	lck.unlock();
+	m_ready = false;
+
 	const std::vector<size_t> clientIds = m_server->getConnectedConnIDs();
 
 	// Measure operations/s for receiving

@@ -57,6 +57,8 @@ void rdma::AtomicsBandwidthPerfClientThread::run() {
 		AtomicsBandwidthPerfTest::waitCv.wait(lck);
 	}
 	lck.unlock();
+	m_ready = false;
+
 	auto start = rdma::PerfTest::startTimer();
 	switch(AtomicsBandwidthPerfTest::testOperation){
 		case FETCH_ADD_OPERATION: // Fetch & Add

@@ -38,7 +38,7 @@ BaseRDMA::BaseRDMA(size_t mem_size, int mem_type, bool huge, int numaNode) : Bas
 #ifdef CUDA_ENABLED /* defined in CMakeLists.txt to globally enable/disable CUDA support */
   (BaseMemory*)new CudaMemory(mem_size, mem_type)
 #else
-  new MainMemory(mem_size, huge, numaNode)
+  (BaseMemory*)new MainMemory(mem_size, huge, numaNode)
 #endif
  ), true){}
 

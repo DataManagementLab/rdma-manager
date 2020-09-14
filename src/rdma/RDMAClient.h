@@ -31,7 +31,9 @@ class RDMAClient : public RDMA_API_T, public ProtoClient {
 
   }
   
-  RDMAClient(BaseMemory *memory, std::string name, std::string ownIpPort, NodeType::Enum nodeType, std::string sequencerIpPort) : RDMA_API_T(memory), m_name(name), m_ownIpPort(ownIpPort), m_nodeType(nodeType), m_sequencerIpPort(sequencerIpPort){}
+  RDMAClient(BaseMemory *memory, std::string name, std::string ownIpPort, NodeType::Enum nodeType, std::string sequencerIpPort) : RDMA_API_T(memory), m_name(name), m_ownIpPort(ownIpPort), m_nodeType(nodeType), m_sequencerIpPort(sequencerIpPort){
+    
+  }
  
  public:
   // backwards compatibility constructors
@@ -151,7 +153,7 @@ class RDMAClient : public RDMA_API_T, public ProtoClient {
     return false;
   }
 
-  void* getBuffer(const size_t offset) {
+  void* getBuffer(const size_t offset=0) {
     return ((char*)RDMA_API_T::getBuffer() + offset);
   }
 

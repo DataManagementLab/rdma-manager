@@ -1,6 +1,9 @@
 #ifndef PerfTest_H
 #define PerfTest_H
 
+#include "../src/rdma/ReliableRDMA.h"
+#include "../src/rdma/RDMAClient.h"
+#include "../src/rdma/RDMAServer.h"
 #include <string>
 #include <sstream>
 #include <iomanip>
@@ -55,6 +58,51 @@ public:
     static int64_t stopTimer(std::chrono::high_resolution_clock::time_point start){
         return stopTimer(start, startTimer());
     }
+
+
+    static inline void global_barrier_client(rdma::RDMAClient<ReliableRDMA> *client, const std::vector<NodeID> &connectionIDs){
+        // Didn't use fetchAndAdd because memory polling is on GPUs very slow
+        for(const size_t &nodeID : connectionIDs){
+            client->receive(nodeID, client->getBuffer(), (size_t)1);
+        }
+        usleep(rdma::Config::PERFORMANCE_TEST_SERVER_TIME_ADVANTAGE); // let server first post its barrier
+        for(const size_t &nodeID : connectionIDs){
+            client->send(nodeID, client->getBuffer(), (size_t)1, true);
+        }
+        for(const size_t &nodeID : connectionIDs){
+            client->pollReceive(nodeID, true);
+        }
+    };
+
+    static inline void global_barrier_server(rdma::RDMAServer<ReliableRDMA> *server, size_t expected_thread_count){
+        // Didn't use fetchAndAdd because memory polling is on GPUs very slow
+        std::vector<size_t> clientIds = server->getConnectedConnIDs();
+        std::set<size_t> alreadyConnectedIds;
+
+        // wait until all clients are connected and post receive for each
+        do {
+            if(alreadyConnectedIds.size() < clientIds.size()){
+                for(const size_t &nodeID : clientIds){
+                    if(alreadyConnectedIds.find(nodeID) == alreadyConnectedIds.end()){
+                        alreadyConnectedIds.insert(nodeID);
+                        server->receive(nodeID, server->getBuffer(), (size_t)1);
+                    }
+                }
+            } else if(alreadyConnectedIds.size() < expected_thread_count) {
+                usleep(rdma::Config::PERFORMANCE_TEST_SERVER_TIME_ADVANTAGE / 2); // let server first post its barrier
+                clientIds = server->getConnectedConnIDs();
+            } else { break; }
+        } while(true);
+
+        // wait until all clients pinged and then pong back to all
+        for(const size_t &nodeID : clientIds){
+            server->pollReceive(nodeID, true);
+        }
+        for(const size_t &nodeID : clientIds){
+            server->send(nodeID, server->getBuffer(), (size_t)1, true);
+        }
+    };
+
 
     static std::string getMemoryName(int input_gpu_index, int actual_gpu_index=-1){
         if(input_gpu_index >= 0) return "GPU."+std::to_string(input_gpu_index);

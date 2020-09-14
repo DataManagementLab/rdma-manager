@@ -110,7 +110,7 @@ class RDMAServer : public ProtoServer, public RDMAClient<RDMA_API_T> {
       RDMAClient<RDMA_API_T>::m_ownNodeID = RDMAClient<RDMA_API_T>::requestNodeID(RDMAClient<RDMA_API_T>::m_sequencerIpPort, RDMAClient<RDMA_API_T>::m_ownIpPort, RDMAClient<RDMA_API_T>::m_nodeType);
     }
     if (ProtoServer::isRunning()) { 
-    // std::cout << "RDMAServer is running!!!" << std::endl;
+      // std::cout << "RDMAServer is running!!!" << std::endl;
       return true;
     }
     // start data node server
@@ -126,7 +126,7 @@ class RDMAServer : public ProtoServer, public RDMAClient<RDMA_API_T> {
   void stopServer() override { ProtoServer::stopServer(); }
 
 
-  void *getBuffer(const size_t offset) {
+  void *getBuffer(const size_t offset=0) {
     return ((char *)RDMA_API_T::getBuffer() + offset);
   }
 

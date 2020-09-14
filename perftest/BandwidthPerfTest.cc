@@ -56,12 +56,16 @@ rdma::BandwidthPerfClientThread::~BandwidthPerfClientThread() {
 
 
 void rdma::BandwidthPerfClientThread::run() {
-	unique_lock<mutex> lck(BandwidthPerfTest::waitLock);
+	rdma::PerfTest::global_barrier_client(m_client, m_addr); // global barrier
+
+	unique_lock<mutex> lck(BandwidthPerfTest::waitLock); // local barrier
 	if (!BandwidthPerfTest::signaled) {
 		m_ready = true;
 		BandwidthPerfTest::waitCv.wait(lck);
 	}
 	lck.unlock();
+	m_ready = false;
+	
 	int sendCounter = 0, receiveCounter = 0, totalBudget = m_iterations_per_thread;
 	uint32_t localBaseOffset = (uint32_t)m_local_memory->getRootOffset();
 	auto start = rdma::PerfTest::startTimer();
@@ -146,6 +150,7 @@ void rdma::BandwidthPerfClientThread::run() {
 			}
 			m_elapsedSendMs = rdma::PerfTest::stopTimer(start);
 			break;
+		
 		default: throw invalid_argument("BandwidthPerfClientThread unknown test mode");
 	}
 }
@@ -176,6 +181,8 @@ void rdma::BandwidthPerfServerThread::run() {
 		BandwidthPerfTest::waitCv.wait(lck);
 	}
 	lck.unlock();
+	m_ready = false;
+
 	const std::vector<size_t> clientIds = m_server->getConnectedConnIDs();
 
 	size_t i = 0;
@@ -226,6 +233,9 @@ void rdma::BandwidthPerfServerThread::run() {
 			}
 			break;
 
+		case READ_OPERATION:
+			break;
+
 		case SEND_RECEIVE_OPERATION:
 			// Calculate receive budget for even blocks
 			if(budgetR > (int)m_max_rdma_wr_per_thread){ budgetR = m_max_rdma_wr_per_thread; }
@@ -271,14 +281,16 @@ void rdma::BandwidthPerfServerThread::run() {
 			}
 			break;
 
-		default: break;
+		default: throw invalid_argument("BandwidthPerfServerThread unknown test mode");
 	}
 	//m_elapsedReceive = rdma::PerfTest::stopTimer(start);
 }
 
 
 
-rdma::BandwidthPerfTest::BandwidthPerfTest(int testOperations, bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, std::string ownIpPort, std::string sequencerIpPort, int local_gpu_index, int remote_gpu_index, int thread_count, uint64_t packet_size, int buffer_slots, uint64_t iterations_per_thread, WriteMode write_mode) : PerfTest(testOperations){
+rdma::BandwidthPerfTest::BandwidthPerfTest(int testOperations, bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, std::string ownIpPort, std::string sequencerIpPort, int local_gpu_index, int remote_gpu_index, int client_count, int thread_count, uint64_t packet_size, int buffer_slots, uint64_t iterations_per_thread, WriteMode write_mode) : PerfTest(testOperations){
+	thread_count *= client_count;
+
 	this->m_is_server = is_server;
 	this->m_rdma_port = rdma_port;
 	this->m_ownIpPort = ownIpPort;
@@ -324,15 +336,16 @@ std::string rdma::BandwidthPerfTest::getTestParameters(){
 void rdma::BandwidthPerfTest::makeThreadsReady(TestOperation testOperation){
 	BandwidthPerfTest::testOperation = testOperation;
 	BandwidthPerfTest::signaled = false;
+	if(m_is_server){
+		// Server
+		for(BandwidthPerfServerThread* perfThread : m_server_threads){ perfThread->start(); }
+		for(BandwidthPerfServerThread* perfThread : m_server_threads){ while(!perfThread->ready()) usleep(Config::RDMA_SLEEP_INTERVAL); }
+		rdma::PerfTest::global_barrier_server(m_server, (size_t)m_thread_count);
 
-	for(BandwidthPerfServerThread* perfThread : m_server_threads){ perfThread->start(); }
-	for(BandwidthPerfServerThread* perfThread : m_server_threads){ while(!perfThread->ready()) usleep(Config::RDMA_SLEEP_INTERVAL); }
-
-	for(BandwidthPerfClientThread* perfThread : m_client_threads){
-		perfThread->start();
-		while(!perfThread->ready()) {
-			usleep(Config::RDMA_SLEEP_INTERVAL);
-		}
+	} else {
+		// Client
+		for(BandwidthPerfClientThread* perfThread : m_client_threads){ perfThread->start(); }
+		for(BandwidthPerfClientThread* perfThread : m_client_threads){ while(!perfThread->ready()) usleep(Config::RDMA_SLEEP_INTERVAL); }
 	}
 }
 
@@ -396,9 +409,6 @@ void rdma::BandwidthPerfTest::runTest(){
 		} else {
 			std::cout << "Server running on '" << rdma::Config::getIP(rdma::Config::RDMA_INTERFACE) << ":" << m_rdma_port << "'" << std::endl; // TODO REMOVE
 		}
-
-		// waiting until clients have connected to sync
-		while(m_server->getConnectedConnIDs().size() < (size_t)m_thread_count) usleep(Config::RDMA_SLEEP_INTERVAL);
 		
 		if(hasTestOperation(WRITE_OPERATION)){
 			makeThreadsReady(WRITE_OPERATION); // receive
@@ -407,6 +417,13 @@ void rdma::BandwidthPerfTest::runTest(){
 			//m_elapsedReceiveMs = rdma::PerfTest::stopTimer(startReceive);
 		}
 		
+		if(hasTestOperation(READ_OPERATION)){
+			makeThreadsReady(READ_OPERATION); // receive
+			//auto startReceive = rdma::PerfTest::startTimer();
+			runThreads();
+			//m_elapsedReceiveMs = rdma::PerfTest::stopTimer(startReceive);
+		}
+
 		if(hasTestOperation(SEND_RECEIVE_OPERATION)){
 			makeThreadsReady(SEND_RECEIVE_OPERATION); // receive
 			//auto startReceive = rdma::PerfTest::startTimer();
@@ -425,7 +442,7 @@ void rdma::BandwidthPerfTest::runTest(){
         // Measure bandwidth for writing
 		if(hasTestOperation(WRITE_OPERATION)){
 			makeThreadsReady(WRITE_OPERATION); // write
-			usleep(4 * Config::RDMA_SLEEP_INTERVAL); // let server first post the receives
+			usleep(Config::PERFORMANCE_TEST_SERVER_TIME_ADVANTAGE); // let server first post its receives
 			auto startWrite = rdma::PerfTest::startTimer();
 			runThreads();
 			m_elapsedWriteMs = rdma::PerfTest::stopTimer(startWrite);
@@ -442,7 +459,7 @@ void rdma::BandwidthPerfTest::runTest(){
 		if(hasTestOperation(SEND_RECEIVE_OPERATION)){
 			// Measure bandwidth for sending
 			makeThreadsReady(SEND_RECEIVE_OPERATION); // send
-			usleep(4 * Config::RDMA_SLEEP_INTERVAL); // let server first post the receives
+			usleep(Config::PERFORMANCE_TEST_SERVER_TIME_ADVANTAGE); // let server first post its receives
 			auto startSend = rdma::PerfTest::startTimer();
 			runThreads();
 			m_elapsedSendMs = rdma::PerfTest::stopTimer(startSend);

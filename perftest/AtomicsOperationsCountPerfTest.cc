@@ -57,6 +57,8 @@ void rdma::AtomicsOperationsCountPerfClientThread::run() {
 		AtomicsOperationsCountPerfTest::waitCv.wait(lck);
 	}
 	lck.unlock();
+	m_ready = false;
+
 	auto start = rdma::PerfTest::startTimer();
 	switch(AtomicsOperationsCountPerfTest::testOperation){
 		case FETCH_ADD_OPERATION: // Fetch & Add

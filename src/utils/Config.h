@@ -108,6 +108,9 @@ class Config
     //TEST
     static int HELLO_PORT;
 
+    // PERFORMANCE TEST SERVER START ADVANTAGE
+    const static int PERFORMANCE_TEST_SERVER_TIME_ADVANTAGE = 400 * 1000; // 400ms
+
     // static string& getIPFromNodeId(NodeID& nodeid);
     // static string& getIPFromNodeId(const NodeID& nodeid);
     static string getIP(std::string &interface);

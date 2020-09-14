@@ -62,6 +62,7 @@ void rdma::AtomicsLatencyPerfClientThread::run() {
 		AtomicsLatencyPerfTest::waitCv.wait(lck);
 	}
 	lck.unlock();
+	m_ready = false;
 
 	switch(AtomicsLatencyPerfTest::testOperation){
 		case FETCH_ADD_OPERATION: // Fetch & Add

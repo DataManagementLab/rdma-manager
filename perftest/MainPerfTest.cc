@@ -248,7 +248,6 @@ int main(int argc, char *argv[]){
     // check thread counts and if server then multiply by amount of clients
     for(int &tc : thread_counts){
         if(tc < 1) throw runtime_error("Thread count cannot be smaller than 1");
-        if(FLAGS_server){ tc = tc * FLAGS_clients; }
         if(tc > (int)rdma::Config::RDMA_MAX_WR){
             std::cerr << "Cannot handle " << tc << " threads because Config::RDMA_MAX_WR=" << rdma::Config::RDMA_MAX_WR << " which is also maximum thread number for this tests" << std::endl;
             throw runtime_error("Cannot handle so many threads");
@@ -447,7 +446,7 @@ int main(int argc, char *argv[]){
                                 if(t == BANDWIDTH_TEST){
                                     // Bandwidth Test
                                     testName = "Bandwidth";
-                                    test = new rdma::BandwidthPerfTest(test_ops, FLAGS_server, addresses, FLAGS_port, ownIpPort, sequencerIpAddr, local_gpu_index, remote_gpu_index, thread_count, packet_size, buffer_slots, iterations_per_thread, write_mode);
+                                    test = new rdma::BandwidthPerfTest(test_ops, FLAGS_server, addresses, FLAGS_port, ownIpPort, sequencerIpAddr, local_gpu_index, remote_gpu_index, FLAGS_clients, thread_count, packet_size, buffer_slots, iterations_per_thread, write_mode);
 
                                 } else if(t == OPERATIONS_COUNT_TEST){
                                     // Operations Count Test
@@ -511,7 +510,7 @@ int main(int argc, char *argv[]){
                                 if(t == LATENCY_TEST){
                                     // Latency Test
                                     testName = "Latency";
-                                    test = new rdma::LatencyPerfTest(test_ops, FLAGS_server, addresses, FLAGS_port, ownIpPort, sequencerIpAddr, local_gpu_index, remote_gpu_index, thread_count, packet_size, buffer_slots, iterations_per_thread, write_mode);
+                                    test = new rdma::LatencyPerfTest(test_ops, FLAGS_server, addresses, FLAGS_port, ownIpPort, sequencerIpAddr, local_gpu_index, remote_gpu_index, FLAGS_clients, thread_count, packet_size, buffer_slots, iterations_per_thread, write_mode);
 
                                 }
 

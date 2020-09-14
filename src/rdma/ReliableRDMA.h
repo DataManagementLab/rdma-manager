@@ -106,7 +106,7 @@ class ReliableRDMA : public BaseRDMA {
  
   /* Function: fetchAndAdd
    * ----------------
-   * Fetches and increments one as an atomic operation
+   * Fetches and increments by one as an atomic operation
    * 
    * rdmaConnID:  id of the remote
    * offset:      offset on the remote side where to fetch and add
@@ -124,7 +124,7 @@ class ReliableRDMA : public BaseRDMA {
   
   /* Function: fetchAndAdd
   * ----------------
-  * Fetches and increments one as an atomic operation
+  * Fetches and increments by one as an atomic operation
   * 
   * rdmaConnID:  id of the remote
   * offset:      offset on the remote side where to fetch and add
