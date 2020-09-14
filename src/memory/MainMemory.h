@@ -11,7 +11,6 @@ class MainMemory : virtual public AbstractMainMemory, virtual public BaseMemory 
 
 protected:
     bool huge;
-    int numa_node;
 
 public:
 
@@ -67,8 +66,6 @@ public:
     virtual ~MainMemory();
 
     virtual bool isHuge();
-
-    virtual int getNumaNode();
 
     LocalBaseMemoryStub *malloc(size_t size) override;
 };

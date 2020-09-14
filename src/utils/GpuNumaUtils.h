@@ -59,5 +59,20 @@ public:
         return get_cuda_device_index_by_numa(rdma::Config::RDMA_NUMAREGION);
     }
 
+
+
+    static int get_numa_node_by_cuda_device_index(int device_index=0){
+        if(device_index < 0 || device_index >= (int)rdma::Config::GPUS_TO_CPU_AFFINITY.size()) return -1;
+        std::vector<int> cpus = rdma::Config::GPUS_TO_CPU_AFFINITY[device_index];
+        for(int &cpu : cpus){
+            for(size_t numa_node=0; numa_node < rdma::Config::NUMA_THREAD_CPUS.size(); numa_node++){
+                std::vector<int> cs = rdma::Config::NUMA_THREAD_CPUS[numa_node];
+                if(std::find(cs.begin(), cs.end(), cpu) != cs.end()){ // check if cpu is in numa cpus
+                    return (int)numa_node;
+                }
+            }
+        } return -1;
+    }
+
 };
 }

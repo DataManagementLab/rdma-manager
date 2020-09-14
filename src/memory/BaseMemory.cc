@@ -21,10 +21,14 @@ using namespace rdma;
 rdma_mem_t BaseMemory::s_nillmem;
 
 // constructor
-BaseMemory::BaseMemory(size_t mem_size, int ib_port) : AbstractBaseMemory(mem_size){
+BaseMemory::BaseMemory(size_t mem_size, int numa_node, int ib_port) : AbstractBaseMemory(mem_size){
     this->ib_port = ib_port;
+    this->numa_node = numa_node;
     this->m_rdmaMem.push_back(rdma_mem_t(mem_size, true, 0));
+}
 
+
+void BaseMemory::preInit(){
     // Logging::debug(__FILE__, __LINE__, "Create memory region");
 
     struct ibv_device **dev_list = nullptr;
@@ -42,9 +46,9 @@ BaseMemory::BaseMemory(size_t mem_size, int ib_port) : AbstractBaseMemory(mem_si
         // choose rdma device on the correct numa node
         ifstream numa_node_file;
         numa_node_file.open(std::string(dev_list[i]->ibdev_path)+"/device/numa_node");
-        int numa_node = -1;
-        numa_node_file >> numa_node;
-        if (numa_node == (int)Config::RDMA_NUMAREGION) {
+        int numa = -1;
+        numa_node_file >> numa;
+        if (numa == numa_node) {
             ib_dev = dev_list[i];
             found = true;
             break;
@@ -76,7 +80,7 @@ BaseMemory::BaseMemory(size_t mem_size, int ib_port) : AbstractBaseMemory(mem_si
 }
 
 
-void BaseMemory::init(){
+void BaseMemory::postInit(){
     // create protected domain
     this->pd = ibv_alloc_pd(this->ib_ctx);
     if (this->pd == 0) {
@@ -113,6 +117,10 @@ BaseMemory::~BaseMemory(){
         ibv_close_device(this->ib_ctx);
         this->ib_ctx = nullptr;
     }
+}
+
+int BaseMemory::getNumaNode(){
+    return this->numa_node;
 }
 
 int BaseMemory::getIBPort(){

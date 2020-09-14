@@ -13,9 +13,11 @@ using namespace rdma;
 MainMemory::MainMemory(size_t mem_size) : MainMemory(mem_size, HUGEPAGE){}
 MainMemory::MainMemory(size_t mem_size, bool huge) : MainMemory(mem_size, huge, Config::RDMA_NUMAREGION){}
 MainMemory::MainMemory(size_t mem_size, int numa_node) : MainMemory(mem_size, HUGEPAGE, numa_node){}
-MainMemory::MainMemory(size_t mem_size, bool huge, int numa_node) : AbstractBaseMemory(mem_size), AbstractMainMemory(mem_size), BaseMemory(mem_size){
+MainMemory::MainMemory(size_t mem_size, bool huge, int numa_node) : AbstractBaseMemory(mem_size), AbstractMainMemory(mem_size), BaseMemory(mem_size, numa_node){
     this->huge = huge;
-    this->numa_node = numa_node;
+
+    this->preInit();
+
     // allocate memory
     #ifdef LINUX
         if(huge){
@@ -35,7 +37,7 @@ MainMemory::MainMemory(size_t mem_size, bool huge, int numa_node) : AbstractBase
 
     memset(this->buffer, 0, this->mem_size);
 
-    this->init();
+    this->postInit();
 }
 
 // destructor
@@ -55,10 +57,6 @@ MainMemory::~MainMemory(){
 
 bool MainMemory::isHuge(){
     return this->huge;
-}
-
-int MainMemory::getNumaNode(){
-    return this->numa_node;
 }
 
 LocalBaseMemoryStub *MainMemory::malloc(size_t size){

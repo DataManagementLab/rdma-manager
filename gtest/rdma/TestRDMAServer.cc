@@ -294,8 +294,9 @@ TEST_F(TestRDMAServer, testNumaRegionAsParam) {
   
   auto old_rdma_interface = Config::RDMA_INTERFACE;
   Config::RDMA_INTERFACE = "ib" + to_string(numa_max_node());
+  const int NUMA = numa_max_node();
 
-  auto server = new RDMAServer<ReliableRDMA>("server", Config::RDMA_PORT+1, 1024, numa_max_node());
+  auto server = new RDMAServer<ReliableRDMA>("server", Config::RDMA_PORT+1, 1024, NUMA);
 
   //allocate local array
   int* buffer = (int*) server->getBuffer(0);
@@ -304,7 +305,7 @@ TEST_F(TestRDMAServer, testNumaRegionAsParam) {
     if (get_mempolicy(&numa_node, NULL, 0, buffer, MPOL_F_NODE | MPOL_F_ADDR) < 0)
         std::cout << "WARNING: get_mempolicy failed" << std::endl;
 
-  ASSERT_EQ(numa_node, Config::RDMA_NUMAREGION);
+  ASSERT_EQ(numa_node, NUMA);
   delete server;
   Config::RDMA_INTERFACE = old_rdma_interface;
 }

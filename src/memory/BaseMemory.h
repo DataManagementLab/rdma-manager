@@ -31,6 +31,8 @@ struct rdma_mem_t {
 class BaseMemory : virtual public AbstractBaseMemory {
 
 protected:
+    int numa_node;
+
     struct ibv_pd *pd; // ProtectionDomain handle
     struct ibv_mr *mr; // MemoryRegistration handle for buffer
 
@@ -47,7 +49,8 @@ protected:
     // Thread safe alloc/free
     std::recursive_mutex m_lockMem;
 
-    void init();
+    void preInit();
+    void postInit();
 
 public:
 
@@ -58,13 +61,21 @@ public:
      * mem_size:  size how much memory should be allocated
      *
      */
-    BaseMemory(size_t mem_size, int ib_port=Config::Config::RDMA_IBPORT);
+    BaseMemory(size_t mem_size, int numa_node=Config::RDMA_NUMAREGION, int ib_port=Config::RDMA_IBPORT);
 
     /* Destructor
      * -------------
      * Releases the allocated memory
      */
     virtual ~BaseMemory();
+
+    /* Function: getNumaNode
+     * -------------
+     * Returns on which NUMA node the memory is allocated
+     * 
+     * return numa node
+     */
+    int getNumaNode();
 
     /* Function: getIBPort
      * ---------------
