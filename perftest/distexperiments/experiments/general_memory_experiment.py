@@ -13,14 +13,14 @@ def memory_experiment(servers, rdma_servers, rdma_clients, size, transport, thre
     logfile = f'/tmp/tr{transport}-s{size}-t{threads}.csv'
 
     server_cmd = f'./perf_test -n {server_number} -s {rdma_server_ip_list} -f {logfile}'
-    client_cmd = f'./perf_test -n {client_number} -s {rdma_server_ip_list} -d {size} -t {threads} -f {logfile}'
+    client_cmd = f'./perf_test -n {client_number} -s {rdma_server_ip_list} -d {size} -t {threads} -i 10000 -f {logfile}'
     print("Server cmd: " + server_cmd)
     print("Client cmd: " + client_cmd)
 
     server_procs = []
     for server_id in rdma_servers:
         args = ""
-        if "-1" in client_id:
+        if "-1" in server_id:
             args += " -q 1 -e ib1"
 
         servers[server_id].run_cmd(server_cmd + args,
