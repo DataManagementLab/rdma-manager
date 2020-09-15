@@ -1,20 +1,22 @@
 import config
 import time
+import os
 from distexprunner import *
 
-def memory_experiment(servers, rdma_servers, rdma_clients, size, transport, threads=1):
+def memory_experiment(servers, rdma_servers, rdma_clients, base_folder, size, transport, threads=1, iterations=1000000):
     server_number = 12 if transport=='xrc' else 2
     client_number = 11 if transport=='xrc' else 1
     rdma_server_ip_list = ""
     for s in rdma_servers:
         rdma_server_ip_list += config.servers[s]['ib_ip'] + ","
     
-    # TODO: this needs to be modified to be unique per process on a host
-    logfile = f'/tmp/tr{transport}-s{size}-t{threads}.csv'
+    if base_folder[-1] != '/':
+        base_folder += '/'
+    if not os.path.isdir(base_folder):
+        os.mkdir(base_folder)
 
-    server_cmd = f'./perf_test -n {server_number} -s {rdma_server_ip_list} -f {logfile}'
-    client_cmd = f'./perf_test -n {client_number} -s {rdma_server_ip_list} -d {size} -t {threads} -i 10000 -f {logfile}'
-    print("Server cmd: " + server_cmd)
+    client_cmd = f'./perf_test -n {client_number} -s {rdma_server_ip_list} -d {size} -t {threads} -i {iterations}'
+    #print("Server cmd: " + server_cmd)
     print("Client cmd: " + client_cmd)
 
     server_procs = []
@@ -23,6 +25,12 @@ def memory_experiment(servers, rdma_servers, rdma_clients, size, transport, thre
         if "-1" in server_id:
             args += " -q 1 -e ib1"
 
+        # check that log folder exists
+        servers[server_id].run_cmd('mkdir -p ' + base_folder).wait()
+
+        logfile = base_folder + f'tr{transport}-s{size}-t{threads}-i{iterations}-{server_id}.csv'
+        server_cmd = f'./perf_test -n {server_number} -s {rdma_server_ip_list} -f {logfile}'
+        logfile = base_folder + f'tr{transport}-s{size}-t{threads}-i{iterations}-{server_id}.out'
         proc = servers[server_id].run_cmd(server_cmd + args,
             stdout=[Console(fmt=f'{server_id}: %s'), File(logfile)])
         server_procs.append(proc)
@@ -36,6 +44,7 @@ def memory_experiment(servers, rdma_servers, rdma_clients, size, transport, thre
 
         sentry = SubstrMatcher('Press Enter to run Benchmark!')
         sentries.append(sentry)
+        logfile = base_folder + f'tr{transport}-s{size}-t{threads}-i{iterations}-{client}.out'
         outputs = [sentry, Console(fmt=f'{client}: %s'), File(logfile)]
         proc = servers[client].run_cmd(client_cmd + args, stdout=outputs)
         client_procs.append(proc)

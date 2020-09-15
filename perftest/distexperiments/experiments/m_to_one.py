@@ -2,9 +2,10 @@ import config
 from distexprunner import *
 from general_memory_experiment import memory_experiment
 
-servers = ['dm-node07', 'dm-node08']
-rdma_servers = ['dm-node07']
-rdma_clients = ['dm-node07', 'dm-node08']
+nodes = ['dm-node0' + str(i) for i in range(1,6)]
+servers = nodes + [n+'-1' for n in nodes]
+rdma_clients = servers
+rdma_servers = ['dm-node02']
 
 
 server_list = ServerList(
@@ -13,11 +14,13 @@ server_list = ServerList(
 )
 
 parameter_grid = ParameterGrid(
-    size = [2048],
-    transport = ['xrc'],
+    size = [256],
+    transport = ['xrc', 'rc'],
+    threads = [28, 56, 102],
+    iterations = [1000000]
 )
 
 
 @reg_exp(servers=server_list, params=parameter_grid)
-def one_to_one(servers, size, transport):
-    memory_experiment(servers, rdma_servers, rdma_clients, size, transport)
+def m_to_one(servers, size, transport, threads, iterations):
+    memory_experiment(servers, rdma_servers, rdma_clients, "../../results/m1/", size, transport, threads, iterations)

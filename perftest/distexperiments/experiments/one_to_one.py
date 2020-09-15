@@ -20,4 +20,4 @@ parameter_grid = ParameterGrid(
 
 @reg_exp(servers=server_list, params=parameter_grid)
 def one_to_one(servers, size, transport):
-    memory_experiment(servers, rdma_servers, rdma_clients, size, transport)
+    memory_experiment(servers, rdma_servers, rdma_clients, "../../results/", size, transport)

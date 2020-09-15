@@ -86,7 +86,8 @@ void rdma::RemoteMemoryPerfThread::run() {
 		for (size_t i = 0; i < m_iter; ++i) {
 			size_t connIdx = i % m_conns.size();
 			bool signaled = (i == (m_iter - 1));
-			m_client.write(m_addr[connIdx],m_remOffsets[connIdx],m_data,m_size,signaled);
+      //changed to read, because read is slower
+			m_client.read(m_addr[connIdx],m_remOffsets[connIdx],m_data,m_size,signaled);
 
 
 		}
