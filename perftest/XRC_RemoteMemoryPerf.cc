@@ -19,6 +19,7 @@
 #include "stdout_output.hpp"
 #include "csv_output.hpp"
 #include <chrono>
+#include "rdma_server_aggregator.hpp"
 
 mutex rdma::XRC_RemoteMemoryPerf::waitLock;
 condition_variable rdma::XRC_RemoteMemoryPerf::waitCv;
@@ -114,7 +115,7 @@ rdma::XRC_RemoteMemoryPerf::XRC_RemoteMemoryPerf(string& conns, size_t serverPor
 	m_conns = StringHelper::split(conns);
 	for (auto &conn : m_conns)
 	{
-    if(conn.find(":") == std:string::npos) {
+    if(conn.find(":") == std::string::npos) {
       conn += ":" + to_string(serverPort);
     }
 	}
@@ -160,13 +161,7 @@ void rdma::XRC_RemoteMemoryPerf::runServer() {
 
 	m_dServer = new RDMAServer<ExReliableRDMA>("test", m_serverPort);
 
-  class RDMAServerConnAgg : public Aggregator {
-    public:
-      long read(){ return m_dServer->getNumQPs(); }
-      std::string getName() { return "qps"; }
-      std::string getUnit() { return ""; }
-  };
-  reporter->addAggregator(std::make_shared<RDMAServerConnAgg>());
+  reporter->addAggregator(std::make_shared<RDMAServerConnAgg<RDMAServer<ExReliableRDMA> > >(m_dServer));
   reporter->activate();
 
 	m_dServer->startServer();
