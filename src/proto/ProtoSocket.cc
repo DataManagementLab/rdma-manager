@@ -2,6 +2,8 @@
 
 #include "ProtoSocket.h"
 
+#include <cerrno>
+
 using namespace rdma;
 
 ProtoSocket::ProtoSocket(string ip, int port, int sockType)
@@ -148,4 +150,8 @@ bool ProtoSocket::closeContext() {
 
 bool ProtoSocket::setOption(int option_name, const void *option_value, size_t option_len){
   return zmq_setsockopt(m_pSock, option_name, option_value, option_len) == 0;
+}
+
+bool ProtoSocket::hasConnection(){
+  return m_pSock->connected();
 }

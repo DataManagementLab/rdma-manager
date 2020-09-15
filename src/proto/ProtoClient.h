@@ -40,9 +40,29 @@ class ProtoClient {
    */
   bool setRecvTimeout(int64_t milliseconds = -1, std::string ipAndPortString = "");
 
+  /**
+   * Returns true if a nodeID known for the given ip and port.
+   * Can even be true if actual connection is lost. 
+   * Use hasConnection() to check if currently a connection exists
+   * 
+   * @param ipAndPortString ip:port of the connection 
+   * @return true if a nodeID is known for the given ip and port
+   */
   bool isConnected(std::string ipAndPortString) {
     return m_connections.find(ipAndPortString) != m_connections.end();
   }
+
+  /**
+   * Returns if currently a valid TCP connection is open 
+   * for the given ip and port. If ip and port is empty 
+   * all connections will be checked and only returns true 
+   * if all have a valid connection.
+   * Does not mean that a valid nodeID has been received
+   * 
+   * @param ipAndPortString ip:port of the connection or empty for all
+   * @return true if currently a valid TCP connection is open
+   */
+  bool hasConnection(std::string ipAndPortString = "");
 
  protected:
   unordered_map<string, ProtoSendSocket*> m_connections;

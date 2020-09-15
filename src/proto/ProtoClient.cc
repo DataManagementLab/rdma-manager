@@ -60,3 +60,17 @@ bool ProtoClient::setRecvTimeout(int64_t milliseconds, std::string ipAndPortStri
     return sendSocket->setOption(ZMQ_RCVTIMEO, &milliseconds);
   }
 }
+
+
+bool ProtoClient::hasConnection(std::string ipAndPortString){
+  if(ipAndPortString.empty()){
+    bool v = true;
+    for(auto entry : m_connections){
+      v &= entry.second->hasConnection();
+    }
+    return v;
+  } else {
+    auto* sendSocket = m_connections[ipAndPortString];
+    return sendSocket->hasConnection();
+  }
+}

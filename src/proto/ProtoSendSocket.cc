@@ -59,3 +59,7 @@ bool ProtoSendSocket::setOption(int option_name, const void *option_value, size_
   return m_pSocket->setOption(option_name, option_value, option_len);
 }
 
+bool ProtoSendSocket::hasConnection(){
+  return m_pSocket->hasConnection();
+}
+
