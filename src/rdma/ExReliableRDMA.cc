@@ -36,7 +36,8 @@ ExReliableRDMA::~ExReliableRDMA() {
 //------------------------------------------------------------------------------------//
 
 void ExReliableRDMA::initXRC() {
-  xrc_fd = open("/tmp/xrc_domain", O_RDONLY | O_CREAT, S_IRUSR | S_IRGRP);
+  std::string filename = "/tmp/xrc_domain-" + Config::RDMA_INTERFACE;
+  xrc_fd = open(filename.c_str(), O_RDONLY | O_CREAT, S_IRUSR | S_IRGRP);
   if (xrc_fd < 0) {
     fprintf(stderr,
         "Couldn't create the file for the XRC Domain "
