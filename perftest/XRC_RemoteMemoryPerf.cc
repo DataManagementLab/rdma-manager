@@ -114,7 +114,9 @@ rdma::XRC_RemoteMemoryPerf::XRC_RemoteMemoryPerf(string& conns, size_t serverPor
 	m_conns = StringHelper::split(conns);
 	for (auto &conn : m_conns)
 	{
-		conn += ":" + to_string(serverPort);
+    if(conn.find(":") == std:string::npos) {
+      conn += ":" + to_string(serverPort);
+    }
 	}
 	
 	m_serverPort = serverPort;
