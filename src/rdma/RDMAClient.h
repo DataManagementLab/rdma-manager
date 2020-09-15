@@ -92,8 +92,7 @@ class RDMAClient : public RDMA_API_T, public ProtoClient {
       if(entry.second == m_ownNodeID) continue;
       Any sendAny;
       sendAny.PackFrom(disconnMsg);
-      Any rcvAny;
-      ProtoClient::exchangeProtoMsg(entry.first, &sendAny, &rcvAny);
+      ProtoClient::sendProtoMsg(entry.first, &sendAny);
     }
   }
 

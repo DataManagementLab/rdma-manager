@@ -15,6 +15,7 @@ class ProtoClient {
     }
     m_connections.clear();
   }
+  void sendProtoMsg(std::string ipAndPortString, Any* sendMsg);
   void exchangeProtoMsg(std::string ipAndPortString, Any* sendMsg, Any* recMsg);
   bool connectProto(const string& connection);
 

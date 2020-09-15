@@ -20,6 +20,13 @@ bool ProtoClient::connectProto(const std::string& connection) {
 
 //------------------------------------------------------------------------------------//
 
+void ProtoClient::sendProtoMsg(std::string ipAndPortString, Any* sendMsg) {
+  auto* sendSocket = m_connections[ipAndPortString];
+  sendSocket->send(sendMsg);
+}
+
+//------------------------------------------------------------------------------------//
+
 void ProtoClient::exchangeProtoMsg(std::string ipAndPortString, Any* sendMsg,
                                    Any* recMsg) {
   auto* sendSocket = m_connections[ipAndPortString];

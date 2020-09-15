@@ -10,9 +10,9 @@ using namespace rdma;
 #endif
 
 // constructors
-MainMemory::MainMemory(size_t mem_size) : MainMemory(mem_size, HUGEPAGE){}
+MainMemory::MainMemory(size_t mem_size) : MainMemory(mem_size, (bool)HUGEPAGE){}
 MainMemory::MainMemory(size_t mem_size, bool huge) : MainMemory(mem_size, huge, Config::RDMA_NUMAREGION){}
-MainMemory::MainMemory(size_t mem_size, int numa_node) : MainMemory(mem_size, HUGEPAGE, numa_node){}
+MainMemory::MainMemory(size_t mem_size, int numa_node) : MainMemory(mem_size, (bool)HUGEPAGE, numa_node){}
 MainMemory::MainMemory(size_t mem_size, bool huge, int numa_node) : AbstractBaseMemory(mem_size), AbstractMainMemory(mem_size), BaseMemory(mem_size, numa_node){
     this->huge = huge;
 

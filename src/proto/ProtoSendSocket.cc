@@ -27,6 +27,15 @@ void ProtoSendSocket::connect() {
   m_isConnected = true;
 }
 
+void ProtoSendSocket::send(Any* sendMsg){
+  if (!m_isConnected) {
+    throw runtime_error("Not connected to server");
+  }
+  if (sendMsg == NULL || !m_pSocket->send(sendMsg)) {
+    throw runtime_error("Cannot send message");
+  }
+}
+
 void ProtoSendSocket::send(Any* sendMsg, Any* recMsg) {
   if (!m_isConnected) {
     throw runtime_error("Not connected to server");
@@ -45,3 +54,4 @@ void ProtoSendSocket::send(Any* sendMsg, Any* recMsg) {
     }
   }
 }
+

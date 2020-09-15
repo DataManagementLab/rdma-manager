@@ -20,6 +20,7 @@ class ProtoSendSocket {
   ProtoSendSocket(string address, int port);
   virtual ~ProtoSendSocket();
   void connect();
+  void send(Any* sendMsg);
   void send(Any* sendMsg, Any* recMsg);
 
   int getPort() { return m_port; }
