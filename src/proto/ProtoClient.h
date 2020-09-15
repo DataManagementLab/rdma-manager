@@ -21,26 +21,6 @@ class ProtoClient {
   bool connectProto(const string& connection);
 
   /**
-   * Sets a timeout for sending packets. If timeout gets 
-   * exceeded the send method will return with an error.
-   * 
-   * @param milliseconds how long the timeout should be or -1 to infinite
-   * @param ipAndPortString if not empty the timeout will only be set for specific connection
-   * @return true if worked (for all)
-   */
-  bool setSendTimeout(int64_t milliseconds = -1, std::string ipAndPortString = "");
-
-  /**
-   * Sets a timeout for receiving packets. If timeout gets 
-   * exceeded the receive method will return with an error.
-   * 
-   * @param milliseconds how long the timeout should be or -1 to infinite
-   * @param ipAndPortString if not empty the timeout will only be set for specific connection
-   * @return true if worked (for all)
-   */
-  bool setRecvTimeout(int64_t milliseconds = -1, std::string ipAndPortString = "");
-
-  /**
    * Returns true if a nodeID known for the given ip and port.
    * Can even be true if actual connection is lost. 
    * Use hasConnection() to check if currently a connection exists
@@ -51,6 +31,46 @@ class ProtoClient {
   bool isConnected(std::string ipAndPortString) {
     return m_connections.find(ipAndPortString) != m_connections.end();
   }
+
+  /**
+   * Returns the send timeout for a specific ip:port 
+   * in milliseconds. -1 means no timeout set
+   * 
+   * @return send timeout in millseconds
+   */
+  int64_t getSendTimeout(std::string ipAndPortString);
+
+  /**
+   * Sets the send timeout for a specific connection or 
+   * for all connections if ip:port is empty.
+   * 
+   * @param milliseconds how many milliseconds the send timeout 
+   *                     should be long or -1 to disable
+   * @param ipAndPortString ip:port for a specific connection or 
+   *                        empty to apply to all connections
+   * @return true if successfully applied
+   */
+  bool setSendTimeout(int64_t milliseconds = -1, std::string ipAndPortString = "");
+
+  /**
+   * Returns the receive timeout for a specific ip:port 
+   * in milliseconds. -1 means no timeout set
+   * 
+   * @return receive timeout in millseconds
+   */
+  int64_t getRecvTimeout(std::string ipAndPortString);
+
+  /**
+   * Sets the receive timeout for a specific connection or 
+   * for all connections if ip:port is empty.
+   * 
+   * @param milliseconds how many milliseconds the receive timeout 
+   *                     should be long or -1 to disable
+   * @param ipAndPortString ip:port for a specific connection or 
+   *                        empty to apply to all connections
+   * @return true if successfully applied
+   */
+  bool setRecvTimeout(int64_t milliseconds = -1, std::string ipAndPortString = "");
 
   /**
    * Returns if currently a valid TCP connection is open 

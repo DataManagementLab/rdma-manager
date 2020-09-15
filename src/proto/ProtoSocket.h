@@ -45,12 +45,22 @@ class ProtoSocket {
 
   bool setOption(int option_name, const void *option_value, size_t option_len = sizeof(int));
 
+  int64_t getSendTimeout();
+
+  bool setSendTimeout(int64_t milliseconds = -1);
+
+  int64_t getRecvTimeout();
+
+  bool setRecvTimeout(int64_t milliseconds = -1);
+
   bool hasConnection();
 
  private:
   zmq::context_t* m_pCtx;
 
   string m_conn;
+  int64_t m_send_timeout = -1; // needed to detect valid connection
+  int64_t m_recv_timeout = -1;
   int m_sockType;
   bool m_isOpen;
   zmq::socket_t* m_pSock;
