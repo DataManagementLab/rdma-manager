@@ -55,3 +55,7 @@ void ProtoSendSocket::send(Any* sendMsg, Any* recMsg) {
   }
 }
 
+bool ProtoSendSocket::setOption(int option_name, const void *option_value, size_t option_len){
+  return m_pSocket->setOption(option_name, option_value, option_len);
+}
+

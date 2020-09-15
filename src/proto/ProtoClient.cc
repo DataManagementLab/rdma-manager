@@ -34,3 +34,25 @@ void ProtoClient::exchangeProtoMsg(std::string ipAndPortString, Any* sendMsg,
 }
 
 //------------------------------------------------------------------------------------//
+
+void ProtoClient::setSendTimeout(int milliseconds, std::string ipAndPortString){
+  if(ipAndPortString.empty()){
+    for(auto entry : m_connections){
+      entry.second->setOption(ZMQ_SNDTIMEO, &milliseconds);
+    }
+  } else {
+    auto* sendSocket = m_connections[ipAndPortString];
+   sendSocket->setOption(ZMQ_SNDTIMEO, &milliseconds);
+  }
+}
+
+void ProtoClient::setRecvTimeout(int milliseconds, std::string ipAndPortString){
+  if(ipAndPortString.empty()){
+    for(auto entry : m_connections){
+      entry.second->setOption(ZMQ_RCVTIMEO, &milliseconds);
+    }
+  } else {
+    auto* sendSocket = m_connections[ipAndPortString];
+   sendSocket->setOption(ZMQ_RCVTIMEO, &milliseconds);
+  }
+}

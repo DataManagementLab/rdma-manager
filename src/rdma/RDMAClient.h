@@ -86,13 +86,16 @@ class RDMAClient : public RDMA_API_T, public ProtoClient {
   }
   
   ~RDMAClient() {
+    ProtoClient::setSendTimeout(0); // to immediatly return on sendProtoMsg
     RDMAConnDisconnect disconnMsg;
     disconnMsg.set_nodeid(m_ownNodeID);
     for(std::pair<std::string, NodeID> entry : m_connections){
       if(entry.second == m_ownNodeID) continue;
       Any sendAny;
       sendAny.PackFrom(disconnMsg);
-      ProtoClient::sendProtoMsg(entry.first, &sendAny);
+      try {
+        ProtoClient::sendProtoMsg(entry.first, &sendAny);
+      } catch (...){}
     }
   }
 

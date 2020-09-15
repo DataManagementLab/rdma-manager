@@ -145,3 +145,11 @@ bool ProtoSocket::closeContext() {
 
   return false;
 }
+
+bool ProtoSocket::setOption(int option_name, const void *option_value, size_t option_len){
+  try {
+    m_pSock->setsockopt(option_name, option_value, option_len); return true;
+  } catch (...){
+    return false;
+  }
+}

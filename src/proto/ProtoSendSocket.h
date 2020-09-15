@@ -25,6 +25,8 @@ class ProtoSendSocket {
 
   int getPort() { return m_port; }
 
+  bool setOption(int option_name, const void *option_value, size_t option_len = sizeof(int));
+
  private:
   string m_address;
   int m_port;

@@ -43,6 +43,8 @@ class ProtoSocket {
 
   bool closeContext();
 
+  bool setOption(int option_name, const void *option_value, size_t option_len = sizeof(int));
+
  private:
   zmq::context_t* m_pCtx;
 
