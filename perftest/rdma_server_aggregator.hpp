@@ -1,6 +1,6 @@
 #include "aggregator.hpp"
 
-template<T>
+template<class T>
 class RDMAServerConnAgg : public Aggregator {
   public:
     RDMAServerConnAgg(T* server)
