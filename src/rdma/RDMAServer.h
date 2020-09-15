@@ -183,6 +183,21 @@ class RDMAServer : public ProtoServer, public RDMAClient<RDMA_API_T> {
       }
       //other server did not call connect yet
 
+    // set remote connection data
+    struct ib_conn_t remoteConn;
+    remoteConn.buffer = connRequest->buffer();
+    remoteConn.rc.rkey = connRequest->rkey();
+    remoteConn.qp_num = connRequest->qp_num();
+    remoteConn.xrc.recv_qp_num = connRequest->recv_qp_num();
+    remoteConn.xrc.srqn = connRequest->srqn();
+    remoteConn.lid = connRequest->lid();
+    for (int i = 0; i < 16; ++i) {
+      remoteConn.gid[i] = connRequest->gid(i);
+    }
+    remoteConn.ud.psn = connRequest->psn();
+    RDMA_API_T::setRemoteConnData(nodeID, remoteConn);
+    //TODO is set even if connection fails. but maybe it doesn't matter since nodeID should be unique?
+
     // create local QP
     // Check if SRQ is active
     try
@@ -210,20 +225,6 @@ class RDMAServer : public ProtoServer, public RDMAClient<RDMA_API_T> {
       lck.unlock();
       return false;
     }
-
-    // set remote connection data
-    struct ib_conn_t remoteConn;
-    remoteConn.buffer = connRequest->buffer();
-    remoteConn.rc.rkey = connRequest->rkey();
-    remoteConn.qp_num = connRequest->qp_num();
-    remoteConn.xrc.recv_qp_num = connRequest->recv_qp_num();
-    remoteConn.xrc.srqn = connRequest->srqn();
-    remoteConn.lid = connRequest->lid();
-    for (int i = 0; i < 16; ++i) {
-      remoteConn.gid[i] = connRequest->gid(i);
-    }
-    remoteConn.ud.psn = connRequest->psn();
-    RDMA_API_T::setRemoteConnData(nodeID, remoteConn);
 
     try
     {
