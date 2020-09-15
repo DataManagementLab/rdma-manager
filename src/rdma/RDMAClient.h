@@ -75,7 +75,7 @@ class RDMAClient : public RDMA_API_T, public ProtoClient {
   RDMAClient(size_t mem_size, MEMORY_TYPE mem_type, std::string name, std::string ownIpPort, std::string sequencerIpPort) : RDMAClient(mem_size, (int)mem_type, HUGEPAGE, (int)Config::RDMA_NUMAREGION, name, ownIpPort, NodeType::Enum::CLIENT, sequencerIpPort){}
   RDMAClient(size_t mem_size, MEMORY_TYPE mem_type, bool huge, int numaNode, std::string name, std::string ownIpPort, std::string sequencerIpPort) : RDMAClient(mem_size, (int)mem_type, huge, numaNode, name, ownIpPort, NodeType::Enum::CLIENT, sequencerIpPort){}
   RDMAClient(size_t mem_size, int mem_type, bool huge, int numaNode, std::string name, std::string ownIpPort, std::string sequencerIpPort) : RDMAClient(mem_size, mem_type, huge, numaNode, name, ownIpPort, NodeType::Enum::CLIENT, sequencerIpPort){
-
+    
   }
 
   RDMAClient(BaseMemory *memory) : RDMAClient(memory, "RDMAClient") {}
@@ -86,7 +86,8 @@ class RDMAClient : public RDMA_API_T, public ProtoClient {
   }
   
   ~RDMAClient() {
-    ProtoClient::setSendTimeout(0); // to immediatly return on sendProtoMsg
+    ProtoClient::setSendTimeout(0);
+    ProtoClient::setRecvTimeout(0);
     RDMAConnDisconnect disconnMsg;
     disconnMsg.set_nodeid(m_ownNodeID);
     for(std::pair<std::string, NodeID> entry : m_connections){

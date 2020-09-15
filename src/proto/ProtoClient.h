@@ -26,8 +26,9 @@ class ProtoClient {
    * 
    * @param milliseconds how long the timeout should be or -1 to infinite
    * @param ipAndPortString if not empty the timeout will only be set for specific connection
+   * @return true if worked (for all)
    */
-  void setSendTimeout(int milliseconds = -1, std::string ipAndPortString = "");
+  bool setSendTimeout(int64_t milliseconds = -1, std::string ipAndPortString = "");
 
   /**
    * Sets a timeout for receiving packets. If timeout gets 
@@ -35,8 +36,9 @@ class ProtoClient {
    * 
    * @param milliseconds how long the timeout should be or -1 to infinite
    * @param ipAndPortString if not empty the timeout will only be set for specific connection
+   * @return true if worked (for all)
    */
-  void setRecvTimeout(int milliseconds = -1, std::string ipAndPortString = "");
+  bool setRecvTimeout(int64_t milliseconds = -1, std::string ipAndPortString = "");
 
   bool isConnected(std::string ipAndPortString) {
     return m_connections.find(ipAndPortString) != m_connections.end();

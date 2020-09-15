@@ -35,24 +35,28 @@ void ProtoClient::exchangeProtoMsg(std::string ipAndPortString, Any* sendMsg,
 
 //------------------------------------------------------------------------------------//
 
-void ProtoClient::setSendTimeout(int milliseconds, std::string ipAndPortString){
+bool ProtoClient::setSendTimeout(int64_t milliseconds, std::string ipAndPortString){
   if(ipAndPortString.empty()){
+    bool v = true;
     for(auto entry : m_connections){
-      entry.second->setOption(ZMQ_SNDTIMEO, &milliseconds);
+      v &= entry.second->setOption(ZMQ_SNDTIMEO, &milliseconds, sizeof(int64_t));
     }
+    return v;
   } else {
     auto* sendSocket = m_connections[ipAndPortString];
-   sendSocket->setOption(ZMQ_SNDTIMEO, &milliseconds);
+    return sendSocket->setOption(ZMQ_SNDTIMEO, &milliseconds);
   }
 }
 
-void ProtoClient::setRecvTimeout(int milliseconds, std::string ipAndPortString){
+bool ProtoClient::setRecvTimeout(int64_t milliseconds, std::string ipAndPortString){
   if(ipAndPortString.empty()){
+    bool v = true;
     for(auto entry : m_connections){
-      entry.second->setOption(ZMQ_RCVTIMEO, &milliseconds);
+      v &= entry.second->setOption(ZMQ_RCVTIMEO, &milliseconds, sizeof(int64_t));
     }
+    return v;
   } else {
     auto* sendSocket = m_connections[ipAndPortString];
-   sendSocket->setOption(ZMQ_RCVTIMEO, &milliseconds);
+    return sendSocket->setOption(ZMQ_RCVTIMEO, &milliseconds);
   }
 }
