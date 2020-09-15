@@ -91,7 +91,7 @@ void ExReliableRDMA::connectQP(const rdmaConnID rdmaConnID) {
   modifyQPToRTS(send_qp.qp);
 
   ibv_qp_attr qp_attr;
-  memset(qp_attr, 0, sizeof(qp_attr));
+  memset(&qp_attr, 0, sizeof(qp_attr));
   int res = ibv_query_qp(recv_qp.qp, &qp_attr, IBV_QP_STATE, 0);
   if(res == 0 && qp_attr.qp_state != IBV_QPS_RTS) {
     //modifyQPToRTR(recv_qp.qp, remoteConn.qp_num, remoteConn.lid, remoteConn.gid);
@@ -158,8 +158,8 @@ void ExReliableRDMA::createQP(struct ib_qp_t *qp, ibv_qp_type qp_type) {
 
 void ExReliableRDMA::destroyQPs() {
   for( auto& qp : m_xrc_recv_qps ) {
-    if (qp.qp != nullptr) {
-      if (ibv_destroy_qp(qp.qp) != 0) {
+    if (qp.second.qp != nullptr) {
+      if (ibv_destroy_qp(qp.second.qp) != 0) {
         throw runtime_error("Error, ibv_destroy_qp() failed");
       }
     }
@@ -342,7 +342,7 @@ void ExReliableRDMA::initQPWithSuppliedID(const rdmaConnID rdmaConnID) {
     m_xrc_recv_qps[remoteConn.lid] = recv_qp;
     modifyQPToInit(recv_qp.qp);
   } else {
-    recv_qp = m_xrc_recv_qps.find(remoteConn.lid).second;
+    recv_qp = m_xrc_recv_qps.find(remoteConn.lid)->second;
   }
 
   // create local connection data
