@@ -149,6 +149,10 @@ class BaseRDMA {
     return connIDs;
   }
 
+  uint32_t getNumQPs() {
+    return m_qps.size();
+  }
+
  protected:
   virtual void destroyQPs() = 0;
 
