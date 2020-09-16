@@ -9,6 +9,7 @@
 
 #include "../proto/ProtoClient.h"
 #include "../utils/Config.h"
+#include "../utils/Network.h"
 #include "BaseRDMA.h"
 #include "ReliableRDMA.h"
 #include "UnreliableRDMA.h"
@@ -25,6 +26,15 @@ class RDMAClient : public RDMA_API_T, public ProtoClient {
   RDMAClient(size_t mem_size, std::string name, std::string ownIpPort, NodeType::Enum nodeType, int numaNode) : RDMA_API_T(mem_size, numaNode), m_name(name), m_ownIpPort(ownIpPort), m_nodeType(nodeType)
   {
   }
+
+  string get_connID(NodeID nodeID){
+    if(m_nodeIDsConnection.size() >= nodeID && m_nodeIDsConnection[nodeID].size() > 0){
+      return Network::getAddressOfConnection(m_nodeIDsConnection[nodeID]);
+    }else{
+      return to_string(RDMA_API_T::getRemoteConnData(nodeID).lid);
+    }
+  }
+
  public:
   RDMAClient() : RDMAClient(Config::RDMA_MEMSIZE) {}
   RDMAClient(size_t mem_size) : RDMAClient(mem_size, "RDMAClient") {}

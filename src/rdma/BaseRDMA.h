@@ -77,6 +77,8 @@ class BaseRDMA {
  protected:
   typedef size_t rdmaConnID;  // Indexs m_qps
 
+  virtual string get_connID(rdmaConnID) = 0;
+
  public:
   // constructors and destructor
   BaseRDMA(size_t mem_size);

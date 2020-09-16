@@ -9,6 +9,8 @@
 
 #include "../utils/Config.h"
 #include <atomic>
+#include <mutex>
+#include <unordered_map>
 #include "ReliableRDMA.h"
 
 namespace rdma {
@@ -52,7 +54,8 @@ class ExReliableRDMA : public ReliableRDMA {
   ibv_xrcd* xrcd;
   int xrc_fd; //!< file descriptor for xrcd file/socket
 
-  map<uint16_t, ib_qp_t> m_xrc_recv_qps; //!< map from host to recv_qp
+  map<rdmaConnID, ib_qp_t> m_xrc_recv_qps; //!< map from host to recv_qp
+  map<string, ib_qp_t> m_xrc_send_qps;
   ibv_cq* send_cq;
   ibv_cq* recv_cq;
 };

@@ -84,20 +84,22 @@ void ExReliableRDMA::connectQP(const rdmaConnID rdmaConnID) {
   // connect local and remote QP
   struct ib_conn_t remoteConn = m_rconns[rdmaConnID];
   struct ib_qp_t send_qp = m_qps[rdmaConnID];
-  struct ib_qp_t recv_qp = m_xrc_recv_qps[remoteConn.lid];
-
-  //we need to connect two pairs and both need to be set to RTS
-  modifyQPToRTR(send_qp.qp, remoteConn.xrc.recv_qp_num, remoteConn.lid, remoteConn.gid);
-  modifyQPToRTS(send_qp.qp);
+  struct ib_qp_t recv_qp = m_xrc_recv_qps[rdmaConnID];
 
   ibv_qp_attr qp_attr;
+  ibv_qp_init_attr qp_init_attr;
   memset(&qp_attr, 0, sizeof(qp_attr));
-  int res = ibv_query_qp(recv_qp.qp, &qp_attr, IBV_QP_STATE, 0);
+  int res = ibv_query_qp(send_qp.qp, &qp_attr, IBV_QP_STATE, &qp_init_attr);
   if(res == 0 && qp_attr.qp_state != IBV_QPS_RTS) {
-    //modifyQPToRTR(recv_qp.qp, remoteConn.qp_num, remoteConn.lid, remoteConn.gid);
-    modifyQPToRTR(recv_qp.qp, 0, remoteConn.lid, remoteConn.gid);
-    modifyQPToRTS(recv_qp.qp);
+    //we need to connect two pairs and both need to be set to RTS
+    modifyQPToRTR(send_qp.qp, remoteConn.xrc.recv_qp_num, remoteConn.lid, remoteConn.gid);
+    modifyQPToRTS(send_qp.qp);
   }
+
+
+  modifyQPToRTR(recv_qp.qp, remoteConn.qp_num, remoteConn.lid, remoteConn.gid);
+  // modifyQPToRTR(recv_qp.qp, 0, remoteConn.lid, remoteConn.gid);
+  modifyQPToRTS(recv_qp.qp);
 
   m_connected[rdmaConnID] = true;
   Logging::debug(__FILE__, __LINE__, "ExConnected RC queue pair!");
@@ -165,6 +167,7 @@ void ExReliableRDMA::destroyQPs() {
     }
   }
   m_xrc_recv_qps.clear();
+  m_xrc_send_qps.clear();
 
   ibv_cq* tmp = nullptr; // for send_cq, which is empty
   for(auto kv : m_srqs) {
@@ -325,25 +328,25 @@ void ExReliableRDMA::initQPWithSuppliedID(const rdmaConnID rdmaConnID) {
   unsigned int srq_id = 0;
   struct ib_qp_t send_qp;
   struct ib_qp_t recv_qp;
-  struct ib_conn_t remoteConn = m_rconns[rdmaConnID];
+  // struct ib_conn_t remoteConn = m_rconns[rdmaConnID];
 
-  //createCQ(send_qp->send_cq, recv_qp->recv_cq);
-  send_qp.send_cq = this->send_cq;
-  send_qp.recv_cq = 0;
-  createQP(&send_qp, IBV_QPT_XRC_SEND);
-
-  // init queue pair
-  modifyQPToInit(send_qp.qp);
-
-  if(m_xrc_recv_qps.find(remoteConn.lid) == m_xrc_recv_qps.end()) {
-    recv_qp.recv_cq = this->recv_cq;
-    recv_qp.send_cq = 0;
-    createQP(&recv_qp, IBV_QPT_XRC_RECV);
-    m_xrc_recv_qps[remoteConn.lid] = recv_qp;
-    modifyQPToInit(recv_qp.qp);
-  } else {
-    recv_qp = m_xrc_recv_qps.find(remoteConn.lid)->second;
+  if(m_xrc_send_qps.find(get_connID(rdmaConnID)) == m_xrc_send_qps.end()) {
+    //createCQ(send_qp->send_cq, recv_qp->recv_cq);
+    send_qp.send_cq = this->send_cq;
+    send_qp.recv_cq = 0;
+    createQP(&send_qp, IBV_QPT_XRC_SEND);
+      
+    // init queue pair
+    modifyQPToInit(send_qp.qp);
+  }else{
+    send_qp = m_xrc_send_qps.find(get_connID(rdmaConnID))->second;
   }
+
+  recv_qp.recv_cq = this->recv_cq;
+  recv_qp.send_cq = 0;
+  createQP(&recv_qp, IBV_QPT_XRC_RECV);
+  m_xrc_recv_qps[rdmaConnID] = recv_qp;
+  modifyQPToInit(recv_qp.qp);
 
   // create local connection data
   struct ib_conn_t localConn;
@@ -368,6 +371,7 @@ void ExReliableRDMA::initQPWithSuppliedID(const rdmaConnID rdmaConnID) {
   // done
   setQP(rdmaConnID, send_qp);
   m_qpNum2connID[send_qp.qp->qp_num] = rdmaConnID;
+  m_qpNum2connID[recv_qp.qp->qp_num] = rdmaConnID;
   setLocalConnData(rdmaConnID, localConn);
   m_connectedQPs[srq_id].push_back(rdmaConnID);
   Logging::debug(__FILE__, __LINE__, "Created XRC queue pair");
