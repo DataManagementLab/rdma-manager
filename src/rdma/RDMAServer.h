@@ -67,7 +67,7 @@ class RDMAServer : public ProtoServer, public RDMAClient<RDMA_API_T> {
   void stopServer() override { ProtoServer::stopServer(); }
 
 
-  void *getBuffer(const size_t offset) {
+  void *getBuffer(const size_t offset=0) {
     return ((char *)RDMA_API_T::getBuffer() + offset);
   }
 

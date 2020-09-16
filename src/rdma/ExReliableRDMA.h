@@ -9,8 +9,6 @@
 
 #include "../utils/Config.h"
 #include <atomic>
-#include <mutex>
-#include <unordered_map>
 #include "ReliableRDMA.h"
 
 namespace rdma {

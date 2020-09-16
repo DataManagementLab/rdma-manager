@@ -101,7 +101,7 @@ class RDMAClient : public RDMA_API_T, public ProtoClient {
     return false;
   }
 
-  void* getBuffer(const size_t offset) {
+  void* getBuffer(const size_t offset=0) {
     return ((char*)RDMA_API_T::getBuffer() + offset);
   }
 
@@ -222,6 +222,8 @@ class RDMAClient : public RDMA_API_T, public ProtoClient {
       connRequest.set_qp_num(localConnPt->qp_num);
       connRequest.set_recv_qp_num(localConnPt->xrc.recv_qp_num);
       connRequest.set_lid(localConnPt->lid);
+      connRequest.set_srqn(localConnPt->xrc.srqn);
+
       for (int i = 0; i < 16; ++i) {
         connRequest.add_gid(localConnPt->gid[i]);
       }
