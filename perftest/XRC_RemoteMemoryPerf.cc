@@ -51,7 +51,7 @@ rdma::XRC_RemoteMemoryPerfThread::XRC_RemoteMemoryPerfThread(vector<string>& con
 	reporter->addAggregator(std::make_shared<RdmaAggregator>(rx_read_requests));
 	reporter->addAggregator(std::make_shared<RdmaAggregator>("mlx5_1", rx_write_requests));
 	reporter->addAggregator(std::make_shared<RdmaAggregator>("mlx5_1", rx_read_requests));
-	reporter->addOutput(std::make_shared<StdOut_Output>());
+	//reporter->addOutput(std::make_shared<StdOut_Output>());
 	if(!logfile.empty()) {
 		reporter->addOutput(std::make_shared<Csv_Output>(logfile));
 	}*/
@@ -154,7 +154,7 @@ void rdma::XRC_RemoteMemoryPerf::runServer() {
 	reporter->addAggregator(std::make_shared<RdmaAggregator>(rx_read_requests));
 	reporter->addAggregator(std::make_shared<RdmaAggregator>("mlx5_1", rx_write_requests));
 	reporter->addAggregator(std::make_shared<RdmaAggregator>("mlx5_1", rx_read_requests));
-	reporter->addOutput(std::make_shared<StdOut_Output>());
+	//reporter->addOutput(std::make_shared<StdOut_Output>());
 	if(!m_logfile.empty()) {
 		reporter->addOutput(std::make_shared<Csv_Output>(m_logfile));
 	}

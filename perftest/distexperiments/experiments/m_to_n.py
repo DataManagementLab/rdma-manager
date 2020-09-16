@@ -16,11 +16,12 @@ server_list = ServerList(
 parameter_grid = ParameterGrid(
     size = [256],
     transport = ['xrc', 'rc'],
-    threads = [28, 56, 102],
-    iterations = [5000000]
+    threads = [1, 2, 4, 6, 7, 8],
+    iterations = [50000000],
+    server_count = [1, 4]
 )
 
 
 @reg_exp(servers=server_list, params=parameter_grid)
-def m_to_n(servers, size, transport, threads, iterations):
-    memory_experiment(servers, rdma_servers, rdma_clients, "../../results/mn/", size, transport, threads, iterations)
+def m_to_n(servers, size, transport, threads, iterations, server_count):
+    memory_experiment(servers, rdma_servers, rdma_clients, "../../results/mn/", size, transport, threads, iterations, server_count)
