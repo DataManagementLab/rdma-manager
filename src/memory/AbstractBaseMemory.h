@@ -41,6 +41,15 @@ public:
      */
     size_t getSize();
 
+    /* Function:  setSize
+     * ---------------------
+     * Sets the size of the memory this 
+     * object handles
+     * 
+     * mem_size:  size of the handled memory
+     */
+    void setSize(size_t mem_size);
+
     /* Function:  pointer
      * ---------------------
      * Returns the pointer of the handled memory.

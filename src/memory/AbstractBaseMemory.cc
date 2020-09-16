@@ -24,6 +24,10 @@ size_t AbstractBaseMemory::getSize(){
     return this->mem_size;
 }
 
+void AbstractBaseMemory::setSize(size_t mem_size){
+    this->mem_size = mem_size;
+}
+
 void* AbstractBaseMemory::pointer(){
     return this->buffer;
 }
