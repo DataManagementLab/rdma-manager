@@ -106,6 +106,10 @@ class RDMAServer : public ProtoServer, public RDMAClient<RDMA_API_T> {
   // server methods
   bool startServer() override{
     if (!ProtoClient::isConnected(m_sequencerIpPort)) {
+
+      ProtoClient::setSendTimeout(Config::PROTO_SEND_TIMEOUT);
+      ProtoClient::setRecvTimeout(Config::PROTO_RECV_TIMEOUT);
+
       // std::cout << "RDMAServer requesting nodeid!" << std::endl;
       RDMAClient<RDMA_API_T>::m_ownNodeID = RDMAClient<RDMA_API_T>::requestNodeID(RDMAClient<RDMA_API_T>::m_sequencerIpPort, RDMAClient<RDMA_API_T>::m_ownIpPort, RDMAClient<RDMA_API_T>::m_nodeType);
     }

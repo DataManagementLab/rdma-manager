@@ -75,26 +75,30 @@ class RDMAClient : public RDMA_API_T, public ProtoClient {
   RDMAClient(size_t mem_size, MEMORY_TYPE mem_type, std::string name, std::string ownIpPort, std::string sequencerIpPort) : RDMAClient(mem_size, (int)mem_type, HUGEPAGE, (int)Config::RDMA_NUMAREGION, name, ownIpPort, NodeType::Enum::CLIENT, sequencerIpPort){}
   RDMAClient(size_t mem_size, MEMORY_TYPE mem_type, bool huge, int numaNode, std::string name, std::string ownIpPort, std::string sequencerIpPort) : RDMAClient(mem_size, (int)mem_type, huge, numaNode, name, ownIpPort, NodeType::Enum::CLIENT, sequencerIpPort){}
   RDMAClient(size_t mem_size, int mem_type, bool huge, int numaNode, std::string name, std::string ownIpPort, std::string sequencerIpPort) : RDMAClient(mem_size, mem_type, huge, numaNode, name, ownIpPort, NodeType::Enum::CLIENT, sequencerIpPort){
-    
+    setSendTimeout(Config::PROTO_SEND_TIMEOUT);
+    setRecvTimeout(Config::PROTO_RECV_TIMEOUT);
   }
 
   RDMAClient(BaseMemory *memory) : RDMAClient(memory, "RDMAClient") {}
   RDMAClient(BaseMemory *memory, std::string name) : RDMAClient(memory, name, Config::getIP(Config::RDMA_INTERFACE)){}
   RDMAClient(BaseMemory *memory, std::string name, std::string ownIpPort) : RDMAClient(memory, name, ownIpPort, Config::SEQUENCER_IP+":"+to_string(Config::SEQUENCER_PORT)){}
   RDMAClient(BaseMemory *memory, std::string name, std::string ownIpPort, std::string sequencerIpPort) : RDMAClient(memory, name, ownIpPort, NodeType::Enum::CLIENT, sequencerIpPort){
-    
+    setSendTimeout(Config::PROTO_SEND_TIMEOUT);
+    setRecvTimeout(Config::PROTO_RECV_TIMEOUT);
   }
   
   ~RDMAClient() {
-    if(ProtoClient::hasConnection()){ // only send disconnect if a valid connection exists
-      RDMAConnDisconnect disconnMsg;
-      disconnMsg.set_nodeid(m_ownNodeID);
-      for(std::pair<std::string, NodeID> entry : m_connections){
-        if(entry.second == m_ownNodeID) continue;
+    RDMAConnDisconnect disconnMsg;
+    disconnMsg.set_nodeid(m_ownNodeID);
+    for(std::pair<std::string, NodeID> entry : m_connections){
+      if(entry.second == m_ownNodeID){ continue; } 
+      //if(ProtoClient::hasConnection(entry.first)){
         Any sendAny;
         sendAny.PackFrom(disconnMsg);
         ProtoClient::sendProtoMsg(entry.first, &sendAny);
-      }
+      /*} else {
+        std::cout << "CONNECTION ALREADY CLOSED WITH " << entry.first << std::endl; // TODO REMOVE
+      }*/
     }
   }
 

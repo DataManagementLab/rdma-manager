@@ -12,8 +12,10 @@ ProtoSocket::ProtoSocket(string ip, int port, int sockType)
 
   m_pSock = new zmq::socket_t(*m_pCtx, m_sockType);
   int hwm = 0;
+  int linger = 0; // after close how long unsent messages should be kept in memory
   m_pSock->setsockopt(ZMQ_SNDHWM, &hwm, sizeof(hwm));
   m_pSock->setsockopt(ZMQ_RCVHWM, &hwm, sizeof(hwm));
+  m_pSock->setsockopt(ZMQ_LINGER, &linger, sizeof(linger));
 
   if (m_sockType == ZMQ_SUB) m_pSock->setsockopt(ZMQ_SUBSCRIBE, NULL, 0);
 
@@ -149,7 +151,8 @@ bool ProtoSocket::closeContext() {
 }
 
 bool ProtoSocket::setOption(int option_name, const void *option_value, size_t option_len){
-  return zmq_setsockopt(m_pSock, option_name, option_value, option_len) == 0;
+  int status = zmq_setsockopt(m_pSock, option_name, option_value, option_len);
+ return status == 0;
 }
 
 int64_t ProtoSocket::getSendTimeout(){

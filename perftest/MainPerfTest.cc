@@ -9,6 +9,8 @@
 #include "../src/utils/Config.h"
 #include "../src/utils/StringHelper.h"
 #include "../src/rdma/NodeIDSequencer.h"
+#include "../src/rdma/RDMAServer.h"
+#include "../src/rdma/RDMAClient.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -39,8 +41,8 @@ DEFINE_bool(csv, false, "Results will be written into an automatically generated
 DEFINE_string(csvfile, "", "Results will be written into a given CSV file");
 DEFINE_string(seqaddr, "", "Address of NodeIDSequencer to connect/bind to. If empty then config value will be used");
 DEFINE_int32(seqport, -1, "Port of NodeIDSequencer to connect/bind to. If empty then config value will be used");
-DEFINE_string(ownaddr, "", "Address of own RDMA interface. If empty then config value 'RDMA_INTERFACE' will be used");
-DEFINE_string(addr, "", "RDMA address of RDMAServer to connect/bind to. If empty then config value 'RDMA_SERVER_ADDRESSES' will be used");
+DEFINE_string(ownaddr, "", "Address of own RDMA interface that the RDMAServer will use to bind to and the RDMAClient the retriev its node id. If empty then config value 'RDMA_INTERFACE' will be used");
+DEFINE_string(addr, "", "RDMA address for the RDMACLient to connect to. If empty then config value 'RDMA_SERVER_ADDRESSES' will be used. (multiples separated by comma without space will open a connection to each address in parallel)");
 DEFINE_int32(port, -1, "RDMA port. If negative then config value will be used");
 DEFINE_string(writemode, "auto", "Which RDMA write mode should be used. Possible values are 'immediate' where remote receives and completion entry after a write, 'normal' where remote possibly has to pull the memory constantly to detect changes, 'auto' which uses preferred (ignored by atomics tests | multiples separated by comma without space)");
 DEFINE_bool(ignoreerrors, false, "If an error occurs test will be skiped and execution continues");
@@ -173,6 +175,35 @@ static void runTest(size_t testNumber, size_t testIterations, std::string testNa
 }
 
 
+static void initialSyncAsServer(std::string ownIpPort, std::string sequencerIpPort, size_t expected_clients){
+    int port = rdma::Network::getPortOfConnection(ownIpPort);
+    std::string addr = rdma::Network::getAddressOfConnection(ownIpPort);
+    uint64_t mem_size = 1;
+    rdma::RDMAServer<rdma::ReliableRDMA> *server = new rdma::RDMAServer<rdma::ReliableRDMA>(std::string("IntialSyncServer"), port, addr, mem_size, sequencerIpPort);
+    server->startServer();
+    rdma::PerfTest::global_barrier_server(server, expected_clients);
+    delete server;
+}
+
+static void initialSyncAsClient(const std::vector<std::string> &serverIpAndPorts, std::string ownIpPort, std::string sequencerIpPort){
+    uint64_t mem_size = 1;
+    rdma::RDMAClient<rdma::ReliableRDMA> *client = new rdma::RDMAClient<rdma::ReliableRDMA>(mem_size, "InitialSyncClient", ownIpPort, sequencerIpPort);
+    std::vector<NodeID> nodeIds;
+    for(auto &ipPort : serverIpAndPorts){
+        NodeID nodeId;
+        if(!client->connect(ipPort, nodeId))
+            throw runtime_error("Could not connect initial sync client with '" + ipPort + "'");
+        nodeIds.push_back(nodeId);
+        std::cout << "CHECK CONNECTION: " << client->hasConnection() << std::endl; // TODO REMOVE
+    }
+    rdma::PerfTest::global_barrier_client(client, nodeIds);
+    delete client;
+}
+
+
+
+
+
 
 int main(int argc, char *argv[]){
     std::cout << "Parsing arguments ..." << std::endl;
@@ -244,6 +275,11 @@ int main(int argc, char *argv[]){
         if(!rdma::Network::isValidIP(addr)) addr=rdma::Config::getIP(addr);
 		addr += ":" + to_string(FLAGS_port);
 	}
+
+
+    if(FLAGS_server && addresses.size()!= 1){
+        throw runtime_error("As server the -addr flag is only allowed to contain just a single value");
+    }
 
     // check thread counts and if server then multiply by amount of clients
     for(int &tc : thread_counts){
@@ -417,6 +453,20 @@ int main(int argc, char *argv[]){
     }
     std::string ownIpPort = FLAGS_ownaddr+":"+to_string(FLAGS_port);
     std::string sequencerIpAddr = FLAGS_seqaddr+":"+to_string(FLAGS_seqport);
+
+
+    /* TODO REDO
+    // INTIAL SYNC
+    if(FLAGS_server){
+        std::cout << "Waiting for " << FLAGS_clients << " clients to connect..." << std::endl;
+        initialSyncAsServer(ownIpPort, sequencerIpAddr, FLAGS_clients);
+        std::cout << "All clients are connected!" << std::endl;
+    } else {
+        std::cout << "Waiting for all clients to connect" << std::endl;
+        initialSyncAsClient(addresses, ownIpPort, sequencerIpAddr);
+        std::cout << "All clients are connected!" << std::endl;
+    } */
+
 
 
     // EXECUTE TESTS
