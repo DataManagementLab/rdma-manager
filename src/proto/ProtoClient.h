@@ -73,6 +73,7 @@ class ProtoClient {
   bool setRecvTimeout(int64_t milliseconds = -1, std::string ipAndPortString = "");
 
   /**
+   * WARNING: It could be that this no longer works!
    * Returns if currently a valid TCP connection is open 
    * for the given ip and port. If ip and port is empty 
    * all connections will be checked and only returns true 

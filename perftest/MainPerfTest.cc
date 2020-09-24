@@ -194,7 +194,6 @@ static void initialSyncAsClient(const std::vector<std::string> &serverIpAndPorts
         if(!client->connect(ipPort, nodeId))
             throw runtime_error("Could not connect initial sync client with '" + ipPort + "'");
         nodeIds.push_back(nodeId);
-        std::cout << "CHECK CONNECTION: " << client->hasConnection() << std::endl; // TODO REMOVE
     }
     rdma::PerfTest::global_barrier_client(client, nodeIds);
     delete client;
@@ -455,7 +454,6 @@ int main(int argc, char *argv[]){
     std::string sequencerIpAddr = FLAGS_seqaddr+":"+to_string(FLAGS_seqport);
 
 
-    /* TODO REDO
     // INTIAL SYNC
     if(FLAGS_server){
         std::cout << "Waiting for " << FLAGS_clients << " clients to connect..." << std::endl;
@@ -465,8 +463,7 @@ int main(int argc, char *argv[]){
         std::cout << "Waiting for all clients to connect" << std::endl;
         initialSyncAsClient(addresses, ownIpPort, sequencerIpAddr);
         std::cout << "All clients are connected!" << std::endl;
-    } */
-
+    }
 
 
     // EXECUTE TESTS
