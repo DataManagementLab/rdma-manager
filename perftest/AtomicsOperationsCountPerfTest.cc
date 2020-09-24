@@ -63,19 +63,21 @@ void rdma::AtomicsOperationsCountPerfClientThread::run() {
 	switch(AtomicsOperationsCountPerfTest::testOperation){
 		case FETCH_ADD_OPERATION: // Fetch & Add
 			for(size_t i = 0; i < m_iterations_per_thread; i++){
-				size_t connIdx = i % m_rdma_addresses.size();
-				bool signaled = (i == (m_iterations_per_thread - 1) || (i+1)%Config::RDMA_MAX_WR==0);
-				int offset = (i % m_buffer_slots) * rdma::ATOMICS_SIZE;
-				m_client->fetchAndAdd(m_addr[connIdx], m_remOffsets[connIdx] + offset, m_local_memory->pointer(offset), 1, rdma::ATOMICS_SIZE, signaled); // true=signaled
+				for(size_t connIdx=0; connIdx < m_rdma_addresses.size(); connIdx++){
+					bool signaled = (i == (m_iterations_per_thread - 1) || (i+1)%Config::RDMA_MAX_WR==0);
+					int offset = (i % m_buffer_slots) * rdma::ATOMICS_SIZE;
+					m_client->fetchAndAdd(m_addr[connIdx], m_remOffsets[connIdx] + offset, m_local_memory->pointer(offset), 1, rdma::ATOMICS_SIZE, signaled); // true=signaled
+				}
 			}
 			m_elapsedFetchAdd = rdma::PerfTest::stopTimer(start);
 			break;
 		case COMPARE_SWAP_OPERATION: // Compare & Swap
 			for(size_t i = 0; i < m_iterations_per_thread; i++){
-				size_t connIdx = i % m_rdma_addresses.size();
-				bool signaled = (i == (m_iterations_per_thread - 1) || (i+1)%Config::RDMA_MAX_WR==0);
-				int offset = (i % m_buffer_slots) * rdma::ATOMICS_SIZE;
-				m_client->compareAndSwap(m_addr[connIdx], m_remOffsets[connIdx] + offset, m_local_memory->pointer(offset), 2, 3, rdma::ATOMICS_SIZE, signaled); // true=signaled
+				for(size_t connIdx=0; connIdx < m_rdma_addresses.size(); connIdx++){
+					bool signaled = (i == (m_iterations_per_thread - 1) || (i+1)%Config::RDMA_MAX_WR==0);
+					int offset = (i % m_buffer_slots) * rdma::ATOMICS_SIZE;
+					m_client->compareAndSwap(m_addr[connIdx], m_remOffsets[connIdx] + offset, m_local_memory->pointer(offset), 2, 3, rdma::ATOMICS_SIZE, signaled); // true=signaled
+				}
 			}
 			m_elapsedCompareSwap = rdma::PerfTest::stopTimer(start);
 			break;

@@ -67,28 +67,30 @@ void rdma::AtomicsLatencyPerfClientThread::run() {
 	switch(AtomicsLatencyPerfTest::testOperation){
 		case FETCH_ADD_OPERATION: // Fetch & Add
 			for(size_t i = 0; i < m_iterations_per_thread; i++){
-				size_t connIdx = i % m_rdma_addresses.size();
-				int offset = (i % m_buffer_slots) * rdma::ATOMICS_SIZE;
-				auto start = rdma::PerfTest::startTimer();
-				m_client->fetchAndAdd(m_addr[connIdx], m_remOffsets[connIdx] + offset, m_local_memory->pointer(offset), 2, rdma::ATOMICS_SIZE, true); // true=signaled
-				int64_t time = rdma::PerfTest::stopTimer(start) / 2; // one trip time
-				m_sumFetchAddMs += time;
-				if(m_minFetchAddMs > time) m_minFetchAddMs = time;
-				if(m_maxFetchAddMs < time) m_maxFetchAddMs = time;
-				m_arrFetchAddMs[i] = time;
+				for(size_t connIdx=0; connIdx < m_rdma_addresses.size(); connIdx++){
+					int offset = (i % m_buffer_slots) * rdma::ATOMICS_SIZE;
+					auto start = rdma::PerfTest::startTimer();
+					m_client->fetchAndAdd(m_addr[connIdx], m_remOffsets[connIdx] + offset, m_local_memory->pointer(offset), 2, rdma::ATOMICS_SIZE, true); // true=signaled
+					int64_t time = rdma::PerfTest::stopTimer(start) / 2; // one trip time
+					m_sumFetchAddMs += time;
+					if(m_minFetchAddMs > time) m_minFetchAddMs = time;
+					if(m_maxFetchAddMs < time) m_maxFetchAddMs = time;
+					m_arrFetchAddMs[i] = time;
+				}
 			}
 			break;
 		case COMPARE_SWAP_OPERATION: // Compare & Swap
 			for(size_t i = 0; i < m_iterations_per_thread; i++){
-				size_t connIdx = i % m_rdma_addresses.size();
-				int offset = (i % m_buffer_slots) * rdma::ATOMICS_SIZE;
-				auto start = rdma::PerfTest::startTimer();
-				m_client->compareAndSwap(m_addr[connIdx], m_remOffsets[connIdx] + offset, m_local_memory->pointer(offset), i, i+1, rdma::ATOMICS_SIZE, true); // true=signaled
-				int64_t time = rdma::PerfTest::stopTimer(start) / 2; // one trip time
-				m_sumCompareSwapMs += time;
-				if(m_minCompareSwapMs > time) m_minCompareSwapMs = time;
-				if(m_maxCompareSwapMs < time) m_maxCompareSwapMs = time;
-				m_arrCompareSwapMs[i] = time;
+				for(size_t connIdx=0; connIdx < m_rdma_addresses.size(); connIdx++){
+					int offset = (i % m_buffer_slots) * rdma::ATOMICS_SIZE;
+					auto start = rdma::PerfTest::startTimer();
+					m_client->compareAndSwap(m_addr[connIdx], m_remOffsets[connIdx] + offset, m_local_memory->pointer(offset), i, i+1, rdma::ATOMICS_SIZE, true); // true=signaled
+					int64_t time = rdma::PerfTest::stopTimer(start) / 2; // one trip time
+					m_sumCompareSwapMs += time;
+					if(m_minCompareSwapMs > time) m_minCompareSwapMs = time;
+					if(m_maxCompareSwapMs < time) m_maxCompareSwapMs = time;
+					m_arrCompareSwapMs[i] = time;
+				}
 			}
 			break;
 		default: throw invalid_argument("LatencyPerfClientThread unknown test mode");

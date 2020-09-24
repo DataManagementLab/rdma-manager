@@ -82,45 +82,47 @@ void rdma::LatencyPerfClientThread::run() {
 				case WRITE_MODE_NORMAL:
 					m_local_memory->setMemory(0);
 					for(size_t i = 0; i < m_iterations_per_thread; i++){
-						size_t connIdx = i % m_rdma_addresses.size();
-						value = (i % 100) + 1;
-						size_t receiveOffset = (i % m_buffer_slots) * m_packet_size;
-						size_t sendOffset = receiveOffset + m_memory_size_per_thread;
-						size_t remoteOffset = m_remOffsets[connIdx] + receiveOffset;
-						m_local_memory->set(value, sendOffset); // send payload value
-						if(m_local_memory->getChar(sendOffset) != value) // prevents compiler to switch statements
-							throw runtime_error("Compiler makes stupid stuff with payload");
-						arrSend = m_local_memory->pointer(sendOffset);
-						auto start = rdma::PerfTest::startTimer(); 
-						m_client->write(m_addr[connIdx], remoteOffset, (void*)arrSend, m_packet_size, true); // true=signaled
-						int counter = 0;
-						while(m_local_memory->getChar(receiveOffset) != value){
-							if((++counter) % 100000000 == 0){ std::cout << "KILL ME, I'M FROZEN" << std::endl; }
+						for(size_t connIdx=0; connIdx < m_rdma_addresses.size(); connIdx++){
+							value = (i % 100) + 1;
+							size_t receiveOffset = (i % m_buffer_slots) * m_packet_size;
+							size_t sendOffset = receiveOffset + m_memory_size_per_thread;
+							size_t remoteOffset = m_remOffsets[connIdx] + receiveOffset;
+							m_local_memory->set(value, sendOffset); // send payload value
+							if(m_local_memory->getChar(sendOffset) != value) // prevents compiler to switch statements
+								throw runtime_error("Compiler makes stupid stuff with payload");
+							arrSend = m_local_memory->pointer(sendOffset);
+							auto start = rdma::PerfTest::startTimer(); 
+							m_client->write(m_addr[connIdx], remoteOffset, (void*)arrSend, m_packet_size, true); // true=signaled
+							int counter = 0;
+							while(m_local_memory->getChar(receiveOffset) != value){
+								if((++counter) % 100000000 == 0){ std::cout << "KILL ME, I'M FROZEN" << std::endl; }
+							}
+							int64_t time = rdma::PerfTest::stopTimer(start) / 2; // one trip time
+							m_sumWriteMs += time;
+							if(m_minWriteMs > time) m_minWriteMs = time;
+							if(m_maxWriteMs < time) m_maxWriteMs = time;
+							m_arrWriteMs[i] = time;
 						}
-						int64_t time = rdma::PerfTest::stopTimer(start) / 2; // one trip time
-						m_sumWriteMs += time;
-						if(m_minWriteMs > time) m_minWriteMs = time;
-						if(m_maxWriteMs < time) m_maxWriteMs = time;
-						m_arrWriteMs[i] = time;
 					}
 					break;
 				case WRITE_MODE_IMMEDIATE:
 					m_local_memory->setMemory(1);
 					for(size_t i = 0; i < m_iterations_per_thread; i++){
-						size_t connIdx = i % m_rdma_addresses.size();
-						size_t offset = (i % m_buffer_slots) * m_packet_size;
-						size_t sendOffset =  offset + m_memory_size_per_thread;
-						size_t remoteOffset = m_remOffsets[connIdx] + offset;
-						arrSend = m_local_memory->pointer(sendOffset);
-						auto start = rdma::PerfTest::startTimer();
-						m_client->receiveWriteImm(m_addr[connIdx]);
-						m_client->writeImm(m_addr[connIdx], remoteOffset, (void*)arrSend, m_packet_size, localBaseOffset, true);
-						m_client->pollReceive(m_addr[connIdx], true);
-						int64_t time = rdma::PerfTest::stopTimer(start) / 2; // one trip time
-						m_sumWriteMs += time;
-						if(m_minWriteMs > time) m_minWriteMs = time;
-						if(m_maxWriteMs < time) m_maxWriteMs = time;
-						m_arrWriteMs[i] = time;
+						for(size_t connIdx=0; connIdx < m_rdma_addresses.size(); connIdx++){
+							size_t offset = (i % m_buffer_slots) * m_packet_size;
+							size_t sendOffset =  offset + m_memory_size_per_thread;
+							size_t remoteOffset = m_remOffsets[connIdx] + offset;
+							arrSend = m_local_memory->pointer(sendOffset);
+							auto start = rdma::PerfTest::startTimer();
+							m_client->receiveWriteImm(m_addr[connIdx]);
+							m_client->writeImm(m_addr[connIdx], remoteOffset, (void*)arrSend, m_packet_size, localBaseOffset, true);
+							m_client->pollReceive(m_addr[connIdx], true);
+							int64_t time = rdma::PerfTest::stopTimer(start) / 2; // one trip time
+							m_sumWriteMs += time;
+							if(m_minWriteMs > time) m_minWriteMs = time;
+							if(m_maxWriteMs < time) m_maxWriteMs = time;
+							m_arrWriteMs[i] = time;
+						}
 					}
 					break;
 				default: throw invalid_argument("LatencyPerfClientThread unknown write mode"); 
@@ -129,34 +131,37 @@ void rdma::LatencyPerfClientThread::run() {
 
 		case READ_OPERATION: // Read
 			for(size_t i = 0; i < m_iterations_per_thread; i++){
-				size_t connIdx = i % m_rdma_addresses.size();
-				int offset = (i % m_buffer_slots) * m_packet_size;
-				auto start = rdma::PerfTest::startTimer();
-				m_client->read(m_addr[connIdx], m_remOffsets[connIdx] + offset, m_local_memory->pointer(offset), m_packet_size, true); // true=signaled
-				int64_t time = rdma::PerfTest::stopTimer(start) / 2; // one trip time
-				m_sumReadMs += time;
-				if(m_minReadMs > time) m_minReadMs = time;
-				if(m_maxReadMs < time) m_maxReadMs = time;
-				m_arrReadMs[i] = time;
+				for(size_t connIdx=0; connIdx < m_rdma_addresses.size(); connIdx++){
+					int offset = (i % m_buffer_slots) * m_packet_size;
+					auto start = rdma::PerfTest::startTimer();
+					m_client->read(m_addr[connIdx], m_remOffsets[connIdx] + offset, m_local_memory->pointer(offset), m_packet_size, true); // true=signaled
+					int64_t time = rdma::PerfTest::stopTimer(start) / 2; // one trip time
+					m_sumReadMs += time;
+					if(m_minReadMs > time) m_minReadMs = time;
+					if(m_maxReadMs < time) m_maxReadMs = time;
+					m_arrReadMs[i] = time;
+				}
 			}
 			break;
 
 		case SEND_RECEIVE_OPERATION: // Send & Receive
-			for(size_t i = 0; i < m_rdma_addresses.size(); i++){
-				m_client->receive(m_addr[i], m_local_memory->pointer(), m_packet_size);
+			for(size_t connIdx=0; connIdx < m_rdma_addresses.size(); connIdx++){
+				m_client->receive(m_addr[connIdx], m_local_memory->pointer(), m_packet_size);
 			}
 			for(size_t i = 0; i < m_iterations_per_thread; i++){
-				size_t clientId = m_addr[i % m_rdma_addresses.size()];
-				int offset = (i % m_buffer_slots) * m_packet_size, nextOffset = ((i+1) % m_buffer_slots) * m_packet_size;
-				auto start = rdma::PerfTest::startTimer();
-				m_client->send(clientId, m_local_memory->pointer(offset), m_packet_size, true); // true=signaled
-				m_client->pollReceive(clientId, true); // true=poll
-				m_client->receive(clientId, m_local_memory->pointer(nextOffset), m_packet_size);
-				int64_t time = rdma::PerfTest::stopTimer(start) / 2; // one trip time
-				m_sumSendMs += time;
-				if(m_minSendMs > time) m_minSendMs = time;
-				if(m_maxSendMs < time) m_maxSendMs = time;
-				m_arrSendMs[i] = time;
+				for(size_t connIdx=0; connIdx < m_rdma_addresses.size(); connIdx++){
+					size_t clientId = m_addr[connIdx];
+					int offset = (i % m_buffer_slots) * m_packet_size, nextOffset = ((i+1) % m_buffer_slots) * m_packet_size;
+					auto start = rdma::PerfTest::startTimer();
+					m_client->send(clientId, m_local_memory->pointer(offset), m_packet_size, true); // true=signaled
+					m_client->pollReceive(clientId, true); // true=poll
+					m_client->receive(clientId, m_local_memory->pointer(nextOffset), m_packet_size);
+					int64_t time = rdma::PerfTest::stopTimer(start) / 2; // one trip time
+					m_sumSendMs += time;
+					if(m_minSendMs > time) m_minSendMs = time;
+					if(m_maxSendMs < time) m_maxSendMs = time;
+					m_arrSendMs[i] = time;
+				}
 			}
 			break;
 		default: throw invalid_argument("LatencyPerfClientThread unknown test mode");
