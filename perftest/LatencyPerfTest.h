@@ -33,7 +33,7 @@ public:
 private:
 	bool m_ready = false;
 	RDMAClient<ReliableRDMA> *m_client;
-	LocalBaseMemoryStub *m_local_memory;
+	LocalBaseMemoryStub* m_local_memory;
 	size_t m_packet_size;
 	int m_buffer_slots;
 	size_t m_memory_size_per_thread;

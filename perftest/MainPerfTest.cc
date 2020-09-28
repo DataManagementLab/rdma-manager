@@ -30,7 +30,7 @@ DEFINE_bool(server, false, "Act as server for a client to test performance");
 DEFINE_int32(clients, 1, "Just required by server to know how many clients will connect. Multiplies amount of threads by this amount of clients");
 DEFINE_string(memtype, "", "Memory type or index of GPU for memory allocation ('-3' or 'MAIN' for Main memory, '-2' or 'GPU.NUMA' for NUMA aware GPU, '-1' or 'GPU.D' for default GPU, '0..n' or 'GPU.i' i index for fixed GPU | multiples separated by comma without space) [Default -3]");
 DEFINE_string(remote_memtype, "", "Just for prettier result printing and therefore not essential. Same as  --memtype  flag but for remote side (should be empty or same length as  --memtype  flag)");
-DEFINE_string(packetsize, "", "Packet size in bytes (multiples separated by comma without space) [Default 4096B]");
+DEFINE_string(packetsize, "", "Packet size in bytes (multiples separated by comma without space) [Default 4096B, Min 4B]");
 DEFINE_string(bufferslots, "", "How many packets the buffer can hold (round-robin distribution of packets inside buffer | multiples separated by comma without space) [Default 16]");
 DEFINE_string(threads, "", "Each thread starts its own connection to the server. Server and other clients need exactly the same value (multiples separated by comma without space) [Default 1]");
 DEFINE_string(iterations, "", "Amount of transfers for latency and all atomics tests (multiples separated by comma without space) [Default 500000]");
@@ -49,7 +49,7 @@ DEFINE_bool(ignoreerrors, false, "If an error occurs test will be skiped and exe
 DEFINE_string(config, "./bin/conf/RDMA.conf", "Path to the config file");
 
 enum TEST { BANDWIDTH_TEST=1, LATENCY_TEST=2, OPERATIONS_COUNT_TEST=3, ATOMICS_BANDWIDTH_TEST=4, ATOMICS_LATENCY_TEST=5, ATOMICS_OPERATIONS_COUNT_TEST=6 };
-const uint64_t MINIMUM_PACKET_SIZE = 1; // only GPUDirect doesn't work with smaller sizes
+const uint64_t MINIMUM_PACKET_SIZE = 4; // >=4 for latency to transfer remote offset,  GPUDirect needs at least 128
 
 static std::vector<int> parseIntList(std::string str){
     std::vector<int> v;
@@ -182,6 +182,7 @@ static void initialSyncAsServer(std::string ownIpPort, std::string sequencerIpPo
     rdma::RDMAServer<rdma::ReliableRDMA> *server = new rdma::RDMAServer<rdma::ReliableRDMA>(std::string("IntialSyncServer"), port, addr, mem_size, sequencerIpPort);
     server->startServer();
     rdma::PerfTest::global_barrier_server(server, expected_clients);
+    usleep(rdma::Config::RDMA_SLEEP_INTERVAL);
     delete server;
 }
 
@@ -197,11 +198,8 @@ static void initialSyncAsClient(const std::vector<std::string> &serverIpAndPorts
     }
     rdma::PerfTest::global_barrier_client(client, nodeIds);
     delete client;
+    usleep(2*rdma::Config::RDMA_SLEEP_INTERVAL);
 }
-
-
-
-
 
 
 int main(int argc, char *argv[]){
@@ -292,7 +290,7 @@ int main(int argc, char *argv[]){
     // check packet sizes
     for(uint64_t &ps : packetsizes){
         if(ps < MINIMUM_PACKET_SIZE){
-            std::cerr << "Given packet size " << ps << " must be at least " << MINIMUM_PACKET_SIZE << " bytes for GPUDirect to work" << std::endl;
+            std::cerr << "Given packet size " << ps << " must be at least " << MINIMUM_PACKET_SIZE << " bytes" << std::endl;
             throw runtime_error("Packet size too small");
         }
     }
