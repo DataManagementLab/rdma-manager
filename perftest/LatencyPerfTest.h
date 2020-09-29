@@ -47,7 +47,7 @@ private:
 
 class LatencyPerfServerThread : public Thread {
 public:
-	LatencyPerfServerThread(RDMAServer<ReliableRDMA> *server, size_t packet_size, int buffer_slots, size_t iterations_per_thread, WriteMode write_mode, int thread_id);
+	LatencyPerfServerThread(RDMAServer<ReliableRDMA> *server, size_t packet_size, int buffer_slots, size_t iterations_per_thread, WriteMode write_mode);
 	~LatencyPerfServerThread();
 	void run();
 	bool ready(){
@@ -61,7 +61,7 @@ private:
 	size_t m_memory_size_per_thread;
 	size_t m_iterations_per_thread;
 	WriteMode m_write_mode;
-	int m_thread_id;
+	int32_t m_respond_conn_id = -1;
 	RDMAServer<ReliableRDMA> *m_server;
 	LocalBaseMemoryStub *m_local_memory;
 };

@@ -43,6 +43,12 @@ rdma::LatencyPerfClientThread::LatencyPerfClientThread(BaseMemory *memory, std::
 	}
 	m_local_memory = m_client->localMalloc(m_memory_size_per_thread);
 	m_local_memory->openContext();
+
+	// send nodeID to tell remote thread how to respond
+	for(size_t connIdx=0; connIdx < m_rdma_addresses.size(); connIdx++){
+		m_local_memory->set((uint32_t)m_client->getOwnNodeID(), 0);
+		m_client->write(m_addr[connIdx], m_remOffsets[connIdx], m_local_memory->pointer(), sizeof(uint32_t), true);
+	}
 	m_local_memory->setMemory(1);
 }
 
@@ -62,9 +68,7 @@ rdma::LatencyPerfClientThread::~LatencyPerfClientThread() {
 }
 
 void rdma::LatencyPerfClientThread::run() {
-	std::cout << "SYNC FOR " << LatencyPerfTest::testOperation << std::endl; // TODO REMOVE
 	rdma::PerfTest::global_barrier_client(m_client, m_addr); // global barrier
-
 	unique_lock<mutex> lck(LatencyPerfTest::waitLock); // local barrier
 	if (!LatencyPerfTest::signaled) {
 		m_ready = true;
@@ -73,62 +77,66 @@ void rdma::LatencyPerfClientThread::run() {
 	lck.unlock();
 	m_ready = false;
 
-	std::cout << "START WITH " << LatencyPerfTest::testOperation << std::endl; // TODO REMOVE
+	size_t offset, sendOffset, receiveOffset, remoteOffset;
 	volatile void *arrSend = nullptr;
+	volatile void *arrRecv = nullptr;
+	volatile uint32_t receiveRootOffsetIdx, tmp = 0;
 	switch(LatencyPerfTest::testOperation){
 		case WRITE_OPERATION: // Write
 			switch(m_write_mode){
 				case WRITE_MODE_NORMAL:
-					m_local_memory->setMemory(0);
 					for(size_t i = 0; i < m_iterations_per_thread; i++){
-						size_t offset = (i % m_buffer_slots) * m_packet_size;
+						const size_t flip = 1 + ((i/m_buffer_slots) % 2); // each buffer slot has alternating +1 or +0
+						offset = (i % m_buffer_slots) * m_packet_size;
+						if(offset==0){ m_local_memory->setMemory(0); } // reset threads memory block to be able to listen again in while loop
 						for(size_t connIdx=0; connIdx < m_rdma_addresses.size(); connIdx++){
-							size_t receiveOffset = offset * connIdx * 2;
-							size_t sendOffset = receiveOffset + m_packet_size;
-							uint32_t receiveRootOffsetIdx = (m_local_memory->getRootOffset() + receiveOffset) / m_packet_size + 1; // +1 just to have any payload and for detection on remote side
+							receiveOffset = offset * (connIdx+1) * 2;
+							sendOffset = receiveOffset + m_packet_size;
+							receiveRootOffsetIdx = (m_local_memory->getRootOffset() + receiveOffset) / m_packet_size * 2 + flip; // +flip just to have any payload and for detection on remote side
 							m_local_memory->set(receiveRootOffsetIdx, sendOffset);
-							size_t remoteOffset = m_remOffsets[connIdx] + offset;
-							/* TODO REMOVE if(m_local_memory->getChar(sendOffset) != value) // prevents compiler to switch statements
-								throw runtime_error("Compiler makes stupid stuff with payload"); */
-
-							// TODO REMOVE
-							std::cout << m_local_memory->getRootOffset() << ": buf=" << offset << " send=" << sendOffset << " recv=" << receiveOffset << " remote=" << remoteOffset << std::endl;
-
+							remoteOffset = m_remOffsets[connIdx] + offset;
 							arrSend = m_local_memory->pointer(sendOffset);
+
+							/*if(m_local_memory->getUInt32(sendOffset) != receiveRootOffsetIdx)
+								throw runtime_error("Compiler makes stupid stuff with payload");*/
+							int counter = 0;
 							auto start = rdma::PerfTest::startTimer(); 
 							m_client->write(m_addr[connIdx], remoteOffset, (void*)arrSend, m_packet_size, true); // true=signaled
-							int counter = 0;
-							while(m_local_memory->getUInt32(receiveOffset) != sendOffset){
-								if((++counter) % 100000000 == 0){ std::cout << "KILL ME, I'M FROZEN" << std::endl; }
+							while(true){
+								tmp = m_local_memory->getUInt32(receiveOffset);
+								if(tmp == receiveRootOffsetIdx && tmp > 0) break;
+								if((++counter) % 100000000 == 0){ std::cout << "KILL ME, I'M FROZEN " << std::endl; }
 							}
 							int64_t time = rdma::PerfTest::stopTimer(start) / 2; // one trip time
 							m_sumWriteMs += time;
 							if(m_minWriteMs > time) m_minWriteMs = time;
 							if(m_maxWriteMs < time) m_maxWriteMs = time;
-							m_arrWriteMs[i] = time;
+							m_arrWriteMs[i] += time;
 						}
+						m_arrWriteMs[i] /= m_rdma_addresses.size();
 					}
 					break;
 				case WRITE_MODE_IMMEDIATE:
-					m_local_memory->setMemory(1);
 					for(size_t i = 0; i < m_iterations_per_thread; i++){
-						size_t offset = (i % m_buffer_slots) * m_packet_size;
+						offset = (i % m_buffer_slots) * m_packet_size;
 						for(size_t connIdx=0; connIdx < m_rdma_addresses.size(); connIdx++){
-							size_t receiveOffset = m_local_memory->getRootOffset() + offset*connIdx;
-							size_t sendOffset = receiveOffset + m_memory_size_per_thread;
-							uint32_t receiveOffsetIdx = receiveOffset / m_packet_size;
+							receiveOffset = offset * (connIdx+1) * 2;
+							sendOffset = receiveOffset + m_packet_size;
+							receiveRootOffsetIdx = (m_local_memory->getRootOffset() + receiveOffset) / m_packet_size * 2;
 							size_t remoteOffset = m_remOffsets[connIdx] + offset;
+
 							arrSend = m_local_memory->pointer(sendOffset);
 							auto start = rdma::PerfTest::startTimer();
 							m_client->receiveWriteImm(m_addr[connIdx]);
-							m_client->writeImm(m_addr[connIdx], remoteOffset, (void*)arrSend, m_packet_size, receiveOffsetIdx, true);
+							m_client->writeImm(m_addr[connIdx], remoteOffset, (void*)arrSend, m_packet_size, receiveRootOffsetIdx, true);
 							m_client->pollReceive(m_addr[connIdx], true);
 							int64_t time = rdma::PerfTest::stopTimer(start) / 2; // one trip time
 							m_sumWriteMs += time;
 							if(m_minWriteMs > time) m_minWriteMs = time;
 							if(m_maxWriteMs < time) m_maxWriteMs = time;
-							m_arrWriteMs[i] = time;
+							m_arrWriteMs[i] += time;
 						}
+						m_arrWriteMs[i] /= m_rdma_addresses.size();
 					}
 					break;
 				default: throw invalid_argument("LatencyPerfClientThread unknown write mode"); 
@@ -137,16 +145,20 @@ void rdma::LatencyPerfClientThread::run() {
 
 		case READ_OPERATION: // Read
 			for(size_t i = 0; i < m_iterations_per_thread; i++){
+				offset = (i % m_buffer_slots) * m_packet_size;
 				for(size_t connIdx=0; connIdx < m_rdma_addresses.size(); connIdx++){
-					int offset = (i % m_buffer_slots) * m_packet_size;
+					receiveOffset = offset * (connIdx+1);
+					arrRecv = m_local_memory->pointer(receiveOffset);
+					remoteOffset = m_remOffsets[connIdx] + offset;
 					auto start = rdma::PerfTest::startTimer();
-					m_client->read(m_addr[connIdx], m_remOffsets[connIdx] + offset, m_local_memory->pointer(offset), m_packet_size, true); // true=signaled
+					m_client->read(m_addr[connIdx], remoteOffset, (void*)arrRecv, m_packet_size, true); // true=signaled
 					int64_t time = rdma::PerfTest::stopTimer(start) / 2; // one trip time
 					m_sumReadMs += time;
 					if(m_minReadMs > time) m_minReadMs = time;
 					if(m_maxReadMs < time) m_maxReadMs = time;
-					m_arrReadMs[i] = time;
+					m_arrReadMs[i] += time;
 				}
+				m_arrReadMs[i] /= m_rdma_addresses.size();
 			}
 			break;
 
@@ -155,19 +167,25 @@ void rdma::LatencyPerfClientThread::run() {
 				m_client->receive(m_addr[connIdx], m_local_memory->pointer(), m_packet_size);
 			}
 			for(size_t i = 0; i < m_iterations_per_thread; i++){
+				offset = (i % m_buffer_slots) * m_packet_size;
 				for(size_t connIdx=0; connIdx < m_rdma_addresses.size(); connIdx++){
-					size_t clientId = m_addr[connIdx];
-					int offset = (i % m_buffer_slots) * m_packet_size, nextOffset = ((i+1) % m_buffer_slots) * m_packet_size;
+					size_t receiveOffset = offset * (connIdx+1) * 2;
+					size_t sendOffset = receiveOffset + m_packet_size;
+
+					arrSend = m_local_memory->pointer(sendOffset);
+					arrRecv = m_local_memory->pointer(receiveOffset);
+
 					auto start = rdma::PerfTest::startTimer();
-					m_client->send(clientId, m_local_memory->pointer(offset), m_packet_size, true); // true=signaled
-					m_client->pollReceive(clientId, true); // true=poll
-					m_client->receive(clientId, m_local_memory->pointer(nextOffset), m_packet_size);
+					m_client->send(m_addr[connIdx], (void*)arrSend, m_packet_size, true); // true=signaled
+					m_client->pollReceive(m_addr[connIdx], true); // true=poll
+					m_client->receive(m_addr[connIdx], (void*)arrRecv, m_packet_size);
 					int64_t time = rdma::PerfTest::stopTimer(start) / 2; // one trip time
 					m_sumSendMs += time;
 					if(m_minSendMs > time) m_minSendMs = time;
 					if(m_maxSendMs < time) m_maxSendMs = time;
-					m_arrSendMs[i] = time;
+					m_arrSendMs[i] += time;
 				}
+				m_arrSendMs[i] /= m_rdma_addresses.size();
 			}
 			break;
 		default: throw invalid_argument("LatencyPerfClientThread unknown test mode");
@@ -175,16 +193,14 @@ void rdma::LatencyPerfClientThread::run() {
 }
 
 
-rdma::LatencyPerfServerThread::LatencyPerfServerThread(RDMAServer<ReliableRDMA> *server, size_t packet_size, int buffer_slots, size_t iterations_per_thread, WriteMode write_mode, int thread_id) {
+rdma::LatencyPerfServerThread::LatencyPerfServerThread(RDMAServer<ReliableRDMA> *server, size_t packet_size, int buffer_slots, size_t iterations_per_thread, WriteMode write_mode) {
 	this->m_server = server;
 	this->m_packet_size = packet_size;
 	this->m_buffer_slots = buffer_slots;
 	this->m_memory_size_per_thread = packet_size * buffer_slots;
 	this->m_iterations_per_thread = iterations_per_thread;
 	this->m_write_mode = write_mode;
-	this->m_thread_id = thread_id;
 	this->m_local_memory = server->localMalloc(this->m_memory_size_per_thread);
-	std::cout << "Thread " << thread_id << ": " << m_local_memory->getRootOffset() << std::endl; // TODO REMOVE
 	this->m_local_memory->openContext();
 }
 
@@ -193,9 +209,6 @@ rdma::LatencyPerfServerThread::~LatencyPerfServerThread() {
 }
 
 void rdma::LatencyPerfServerThread::run() {
-	std::cout << "SYNC FOR " << LatencyPerfTest::testOperation << std::endl; // TODO REMOVE
-
-	m_server->getBufferObj()->setMemory(0);
 	unique_lock<mutex> lck(LatencyPerfTest::waitLock);
 	if (!LatencyPerfTest::signaled) {
 		m_ready = true;
@@ -204,73 +217,75 @@ void rdma::LatencyPerfServerThread::run() {
 	lck.unlock();
 	m_ready = false;
 
-	std::cout << "START WITH " << LatencyPerfTest::testOperation << std::endl; // TODO REMOVE
+	const size_t receiveBaseOffset = rdma::LatencyPerfTest::thread_count * m_memory_size_per_thread;
 
-	const std::vector<size_t> clientIds = m_server->getConnectedConnIDs();
-	const size_t clientId = clientIds[m_thread_id];
+	// receive nodeID to respond to
+	if(m_respond_conn_id < 0){
+		m_respond_conn_id = m_local_memory->getInt32(receiveBaseOffset);
+		m_local_memory->set((int32_t)0, receiveBaseOffset);
+	}
+
 	//volatile void *arrSend = nullptr;
 	volatile void *arrRecv = nullptr;
-	size_t sendOffset, receiveOffset;
-	volatile uint32_t lastRemoteBaseOffsetIndex = 0;
-	uint32_t remoteBaseOffsetIndex = 0;
+	size_t offset, sendOffset, receiveOffset, remoteOffset;
+	volatile uint32_t remoteBaseOffsetIndex = 0;
 	switch(LatencyPerfTest::testOperation){
 		case WRITE_OPERATION: // Write
 			switch(m_write_mode){
 				case WRITE_MODE_NORMAL:
 					m_local_memory->setMemory(0);
 					for(size_t i = 0; i < m_iterations_per_thread; i++){
-						sendOffset = (i % m_buffer_slots) * m_packet_size;
-						receiveOffset = sendOffset + rdma::LatencyPerfTest::thread_count * m_memory_size_per_thread; // second half contains remote allocs
-						//arrSend = m_local_memory->pointer(sendOffset);
-						arrRecv = m_local_memory->pointer(receiveOffset);
+						const size_t flip = 1 + ((i/m_buffer_slots) % 2); // each buffer slot has alternating +1 or +0
+						offset = (i % m_buffer_slots) * m_packet_size;
+						receiveOffset = offset + receiveBaseOffset; // second half contains remote allocs
 						int counter = 0;
-						std::cout << m_local_memory->getRootOffset() << ": send=" << sendOffset << " recv=" << receiveOffset << std::endl; // TODO REMOVE
-						for(;remoteBaseOffsetIndex == lastRemoteBaseOffsetIndex; remoteBaseOffsetIndex = m_local_memory->getUInt32(receiveOffset)){
-							std::cout << "Check " << counter << ": " << m_local_memory->getRootOffset() << "(" << receiveOffset << ")" << std::endl; // TODO REMOVE
+
+						while(true){
+							remoteBaseOffsetIndex = m_local_memory->getUInt32(receiveOffset);
+							if((remoteBaseOffsetIndex % 2) == (flip % 2) && remoteBaseOffsetIndex > 0) break;
 							if((++counter) % 100000000 == 0){ std::cout << "KILL ME, I'M FROZEN" << std::endl; }
 						}
-						lastRemoteBaseOffsetIndex = remoteBaseOffsetIndex;
-						size_t remoteOffset = (remoteBaseOffsetIndex-1) * m_packet_size + sendOffset;
-						std::cout << "Received Remote Offset: " << remoteBaseOffsetIndex << " -> " << remoteOffset << std::endl; // TODO REMOVE
-						/*m_local_memory->set(value, sendOffset); // send payload value
-						if(m_local_memory->getChar(sendOffset) != value) // prevents compiler to switch statements
-							throw runtime_error("Compiler makes stupid stuff with payload");
-						m_server->write(clientId, remoteBaseOffset, (void*)arrSend, m_packet_size, true); // true=signaled*/
-						m_server->write(clientId, remoteOffset, (void*)arrRecv, m_packet_size, true); // true=signaled
+						remoteOffset = (remoteBaseOffsetIndex-flip) / 2 * m_packet_size;
+						
+						arrRecv = m_local_memory->pointer(receiveOffset);
+						m_server->write(m_respond_conn_id, remoteOffset, (void*)arrRecv, m_packet_size, true); // true=signaled
 					}
 					break;
 				case WRITE_MODE_IMMEDIATE:
-					m_server->receiveWriteImm(clientId);
+					m_server->receiveWriteImm(m_respond_conn_id);
 					for(size_t i = 1; i < m_iterations_per_thread; i++){
 						sendOffset = (i % m_buffer_slots) * m_packet_size;
-						receiveOffset = sendOffset + rdma::LatencyPerfTest::thread_count * m_memory_size_per_thread;
+						receiveOffset = sendOffset + receiveBaseOffset;
 						arrRecv = m_local_memory->pointer(receiveOffset);
-						m_server->pollReceive(clientId, true, &remoteBaseOffsetIndex);
-						m_server->receiveWriteImm(clientId);
-						remoteBaseOffsetIndex *= m_packet_size;
-						m_server->writeImm(clientId, remoteBaseOffsetIndex+sendOffset, (void*)arrRecv, m_packet_size, (uint32_t)0, true);
+						m_server->pollReceive(m_respond_conn_id, true, (uint32_t*)&remoteBaseOffsetIndex);
+						remoteOffset = remoteBaseOffsetIndex / 2 * m_packet_size;
+						m_server->receiveWriteImm(m_respond_conn_id);
+						m_server->writeImm(m_respond_conn_id, remoteOffset, (void*)arrRecv, m_packet_size, (uint32_t)0, true);
 					}
 					sendOffset = (m_iterations_per_thread % m_buffer_slots) * m_packet_size;
-					receiveOffset = sendOffset + rdma::LatencyPerfTest::thread_count * m_memory_size_per_thread;
+					receiveOffset = sendOffset + receiveBaseOffset;
 					arrRecv = m_local_memory->pointer(receiveOffset);
-					m_server->pollReceive(clientId, true, &remoteBaseOffsetIndex);
+					m_server->pollReceive(m_respond_conn_id, true, (uint32_t*)&remoteBaseOffsetIndex);
+					remoteOffset = remoteBaseOffsetIndex / 2 * m_packet_size;
+					//m_server->receiveWriteImm(m_respond_conn_id);
 					remoteBaseOffsetIndex *= m_packet_size;
-					m_server->writeImm(clientId, remoteBaseOffsetIndex+sendOffset, (void*)arrRecv, m_packet_size, (uint32_t)0, true);
+					m_server->writeImm(m_respond_conn_id, remoteOffset, (void*)arrRecv, m_packet_size, (uint32_t)0, true);
 					break;
 				default: break;
 			}
 			break;
 
 		case READ_OPERATION:
+			m_local_memory->setMemory(1);
 			break;
 
 		case SEND_RECEIVE_OPERATION: // Send & Receive
-			m_server->receive(clientId, m_local_memory->pointer(), m_packet_size);
+			m_server->receive(m_respond_conn_id, m_local_memory->pointer(), m_packet_size);
 			for(size_t i = 0; i < m_iterations_per_thread; i++){
 				int off = (i % m_buffer_slots) * m_packet_size, nextOff = ((i+1) % m_buffer_slots) * m_packet_size;
-				m_server->pollReceive(clientId, true); // true=poll
-				m_server->receive(clientId, m_local_memory->pointer(nextOff), m_packet_size);
-				m_server->send(clientId, m_local_memory->pointer(off), m_packet_size, true); // true=signaled
+				m_server->pollReceive(m_respond_conn_id, true); // true=poll
+				m_server->receive(m_respond_conn_id, m_local_memory->pointer(nextOff), m_packet_size);
+				m_server->send(m_respond_conn_id, m_local_memory->pointer(off), m_packet_size, true); // true=signaled
 			}
 			break;
 
@@ -295,7 +310,6 @@ rdma::LatencyPerfTest::LatencyPerfTest(int testOperations, bool is_server, std::
 	this->m_packet_size = packet_size;
 	this->m_buffer_slots = buffer_slots;
 	this->m_memory_size = thread_count * packet_size * buffer_slots * rdma_addresses.size() * 2; // two times because send & receive
-	std::cout << std::endl << "MEMORY SIZE: " << m_memory_size << std::endl; // TODO REMOVE
 	this->m_iterations_per_thread = iterations_per_thread;
 	this->m_write_mode = (write_mode!=WRITE_MODE_AUTO ? write_mode : rdma::LatencyPerfTest::DEFAULT_WRITE_MODE);
 	this->m_rdma_addresses = rdma_addresses;
@@ -376,7 +390,7 @@ void rdma::LatencyPerfTest::setupTest(){
 		// Server
 		m_server = new RDMAServer<ReliableRDMA>("LatencyTestRDMAServer", m_rdma_port, Network::getAddressOfConnection(m_ownIpPort), m_memory, m_sequencerIpPort);
 		for (int thread_id = 0; thread_id < thread_count; thread_id++) {
-			LatencyPerfServerThread* perfThread = new LatencyPerfServerThread(m_server, m_packet_size, m_buffer_slots, m_iterations_per_thread, m_write_mode, thread_id);
+			LatencyPerfServerThread* perfThread = new LatencyPerfServerThread(m_server, m_packet_size, m_buffer_slots, m_iterations_per_thread, m_write_mode);
 			m_server_threads.push_back(perfThread);
 		}
 
@@ -466,7 +480,7 @@ std::string rdma::LatencyPerfTest::getTestResults(std::string csvFileName, bool 
 		int64_t minSendMs=std::numeric_limits<int64_t>::max(), maxSendMs=-1, medianSendMs=-1;
 		long double avgWriteMs=0, avgReadMs=0, avgSendMs=0;
 		int64_t mediansWriteNs[thread_count], mediansReadNs[thread_count], mediansSendNs[thread_count];
-		const long double divAvg = m_client_threads.size() * m_iterations_per_thread; // for calculating average
+		const long double divAvg = m_client_threads.size() * m_iterations_per_thread * m_rdma_addresses.size(); // for calculating average
 		for(size_t i=0; i<m_client_threads.size(); i++){
 			LatencyPerfClientThread *thr = m_client_threads[i];
 			if(minWriteMs > thr->m_minWriteMs) minWriteMs = thr->m_minWriteMs;
