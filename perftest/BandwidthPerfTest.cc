@@ -8,17 +8,27 @@
 #include <limits>
 #include <algorithm>
 
+
+/*	LT: Local Thread, RT: Remote Thread, B: BufferSlot, C: Connection, R: Receive Packet Size, S: Send Packet Size
+ *
+ *	Client Memory:	LT1{ B1[ C1(R, S), C2(R, S), ... ], B2[ C1(R, S), C2(R, S), ... ] }, T2{ B1[ C1(R, S), C2(R, S), ... ], LT2[ C1(R, S), C2(R, S), ... ] }, ...
+ *	Server Memory:	LT1{ B1[ S ], B2[ S ], ... }, LT2{ B1[ S ], B2[ S ], ... }, ..., RT1{ B1[ R ], B2[ R ], ... }, RT2{ B1[ R ], B2[ R ], ... }
+ */
+
+
 mutex rdma::BandwidthPerfTest::waitLock;
 condition_variable rdma::BandwidthPerfTest::waitCv;
 bool rdma::BandwidthPerfTest::signaled;
 rdma::TestOperation rdma::BandwidthPerfTest::testOperation;
+int rdma::BandwidthPerfTest::thread_count;
 
 rdma::BandwidthPerfClientThread::BandwidthPerfClientThread(BaseMemory *memory, std::vector<std::string>& rdma_addresses, std::string ownIpPort, std::string sequencerIpPort, size_t packet_size, int buffer_slots, size_t iterations_per_thread, size_t max_rdma_wr_per_thread, WriteMode write_mode) {
 	this->m_client = new RDMAClient<ReliableRDMA>(memory, "BandwidthPerfTestClient", ownIpPort, sequencerIpPort);
 	this->m_rdma_addresses = rdma_addresses;
 	this->m_packet_size = packet_size;
 	this->m_buffer_slots = buffer_slots;
-	this->m_memory_size_per_thread = packet_size * buffer_slots;
+	size_t memory_size_per_thread_remote = packet_size * buffer_slots; // remote memory size per thread
+	this->m_memory_size_per_thread = memory_size_per_thread_remote * rdma_addresses.size() * 2; // local memory size per thread (*2 because send/recv separat)
 	this->m_iterations_per_thread = iterations_per_thread;
 	this->m_max_rdma_wr_per_thread = max_rdma_wr_per_thread;
 	this->m_write_mode = write_mode;
@@ -35,11 +45,17 @@ rdma::BandwidthPerfClientThread::BandwidthPerfClientThread(BaseMemory *memory, s
 		}
 		//std::cout << "Thread connected to '" << conn << "'" << std::endl; // TODO REMOVE
 		m_addr.push_back(nodeId);
-		m_client->remoteAlloc(conn, m_memory_size_per_thread, m_remOffsets[i]);
+		m_client->remoteAlloc(conn, memory_size_per_thread_remote, m_remOffsets[i]);
 	}
 
 	m_local_memory = m_client->localMalloc(m_memory_size_per_thread);
 	m_local_memory->openContext();
+	
+	// send nodeID to tell remote thread how to respond
+	for(size_t connIdx=0; connIdx < m_rdma_addresses.size(); connIdx++){
+		m_local_memory->set((uint32_t)m_client->getOwnNodeID(), 0);
+		m_client->write(m_addr[connIdx], m_remOffsets[connIdx], m_local_memory->pointer(), sizeof(uint32_t), true);
+	}
 	m_local_memory->setMemory(1);
 }
 
@@ -66,22 +82,27 @@ void rdma::BandwidthPerfClientThread::run() {
 	lck.unlock();
 	m_ready = false;
 	
-	int sendCounter = 0, receiveCounter = 0, totalBudget = m_iterations_per_thread;
-	uint32_t localBaseOffset = (uint32_t)m_local_memory->getRootOffset();
+	size_t sendCounter = 0, receiveCounter = 0, totalBudget = m_iterations_per_thread;
+	size_t offset, sendOffset, receiveOffset, remoteOffset;
+	uint32_t receiveRootOffsetIdx;
 	auto start = rdma::PerfTest::startTimer();
 	switch(BandwidthPerfTest::testOperation){
 		case WRITE_OPERATION: // Write
 			switch(m_write_mode){
 				case WRITE_MODE_NORMAL:
+					// one sided - server does nothing
 					for(size_t i = 0; i < m_iterations_per_thread; i++){
+						size_t offset = (i % m_buffer_slots) * m_packet_size;
 						for(size_t connIdx=0; connIdx < m_rdma_addresses.size(); connIdx++){
 							bool signaled = (i == (m_iterations_per_thread - 1));
-							int offset = (i % m_buffer_slots) * m_packet_size;
-							m_client->write(m_addr[connIdx], m_remOffsets[connIdx]+offset, m_local_memory->pointer(offset), m_packet_size, signaled);
+							size_t sendOffset = offset * (connIdx+1) * 2 + m_packet_size;
+							size_t remoteOffset = m_remOffsets[connIdx] + offset;
+							m_client->write(m_addr[connIdx], remoteOffset, m_local_memory->pointer(sendOffset), m_packet_size, signaled);
 						}
 					}
 					break;
 				case WRITE_MODE_IMMEDIATE:
+					// two sided - alternating burst sending
 					for(size_t i = 0; i < m_iterations_per_thread; i+=2*m_max_rdma_wr_per_thread){
 						int budgetS = totalBudget;
 						if(budgetS > (int)m_max_rdma_wr_per_thread){ budgetS = m_max_rdma_wr_per_thread; }
@@ -97,9 +118,13 @@ void rdma::BandwidthPerfClientThread::run() {
 							}
 						}
 						for(int j = 0; j < budgetS; j++){
+							offset = (i % m_buffer_slots) * m_packet_size;
 							for(size_t connIdx=0; connIdx < m_rdma_addresses.size(); connIdx++){
-								int offset = (i % m_buffer_slots) * m_packet_size;
-								m_client->writeImm(m_addr[connIdx], m_remOffsets[connIdx]+offset, m_local_memory->pointer(offset), m_packet_size, localBaseOffset, (j+1)==budgetS);
+								receiveOffset = offset * (connIdx+1) * 2;
+								sendOffset = receiveOffset + m_packet_size;
+								receiveRootOffsetIdx = (m_local_memory->getRootOffset() + receiveOffset) / m_packet_size;
+								remoteOffset = m_remOffsets[connIdx]+offset;
+								m_client->writeImm(m_addr[connIdx], remoteOffset, m_local_memory->pointer(sendOffset), m_packet_size, receiveRootOffsetIdx, (j+1)==budgetS);
 							}
 						}
 
@@ -116,11 +141,14 @@ void rdma::BandwidthPerfClientThread::run() {
 			break;
 
 		case READ_OPERATION: // Read
+			// one sided - server does nothing
 			for(size_t i = 0; i < m_iterations_per_thread; i++){
+				offset = (i % m_buffer_slots) * m_packet_size;
 				for(size_t connIdx=0; connIdx < m_rdma_addresses.size(); connIdx++){
 					bool signaled = (i == (m_iterations_per_thread - 1));
-					int offset = (i % m_buffer_slots) * m_packet_size;
-					m_client->read(m_addr[connIdx], m_remOffsets[connIdx] + offset, m_local_memory->pointer(offset), m_packet_size, signaled);
+					receiveOffset = offset * (connIdx+1) * 2;
+					remoteOffset = m_remOffsets[connIdx] + offset;
+					m_client->read(m_addr[connIdx], remoteOffset, m_local_memory->pointer(receiveOffset), m_packet_size, signaled);
 				}
 			}
 			m_elapsedReadMs = rdma::PerfTest::stopTimer(start);
@@ -138,17 +166,19 @@ void rdma::BandwidthPerfClientThread::run() {
 				totalBudget -= budgetR;
 
 				for(int j = 0; j < budgetR; j++){
+					offset = receiveCounter * m_packet_size;
 					receiveCounter = (receiveCounter+1) % m_buffer_slots;
-					int receiveOffset = receiveCounter * m_packet_size;
 					for(size_t connIdx=0; connIdx < m_rdma_addresses.size(); connIdx++){
+						receiveOffset = offset * (connIdx+1) * 2;
 						m_client->receive(m_addr[connIdx], m_local_memory->pointer(receiveOffset), m_packet_size);
 					}
 				}
 
 				for(int j = 0; j < budgetS; j++){
+					offset = sendCounter * m_packet_size;
 					sendCounter = (sendCounter+1) % m_buffer_slots;
-					int sendOffset = sendCounter * m_packet_size + m_memory_size_per_thread;
 					for(size_t connIdx=0; connIdx < m_rdma_addresses.size(); connIdx++){
+						sendOffset = offset * (connIdx+1) * 2 + m_packet_size;
 						m_client->send(m_addr[connIdx], m_local_memory->pointer(sendOffset), m_packet_size, (j+1)==budgetS); // signaled: (j+1)==budget
 					}
 				}
@@ -168,7 +198,7 @@ void rdma::BandwidthPerfClientThread::run() {
 
 
 
-rdma::BandwidthPerfServerThread::BandwidthPerfServerThread(RDMAServer<ReliableRDMA> *server, size_t packet_size, int buffer_slots, size_t iterations_per_thread, size_t max_rdma_wr_per_thread, WriteMode write_mode, int thread_id) {
+rdma::BandwidthPerfServerThread::BandwidthPerfServerThread(RDMAServer<ReliableRDMA> *server, size_t packet_size, int buffer_slots, size_t iterations_per_thread, size_t max_rdma_wr_per_thread, WriteMode write_mode) {
 	this->m_server = server;
 	this->m_packet_size = packet_size;
 	this->m_buffer_slots = buffer_slots;
@@ -176,7 +206,6 @@ rdma::BandwidthPerfServerThread::BandwidthPerfServerThread(RDMAServer<ReliableRD
 	this->m_iterations_per_thread = iterations_per_thread;
 	this->m_max_rdma_wr_per_thread = max_rdma_wr_per_thread;
 	this->m_write_mode = write_mode;
-	this->m_thread_id = thread_id;
 	this->m_local_memory = server->localMalloc(this->m_memory_size_per_thread);
 	this->m_local_memory->openContext();
 }
@@ -194,12 +223,18 @@ void rdma::BandwidthPerfServerThread::run() {
 	lck.unlock();
 	m_ready = false;
 
-	const std::vector<size_t> clientIds = m_server->getConnectedConnIDs();
+	const size_t receiveBaseOffset = rdma::BandwidthPerfTest::thread_count * m_memory_size_per_thread;
+
+	// receive nodeID to respond to
+	if(m_respond_conn_id < 0){
+		m_respond_conn_id = m_local_memory->getInt32(receiveBaseOffset);
+		m_local_memory->set((int32_t)0, receiveBaseOffset);
+	}
 
 	size_t i = 0;
 	int sendCounter = 0, receiveCounter = 0, totalBudget = m_iterations_per_thread, budgetR = totalBudget, budgetS;
-	uint32_t remoteBaseOffset;
-
+	size_t sendOffset, receiveOffset, remoteOffset;
+	uint32_t remoteBaseOffsetIndex[m_max_rdma_wr_per_thread];
 	switch(BandwidthPerfTest::testOperation){
 		case WRITE_OPERATION:
 			if(m_write_mode == WRITE_MODE_IMMEDIATE){
@@ -208,7 +243,7 @@ void rdma::BandwidthPerfServerThread::run() {
 				totalBudget -= budgetR;
 				i += budgetR;
 				for(int j = 0; j < budgetR; j++){
-					m_server->receiveWriteImm(clientIds[m_thread_id]);
+					m_server->receiveWriteImm(m_respond_conn_id);
 				}
 
 				do {
@@ -217,7 +252,7 @@ void rdma::BandwidthPerfServerThread::run() {
 					if(budgetS > (int)m_max_rdma_wr_per_thread){ budgetS = m_max_rdma_wr_per_thread; }
 					totalBudget -= budgetS;
 					for(int j = 0; j < budgetR; j++){
-						m_server->pollReceive(clientIds[m_thread_id], true, &remoteBaseOffset);
+						m_server->pollReceive(m_respond_conn_id, true, &remoteBaseOffsetIndex[j]);
 					}
 
 					// Calculate receive budget for even blocks
@@ -226,20 +261,20 @@ void rdma::BandwidthPerfServerThread::run() {
 					totalBudget -= budgetR;
 
 					for(int j = 0; j < budgetR; j++){
-						m_server->receiveWriteImm(clientIds[m_thread_id]);
+						m_server->receiveWriteImm(m_respond_conn_id);
 					}
 					for(int j = 0; j < budgetS; j++){
 						sendCounter = (sendCounter+1) % m_buffer_slots;
-						int sendOffset = sendCounter * m_packet_size + m_memory_size_per_thread;
-						uint32_t remoteOffset = remoteBaseOffset + sendCounter * m_packet_size; 
-						m_server->writeImm(clientIds[m_thread_id], remoteOffset, m_local_memory->pointer(sendOffset), m_packet_size, (uint32_t)(i+j), (j+1)==budgetS); // signaled: (j+1)==budget
+						sendOffset = sendCounter * m_packet_size + m_memory_size_per_thread;
+						remoteOffset = remoteBaseOffsetIndex[j] * m_packet_size; 
+						m_server->writeImm(m_respond_conn_id, remoteOffset, m_local_memory->pointer(sendOffset), m_packet_size, (uint32_t)0, (j+1)==budgetS); // signaled: (j+1)==budget
 					}
 
 					i += 2 * m_max_rdma_wr_per_thread;
 				} while(i < m_iterations_per_thread);
 
 				for(int j = 0; j < budgetR; j++){ // final poll to sync up with client again
-					m_server->pollReceive(clientIds[m_thread_id], true, &remoteBaseOffset);
+					m_server->pollReceive(m_respond_conn_id, true, &remoteBaseOffsetIndex[j]);
 				}
 			}
 			break;
@@ -254,8 +289,8 @@ void rdma::BandwidthPerfServerThread::run() {
 			i += budgetR;
 			for(int j = 0; j < budgetR; j++){
 				receiveCounter = (receiveCounter+1) % m_buffer_slots;
-				int receiveOffset = receiveCounter * m_packet_size;
-				m_server->receive(clientIds[m_thread_id], m_local_memory->pointer(receiveOffset), m_packet_size);
+				receiveOffset = receiveCounter * m_packet_size + receiveBaseOffset;
+				m_server->receive(m_respond_conn_id, m_local_memory->pointer(receiveOffset), m_packet_size);
 			}
 
 			do {
@@ -265,7 +300,7 @@ void rdma::BandwidthPerfServerThread::run() {
 				totalBudget -= budgetS;
 
 				for(int j = 0; j < budgetR; j++){
-					m_server->pollReceive(clientIds[m_thread_id], true);
+					m_server->pollReceive(m_respond_conn_id, true);
 				}
 
 				// Calculate receive budget for even blocks
@@ -274,21 +309,21 @@ void rdma::BandwidthPerfServerThread::run() {
 				totalBudget -= budgetR;
 				for(int j = 0; j < budgetR; j++){
 					receiveCounter = (receiveCounter+1) % m_buffer_slots;
-					int receiveOffset = receiveCounter * m_packet_size;
-					m_server->receive(clientIds[m_thread_id], m_local_memory->pointer(receiveOffset), m_packet_size);
+					receiveOffset = receiveCounter * m_packet_size + receiveBaseOffset;
+					m_server->receive(m_respond_conn_id, m_local_memory->pointer(receiveOffset), m_packet_size);
 				}
 
 				for(int j = 0; j < budgetS; j++){
 					sendCounter = (sendCounter+1) % m_buffer_slots;
-					int sendOffset = sendCounter * m_packet_size + m_memory_size_per_thread;
-					m_server->send(clientIds[m_thread_id], m_local_memory->pointer(sendOffset), m_packet_size, (j+1)==budgetS); // signaled: (j+1)==budget
+					sendOffset = sendCounter * m_packet_size;
+					m_server->send(m_respond_conn_id, m_local_memory->pointer(sendOffset), m_packet_size, (j+1)==budgetS); // signaled: (j+1)==budget
 				}
 
 				i += 2 * m_max_rdma_wr_per_thread;
 			} while(i < m_iterations_per_thread);
 			
 			for(int j = 0; j < budgetR; j++){ // Finaly poll to sync up with client again
-				m_server->pollReceive(clientIds[m_thread_id], true);
+				m_server->pollReceive(m_respond_conn_id, true);
 			}
 			break;
 
@@ -309,10 +344,10 @@ rdma::BandwidthPerfTest::BandwidthPerfTest(int testOperations, bool is_server, s
 	this->m_local_gpu_index = local_gpu_index;
 	this->m_actual_gpu_index = -1;
 	this->m_remote_gpu_index = remote_gpu_index;
-	this->m_thread_count = thread_count;
+	this->thread_count = thread_count;
 	this->m_packet_size = packet_size;
 	this->m_buffer_slots = buffer_slots;
-	this->m_memory_size = 2 * thread_count * packet_size * buffer_slots; // 2x because for send & receive separat
+	this->m_memory_size = thread_count * packet_size * buffer_slots * rdma_addresses.size() * 2; // 2x because for send & receive separat
 	this->m_iterations_per_thread = iterations_per_thread;
 	this->m_write_mode = (write_mode!=WRITE_MODE_AUTO ? write_mode : rdma::BandwidthPerfTest::DEFAULT_WRITE_MODE);
 	this->m_rdma_addresses = rdma_addresses;
@@ -333,11 +368,11 @@ rdma::BandwidthPerfTest::~BandwidthPerfTest(){
 
 std::string rdma::BandwidthPerfTest::getTestParameters(bool forCSV){
 	std::ostringstream oss;
-	oss << (m_is_server ? "Server" : "Client") << ", threads=" << m_thread_count << ", bufferslots=" << m_buffer_slots;
+	oss << (m_is_server ? "Server" : "Client") << ", threads=" << thread_count << ", bufferslots=" << m_buffer_slots;
 	if(!forCSV){ oss << ", packetsize=" << m_packet_size; }
-	oss << ", memory=" << m_memory_size << " (2x " << m_thread_count << "x " << m_buffer_slots << "x " << m_packet_size << ")";
+	oss << ", memory=" << m_memory_size << " (2x " << thread_count << "x " << m_buffer_slots << "x " << m_packet_size << ")";
 	oss << ", memory_type=" << getMemoryName(m_local_gpu_index, m_actual_gpu_index) << (m_remote_gpu_index!=-404 ? "->"+getMemoryName(m_remote_gpu_index) : "");
-	oss << ", iterations=" << (m_iterations_per_thread*m_thread_count) << ", writemode=" << (m_write_mode==WRITE_MODE_NORMAL ? "Normal" : "Immediate");
+	oss << ", iterations=" << (m_iterations_per_thread*thread_count) << ", writemode=" << (m_write_mode==WRITE_MODE_NORMAL ? "Normal" : "Immediate");
 	return oss.str();
 }
 std::string rdma::BandwidthPerfTest::getTestParameters(){
@@ -351,7 +386,7 @@ void rdma::BandwidthPerfTest::makeThreadsReady(TestOperation testOperation){
 		// Server
 		for(BandwidthPerfServerThread* perfThread : m_server_threads){ perfThread->start(); }
 		for(BandwidthPerfServerThread* perfThread : m_server_threads){ while(!perfThread->ready()) usleep(Config::RDMA_SLEEP_INTERVAL); }
-		rdma::PerfTest::global_barrier_server(m_server, (size_t)m_thread_count);
+		rdma::PerfTest::global_barrier_server(m_server, (size_t)thread_count);
 
 	} else {
 		// Client
@@ -396,14 +431,14 @@ void rdma::BandwidthPerfTest::setupTest(){
 	if(m_is_server){
 		// Server
 		m_server = new RDMAServer<ReliableRDMA>("BandwidthTestRDMAServer", m_rdma_port, Network::getAddressOfConnection(m_ownIpPort), m_memory, m_sequencerIpPort);
-		for (int thread_id = 0; thread_id < m_thread_count; thread_id++) {
-			BandwidthPerfServerThread* perfThread = new BandwidthPerfServerThread(m_server, m_packet_size, m_buffer_slots, m_iterations_per_thread, max_rdma_wr_per_thread, m_write_mode, thread_id);
+		for (int thread_id = 0; thread_id < thread_count; thread_id++) {
+			BandwidthPerfServerThread* perfThread = new BandwidthPerfServerThread(m_server, m_packet_size, m_buffer_slots, m_iterations_per_thread, max_rdma_wr_per_thread, m_write_mode);
 			m_server_threads.push_back(perfThread);
 		}
 
 	} else {
 		// Client
-		for (int i = 0; i < m_thread_count; i++) {
+		for (int i = 0; i < thread_count; i++) {
 			BandwidthPerfClientThread* perfThread = new BandwidthPerfClientThread(m_memory, m_rdma_addresses, m_ownIpPort, m_sequencerIpPort, m_packet_size, m_buffer_slots, m_iterations_per_thread, max_rdma_wr_per_thread, m_write_mode);
 			m_client_threads.push_back(perfThread);
 		}
@@ -449,7 +484,6 @@ void rdma::BandwidthPerfTest::runTest(){
 	} else {
 		// Client
 
-
         // Measure bandwidth for writing
 		if(hasTestOperation(WRITE_OPERATION)){
 			makeThreadsReady(WRITE_OPERATION); // write
@@ -475,6 +509,7 @@ void rdma::BandwidthPerfTest::runTest(){
 			runThreads();
 			m_elapsedSendMs = rdma::PerfTest::stopTimer(startSend);
 		}
+
 	}
 }
 
@@ -493,15 +528,15 @@ std::string rdma::BandwidthPerfTest::getTestResults(std::string csvFileName, boo
 
 		const long double tu = (long double)NANO_SEC; // 1sec (nano to seconds as time unit)
 		
-		uint64_t transferedBytes = m_thread_count * m_iterations_per_thread * m_packet_size;
+		uint64_t transferedBytes = thread_count * m_iterations_per_thread * m_packet_size;
 		int64_t maxWriteMs=-1, minWriteMs=std::numeric_limits<int64_t>::max();
 		int64_t maxReadMs=-1, minReadMs=std::numeric_limits<int64_t>::max();
 		int64_t maxSendMs=-1, minSendMs=std::numeric_limits<int64_t>::max();
-		int64_t arrWriteMs[m_thread_count];
-		int64_t arrReadMs[m_thread_count];
-		int64_t arrSendMs[m_thread_count];
+		int64_t arrWriteMs[thread_count];
+		int64_t arrReadMs[thread_count];
+		int64_t arrSendMs[thread_count];
 		long double avgWriteMs=0, medianWriteMs, avgReadMs=0, medianReadMs, avgSendMs=0, medianSendMs;
-		const long double divAvg = m_client_threads.size();
+		const long double divAvg = m_client_threads.size() * m_rdma_addresses.size();
 		for(size_t i=0; i<m_client_threads.size(); i++){
 			BandwidthPerfClientThread *thr = m_client_threads[i];
 			if(thr->m_elapsedWriteMs < minWriteMs) minWriteMs = thr->m_elapsedWriteMs;
@@ -518,13 +553,13 @@ std::string rdma::BandwidthPerfTest::getTestResults(std::string csvFileName, boo
 			arrSendMs[i] = thr->m_elapsedSendMs;
 		}
 
-		std::sort(arrWriteMs, arrWriteMs + m_thread_count);
-		std::sort(arrReadMs, arrReadMs + m_thread_count);
-		std::sort(arrSendMs, arrSendMs + m_thread_count);
+		std::sort(arrWriteMs, arrWriteMs + thread_count);
+		std::sort(arrReadMs, arrReadMs + thread_count);
+		std::sort(arrSendMs, arrSendMs + thread_count);
 
-		medianWriteMs = arrWriteMs[(int)(m_thread_count/2)];
-		medianReadMs = arrReadMs[(int)(m_thread_count/2)];
-		medianSendMs = arrSendMs[(int)(m_thread_count/2)];
+		medianWriteMs = arrWriteMs[(int)(thread_count/2)];
+		medianReadMs = arrReadMs[(int)(thread_count/2)];
+		medianSendMs = arrSendMs[(int)(thread_count/2)];
 
 		// write results into CSV file
 		if(!csvFileName.empty()){

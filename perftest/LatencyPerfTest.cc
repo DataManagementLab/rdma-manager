@@ -12,6 +12,12 @@ rdma::TestOperation rdma::LatencyPerfTest::testOperation;
 int rdma::LatencyPerfTest::client_count;
 int rdma::LatencyPerfTest::thread_count;
 
+/*	LT: Local Thread, RT: Remote Thread, B: BufferSlot, C: Connection, R: Receive Packet Size, S: Send Packet Size
+ *
+ *	Client Memory:	LT1{ B1[ C1(R, S), C2(R, S), ... ], B2[ C1(R, S), C2(R, S), ... ] }, T2{ B1[ C1(R, S), C2(R, S), ... ], LT2[ C1(R, S), C2(R, S), ... ] }, ...
+ *	Server Memory:	LT1{ B1[ S ], B2[ S ], ... }, LT2{ B1[ S ], B2[ S ], ... }, ..., RT1{ B1[ R ], B2[ R ], ... }, RT2{ B1[ R ], B2[ R ], ... }
+ */
+
 
 rdma::LatencyPerfClientThread::LatencyPerfClientThread(BaseMemory *memory, std::vector<std::string>& rdma_addresses, std::string ownIpPort, std::string sequencerIpPort, size_t packet_size, int buffer_slots, size_t iterations_per_thread, WriteMode write_mode) {
 	this->m_client = new RDMAClient<ReliableRDMA>(memory, "LatencyPerfTestClient", ownIpPort, sequencerIpPort);
@@ -169,8 +175,8 @@ void rdma::LatencyPerfClientThread::run() {
 			for(size_t i = 0; i < m_iterations_per_thread; i++){
 				offset = (i % m_buffer_slots) * m_packet_size;
 				for(size_t connIdx=0; connIdx < m_rdma_addresses.size(); connIdx++){
-					size_t receiveOffset = offset * (connIdx+1) * 2;
-					size_t sendOffset = receiveOffset + m_packet_size;
+					receiveOffset = offset * (connIdx+1) * 2;
+					sendOffset = receiveOffset + m_packet_size;
 
 					arrSend = m_local_memory->pointer(sendOffset);
 					arrRecv = m_local_memory->pointer(receiveOffset);
@@ -267,8 +273,6 @@ void rdma::LatencyPerfServerThread::run() {
 					arrRecv = m_local_memory->pointer(receiveOffset);
 					m_server->pollReceive(m_respond_conn_id, true, (uint32_t*)&remoteBaseOffsetIndex);
 					remoteOffset = remoteBaseOffsetIndex / 2 * m_packet_size;
-					//m_server->receiveWriteImm(m_respond_conn_id);
-					remoteBaseOffsetIndex *= m_packet_size;
 					m_server->writeImm(m_respond_conn_id, remoteOffset, (void*)arrRecv, m_packet_size, (uint32_t)0, true);
 					break;
 				default: break;
@@ -282,10 +286,11 @@ void rdma::LatencyPerfServerThread::run() {
 		case SEND_RECEIVE_OPERATION: // Send & Receive
 			m_server->receive(m_respond_conn_id, m_local_memory->pointer(), m_packet_size);
 			for(size_t i = 0; i < m_iterations_per_thread; i++){
-				int off = (i % m_buffer_slots) * m_packet_size, nextOff = ((i+1) % m_buffer_slots) * m_packet_size;
+				sendOffset = (i % m_buffer_slots) * m_packet_size;
+				receiveOffset = sendOffset + receiveBaseOffset;
 				m_server->pollReceive(m_respond_conn_id, true); // true=poll
-				m_server->receive(m_respond_conn_id, m_local_memory->pointer(nextOff), m_packet_size);
-				m_server->send(m_respond_conn_id, m_local_memory->pointer(off), m_packet_size, true); // true=signaled
+				m_server->receive(m_respond_conn_id, m_local_memory->pointer(receiveOffset), m_packet_size);
+				m_server->send(m_respond_conn_id, m_local_memory->pointer(sendOffset), m_packet_size, true); // true=signaled
 			}
 			break;
 

@@ -45,7 +45,7 @@ private:
 
 class BandwidthPerfServerThread : public Thread {
 public:
-	BandwidthPerfServerThread(RDMAServer<ReliableRDMA> *server, size_t packet_size, int buffer_slots, size_t iterations_per_thread, size_t max_rdma_wr_per_thread, WriteMode write_mode, int thread_id);
+	BandwidthPerfServerThread(RDMAServer<ReliableRDMA> *server, size_t packet_size, int buffer_slots, size_t iterations_per_thread, size_t max_rdma_wr_per_thread, WriteMode write_mode);
 	~BandwidthPerfServerThread();
 	void run();
 	bool ready(){
@@ -60,7 +60,7 @@ private:
 	size_t m_iterations_per_thread;
 	size_t m_max_rdma_wr_per_thread;
 	WriteMode m_write_mode;
-	int m_thread_id;
+	int32_t m_respond_conn_id = -1;
 	RDMAServer<ReliableRDMA> *m_server;
 	LocalBaseMemoryStub *m_local_memory;
 };
@@ -81,6 +81,7 @@ public:
 	static condition_variable waitCv;
 	static bool signaled;
 	static TestOperation testOperation;
+	static int thread_count;
 
 private:
 	bool m_is_server;
@@ -92,7 +93,6 @@ private:
 	int m_local_gpu_index;
 	int m_actual_gpu_index;
 	int m_remote_gpu_index;
-	int m_thread_count;
 	uint64_t m_packet_size;
 	int m_buffer_slots;
 	uint64_t m_memory_size;
