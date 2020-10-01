@@ -24,8 +24,8 @@ rdma::LatencyPerfClientThread::LatencyPerfClientThread(BaseMemory *memory, std::
 	this->m_rdma_addresses = rdma_addresses;
 	this->m_packet_size = packet_size;
 	this->m_buffer_slots = buffer_slots;
-	size_t memory_size_per_thread_remote = packet_size * buffer_slots; // remote memory size per thread
-	this->m_memory_size_per_thread = memory_size_per_thread_remote * rdma_addresses.size() * 2; // local memory size per thread (*2 because send/recv separat)
+	this->m_remote_memory_size_per_thread = packet_size * buffer_slots; // remote memory size per thread
+	this->m_memory_size_per_thread = m_remote_memory_size_per_thread * rdma_addresses.size() * 2; // local memory size per thread (*2 because send/recv separat)
 	this->m_iterations_per_thread = iterations_per_thread;
 	this->m_write_mode = write_mode;
 	this->m_remOffsets = new size_t[m_rdma_addresses.size()];
@@ -45,7 +45,7 @@ rdma::LatencyPerfClientThread::LatencyPerfClientThread(BaseMemory *memory, std::
 		}
 		//std::cout << "Thread connected to '" << conn << "'" << std::endl; // TODO REMOVE
 		m_addr.push_back(nodeId);
-		m_client->remoteAlloc(conn, memory_size_per_thread_remote, m_remOffsets[i]);
+		m_client->remoteAlloc(conn, m_remote_memory_size_per_thread, m_remOffsets[i]);
 	}
 	m_local_memory = m_client->localMalloc(m_memory_size_per_thread);
 	m_local_memory->openContext();
@@ -61,7 +61,7 @@ rdma::LatencyPerfClientThread::LatencyPerfClientThread(BaseMemory *memory, std::
 rdma::LatencyPerfClientThread::~LatencyPerfClientThread() {
 	for (size_t i = 0; i < m_rdma_addresses.size(); ++i) {
 		string addr = m_rdma_addresses[i];
-		m_client->remoteFree(addr, m_memory_size_per_thread, m_remOffsets[i]);
+		m_client->remoteFree(addr, m_remote_memory_size_per_thread, m_remOffsets[i]);
 	}
 	delete m_remOffsets;
 	delete m_local_memory;

@@ -33,6 +33,7 @@ private:
 	LocalBaseMemoryStub *m_local_memory;
 	size_t m_packet_size;
 	int m_buffer_slots;
+	size_t m_remote_memory_size_per_thread;
 	size_t m_memory_size_per_thread;
 	size_t m_iterations_per_thread;
 	size_t m_max_rdma_wr_per_thread;
@@ -45,7 +46,7 @@ private:
 
 class OperationsCountPerfServerThread : public Thread {
 public:
-	OperationsCountPerfServerThread(RDMAServer<ReliableRDMA> *server, size_t packet_size, int buffer_slots, size_t iterations_per_thread, size_t max_rdma_wr_per_thread, WriteMode write_mode, int thread_id);
+	OperationsCountPerfServerThread(RDMAServer<ReliableRDMA> *server, size_t packet_size, int buffer_slots, size_t iterations_per_thread, size_t max_rdma_wr_per_thread, WriteMode write_mode);
 	~OperationsCountPerfServerThread();
 	void run();
 	bool ready(){
@@ -60,7 +61,7 @@ private:
 	size_t m_iterations_per_thread;
 	size_t m_max_rdma_wr_per_thread;
 	WriteMode m_write_mode;
-	int m_thread_id;
+	int32_t m_respond_conn_id = -1;
 	RDMAServer<ReliableRDMA> *m_server;
 	LocalBaseMemoryStub *m_local_memory;
 };
@@ -68,7 +69,7 @@ private:
 
 class OperationsCountPerfTest : public rdma::PerfTest {
 public:
-	OperationsCountPerfTest(int testOperations, bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, std::string ownIpPort, std::string sequencerIpPort, int local_gpu_index, int remote_gpu_index, int thread_count, uint64_t packet_size, int buffer_slots, uint64_t iterations_per_thread, WriteMode write_mode);
+	OperationsCountPerfTest(int testOperations, bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, std::string ownIpPort, std::string sequencerIpPort, int local_gpu_index, int remote_gpu_index, int client_count, int thread_count, uint64_t packet_size, int buffer_slots, uint64_t iterations_per_thread, WriteMode write_mode);
 	virtual ~OperationsCountPerfTest();
 	std::string getTestParameters();
 	void setupTest();
@@ -81,6 +82,7 @@ public:
 	static condition_variable waitCv;
 	static bool signaled;
 	static TestOperation testOperation;
+	static int thread_count;
 
 private:
 	bool m_is_server;
@@ -92,7 +94,6 @@ private:
 	int m_local_gpu_index;
 	int m_actual_gpu_index;
 	int m_remote_gpu_index;
-	int m_thread_count;
 	uint64_t m_packet_size;
 	int m_buffer_slots;
 	uint64_t m_memory_size;

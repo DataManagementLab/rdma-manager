@@ -496,7 +496,7 @@ int main(int argc, char *argv[]){
                                 } else if(t == OPERATIONS_COUNT_TEST){
                                     // Operations Count Test
                                     testName = "Operations Count";
-                                    test = new rdma::OperationsCountPerfTest(test_ops, FLAGS_server, addresses, FLAGS_port, ownIpPort, sequencerIpAddr, local_gpu_index, remote_gpu_index, thread_count, packet_size, buffer_slots, iterations_per_thread, write_mode);
+                                    test = new rdma::OperationsCountPerfTest(test_ops, FLAGS_server, addresses, FLAGS_port, ownIpPort, sequencerIpAddr, local_gpu_index, remote_gpu_index, FLAGS_clients, thread_count, packet_size, buffer_slots, iterations_per_thread, write_mode);
                                 }
 
                                 if(test != nullptr){

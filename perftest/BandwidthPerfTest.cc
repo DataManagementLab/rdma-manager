@@ -27,8 +27,8 @@ rdma::BandwidthPerfClientThread::BandwidthPerfClientThread(BaseMemory *memory, s
 	this->m_rdma_addresses = rdma_addresses;
 	this->m_packet_size = packet_size;
 	this->m_buffer_slots = buffer_slots;
-	size_t memory_size_per_thread_remote = packet_size * buffer_slots; // remote memory size per thread
-	this->m_memory_size_per_thread = memory_size_per_thread_remote * rdma_addresses.size() * 2; // local memory size per thread (*2 because send/recv separat)
+	this->m_remote_memory_size_per_thread = packet_size * buffer_slots; // remote memory size per thread
+	this->m_memory_size_per_thread = m_remote_memory_size_per_thread * rdma_addresses.size() * 2; // local memory size per thread (*2 because send/recv separat)
 	this->m_iterations_per_thread = iterations_per_thread;
 	this->m_max_rdma_wr_per_thread = max_rdma_wr_per_thread;
 	this->m_write_mode = write_mode;
@@ -45,7 +45,7 @@ rdma::BandwidthPerfClientThread::BandwidthPerfClientThread(BaseMemory *memory, s
 		}
 		//std::cout << "Thread connected to '" << conn << "'" << std::endl; // TODO REMOVE
 		m_addr.push_back(nodeId);
-		m_client->remoteAlloc(conn, memory_size_per_thread_remote, m_remOffsets[i]);
+		m_client->remoteAlloc(conn, m_remote_memory_size_per_thread, m_remOffsets[i]);
 	}
 
 	m_local_memory = m_client->localMalloc(m_memory_size_per_thread);
@@ -63,7 +63,7 @@ rdma::BandwidthPerfClientThread::BandwidthPerfClientThread(BaseMemory *memory, s
 rdma::BandwidthPerfClientThread::~BandwidthPerfClientThread() {
 	for (size_t i = 0; i < m_rdma_addresses.size(); ++i) {
 		string addr = m_rdma_addresses[i];
-		m_client->remoteFree(addr, m_memory_size_per_thread, m_remOffsets[i]);
+		m_client->remoteFree(addr, m_remote_memory_size_per_thread, m_remOffsets[i]);
 	}
     delete m_remOffsets;
 	delete m_local_memory; // implicitly deletes local allocs in RDMAClient and also closes context
@@ -370,7 +370,8 @@ std::string rdma::BandwidthPerfTest::getTestParameters(bool forCSV){
 	std::ostringstream oss;
 	oss << (m_is_server ? "Server" : "Client") << ", threads=" << thread_count << ", bufferslots=" << m_buffer_slots;
 	if(!forCSV){ oss << ", packetsize=" << m_packet_size; }
-	oss << ", memory=" << m_memory_size << " (2x " << thread_count << "x " << m_buffer_slots << "x " << m_packet_size << ")";
+	oss << ", memory=" << m_memory_size << " (2x " << thread_count << "x " << m_buffer_slots << "x ";
+	if(!m_is_server){ oss << m_rdma_addresses.size() << "x "; } oss << m_packet_size << ")";
 	oss << ", memory_type=" << getMemoryName(m_local_gpu_index, m_actual_gpu_index) << (m_remote_gpu_index!=-404 ? "->"+getMemoryName(m_remote_gpu_index) : "");
 	oss << ", iterations=" << (m_iterations_per_thread*thread_count) << ", writemode=" << (m_write_mode==WRITE_MODE_NORMAL ? "Normal" : "Immediate");
 	return oss.str();
@@ -528,7 +529,7 @@ std::string rdma::BandwidthPerfTest::getTestResults(std::string csvFileName, boo
 
 		const long double tu = (long double)NANO_SEC; // 1sec (nano to seconds as time unit)
 		
-		uint64_t transferedBytes = thread_count * m_iterations_per_thread * m_packet_size;
+		uint64_t transferedBytes = thread_count * m_iterations_per_thread * m_packet_size * m_rdma_addresses.size();
 		int64_t maxWriteMs=-1, minWriteMs=std::numeric_limits<int64_t>::max();
 		int64_t maxReadMs=-1, minReadMs=std::numeric_limits<int64_t>::max();
 		int64_t maxSendMs=-1, minSendMs=std::numeric_limits<int64_t>::max();
@@ -536,7 +537,7 @@ std::string rdma::BandwidthPerfTest::getTestResults(std::string csvFileName, boo
 		int64_t arrReadMs[thread_count];
 		int64_t arrSendMs[thread_count];
 		long double avgWriteMs=0, medianWriteMs, avgReadMs=0, medianReadMs, avgSendMs=0, medianSendMs;
-		const long double divAvg = m_client_threads.size() * m_rdma_addresses.size();
+		const long double divAvg = m_client_threads.size();
 		for(size_t i=0; i<m_client_threads.size(); i++){
 			BandwidthPerfClientThread *thr = m_client_threads[i];
 			if(thr->m_elapsedWriteMs < minWriteMs) minWriteMs = thr->m_elapsedWriteMs;

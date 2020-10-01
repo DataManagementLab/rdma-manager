@@ -36,6 +36,7 @@ private:
 	LocalBaseMemoryStub* m_local_memory;
 	size_t m_packet_size;
 	int m_buffer_slots;
+	size_t m_remote_memory_size_per_thread;
 	size_t m_memory_size_per_thread;
 	size_t m_iterations_per_thread;
 	WriteMode m_write_mode;
