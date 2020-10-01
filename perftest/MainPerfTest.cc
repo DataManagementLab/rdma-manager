@@ -524,7 +524,7 @@ int main(int argc, char *argv[]){
                         } else if(t == ATOMICS_LATENCY_TEST){
                             // Atomics Latency Test
                             testName = "Atomics Latency";
-                            test = new rdma::AtomicsLatencyPerfTest(test_ops, FLAGS_server, addresses, FLAGS_port, ownIpPort, sequencerIpAddr, local_gpu_index, remote_gpu_index, thread_count, buffer_slots, iterations_per_thread);
+                            test = new rdma::AtomicsLatencyPerfTest(test_ops, FLAGS_server, addresses, FLAGS_port, ownIpPort, sequencerIpAddr, local_gpu_index, remote_gpu_index, FLAGS_clients, thread_count, buffer_slots, iterations_per_thread);
 
                         } else if(t == ATOMICS_OPERATIONS_COUNT_TEST){
                             // Atomics Operations Count Test
