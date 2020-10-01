@@ -30,6 +30,7 @@ private:
 	bool m_ready = false;
 	RDMAClient<ReliableRDMA> *m_client;
 	LocalBaseMemoryStub *m_local_memory;
+	size_t m_remote_memory_per_thread;
 	size_t m_memory_per_thread;
 	int m_buffer_slots;
 	size_t m_iterations_per_thread;
@@ -41,7 +42,7 @@ private:
 
 class AtomicsBandwidthPerfTest : public rdma::PerfTest {
 public:
-	AtomicsBandwidthPerfTest(int testOperations, bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, std::string ownIpPort, std::string sequencerIpPort, int local_gpu_index, int remote_gpu_index, int thread_count, int buffer_slots, uint64_t iterations_per_thread);
+	AtomicsBandwidthPerfTest(int testOperations, bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, std::string ownIpPort, std::string sequencerIpPort, int local_gpu_index, int remote_gpu_index, int client_count, int thread_count, int buffer_slots, uint64_t iterations_per_thread);
 	virtual ~AtomicsBandwidthPerfTest();
 	std::string getTestParameters();
 	void setupTest();
@@ -52,6 +53,7 @@ public:
 	static condition_variable waitCv;
 	static bool signaled;
 	static TestOperation testOperation;
+	static int thread_count;
 
 private:
 	bool m_is_server;
@@ -63,7 +65,6 @@ private:
 	int m_local_gpu_index;
 	int m_actual_gpu_index;
 	int m_remote_gpu_index;
-	int m_thread_count;
 	uint64_t m_memory_size;
 	int m_buffer_slots;
 	uint64_t m_iterations_per_thread;

@@ -12,11 +12,13 @@ mutex rdma::AtomicsOperationsCountPerfTest::waitLock;
 condition_variable rdma::AtomicsOperationsCountPerfTest::waitCv;
 bool rdma::AtomicsOperationsCountPerfTest::signaled;
 rdma::TestOperation rdma::AtomicsOperationsCountPerfTest::testOperation;
+int rdma::AtomicsOperationsCountPerfTest::thread_count;
 
 rdma::AtomicsOperationsCountPerfClientThread::AtomicsOperationsCountPerfClientThread(BaseMemory *memory, std::vector<std::string>& rdma_addresses, std::string ownIpPort, std::string sequencerIpPort, int buffer_slots, size_t iterations_per_thread) {
 	this->m_client = new RDMAClient<ReliableRDMA>(memory, "AtomicsOperationsCountPerfTestClient", ownIpPort, sequencerIpPort);
 	this->m_rdma_addresses = rdma_addresses;
-	this->m_memory_per_thread = buffer_slots * rdma::ATOMICS_SIZE;
+	this->m_remote_memory_per_thread = buffer_slots * rdma::ATOMICS_SIZE;
+	this->m_memory_per_thread = m_remote_memory_per_thread * rdma_addresses.size();
 	this->m_buffer_slots = buffer_slots;
 	this->m_iterations_per_thread = iterations_per_thread;
 	m_remOffsets = new size_t[m_rdma_addresses.size()];
@@ -32,7 +34,7 @@ rdma::AtomicsOperationsCountPerfClientThread::AtomicsOperationsCountPerfClientTh
 		}
 		//std::cout << "Thread connected to '" << conn << "'" << std::endl; // TODO REMOVE
 		m_addr.push_back(nodeId);
-		m_client->remoteAlloc(conn, m_memory_per_thread, m_remOffsets[i]);
+		m_client->remoteAlloc(conn, m_remote_memory_per_thread, m_remOffsets[i]);
 	}
 
 	m_local_memory = m_client->localMalloc(m_memory_per_thread);
@@ -43,7 +45,7 @@ rdma::AtomicsOperationsCountPerfClientThread::AtomicsOperationsCountPerfClientTh
 rdma::AtomicsOperationsCountPerfClientThread::~AtomicsOperationsCountPerfClientThread() {
 	for (size_t i = 0; i < m_rdma_addresses.size(); ++i) {
 		string addr = m_rdma_addresses[i];
-		m_client->remoteFree(addr, m_memory_per_thread, m_remOffsets[i]);
+		m_client->remoteFree(addr, m_remote_memory_per_thread, m_remOffsets[i]);
 	}
     delete m_remOffsets;
 	delete m_local_memory; // implicitly deletes local allocs in RDMAClient
@@ -51,7 +53,8 @@ rdma::AtomicsOperationsCountPerfClientThread::~AtomicsOperationsCountPerfClientT
 }
 
 void rdma::AtomicsOperationsCountPerfClientThread::run() {
-	unique_lock<mutex> lck(AtomicsOperationsCountPerfTest::waitLock);
+	rdma::PerfTest::global_barrier_client(m_client, m_addr); // global barrier
+	unique_lock<mutex> lck(AtomicsOperationsCountPerfTest::waitLock); // local barrier
 	if (!AtomicsOperationsCountPerfTest::signaled) {
 		m_ready = true;
 		AtomicsOperationsCountPerfTest::waitCv.wait(lck);
@@ -88,7 +91,9 @@ void rdma::AtomicsOperationsCountPerfClientThread::run() {
 
 
 
-rdma::AtomicsOperationsCountPerfTest::AtomicsOperationsCountPerfTest(int testOperations, bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, std::string ownIpPort, std::string sequencerIpPort, int local_gpu_index, int remote_gpu_index, int thread_count, int buffer_slots, uint64_t iterations_per_thread) : PerfTest(testOperations){
+rdma::AtomicsOperationsCountPerfTest::AtomicsOperationsCountPerfTest(int testOperations, bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, std::string ownIpPort, std::string sequencerIpPort, int local_gpu_index, int remote_gpu_index, int client_count, int thread_count, int buffer_slots, uint64_t iterations_per_thread) : PerfTest(testOperations){
+	thread_count *= client_count;
+
 	this->m_is_server = is_server;
 	this->m_rdma_port = rdma_port;
 	this->m_ownIpPort = ownIpPort;
@@ -96,8 +101,8 @@ rdma::AtomicsOperationsCountPerfTest::AtomicsOperationsCountPerfTest(int testOpe
 	this->m_local_gpu_index = local_gpu_index;
 	this->m_actual_gpu_index = -1;
 	this->m_remote_gpu_index = remote_gpu_index;
-	this->m_thread_count = thread_count;
-	this->m_memory_size = thread_count * rdma::ATOMICS_SIZE * buffer_slots;
+	this->thread_count = thread_count;
+	this->m_memory_size = thread_count * rdma::ATOMICS_SIZE * buffer_slots * rdma_addresses.size();
 	this->m_buffer_slots = buffer_slots;
 	this->m_iterations_per_thread = iterations_per_thread;
 	this->m_rdma_addresses = rdma_addresses;
@@ -114,10 +119,11 @@ rdma::AtomicsOperationsCountPerfTest::~AtomicsOperationsCountPerfTest(){
 
 std::string rdma::AtomicsOperationsCountPerfTest::getTestParameters(bool forCSV){
 	std::ostringstream oss;
-	oss << (m_is_server ? "Server" : "Client") << ", threads=" << m_thread_count << ", bufferslots=" << m_buffer_slots << ", packetsize=" << rdma::ATOMICS_SIZE << ", memory=";
-	oss << m_memory_size << " (" << m_thread_count << "x " << m_buffer_slots << "x " << rdma::ATOMICS_SIZE << ")";
+	oss << (m_is_server ? "Server" : "Client") << ", threads=" << thread_count << ", bufferslots=" << m_buffer_slots << ", packetsize=" << rdma::ATOMICS_SIZE;
+	oss << ", memory=" << m_memory_size << " (2x " << thread_count << "x " << m_buffer_slots << "x ";
+	if(!m_is_server){ oss << m_rdma_addresses.size() << "x "; } oss << rdma::ATOMICS_SIZE << ")";
 	oss << ", memory_type=" << getMemoryName(m_local_gpu_index, m_actual_gpu_index) << (m_remote_gpu_index!=-404 ? "->"+getMemoryName(m_remote_gpu_index) : "");
-	if(!forCSV){ oss << ", iterations=" << (m_iterations_per_thread*m_thread_count); }
+	if(!forCSV){ oss << ", iterations=" << (m_iterations_per_thread*thread_count); }
 	return oss.str();
 }
 std::string rdma::AtomicsOperationsCountPerfTest::getTestParameters(){
@@ -127,11 +133,11 @@ std::string rdma::AtomicsOperationsCountPerfTest::getTestParameters(){
 void rdma::AtomicsOperationsCountPerfTest::makeThreadsReady(TestOperation testOperation){
 	AtomicsOperationsCountPerfTest::testOperation = testOperation;
 	AtomicsOperationsCountPerfTest::signaled = false;
-	for(AtomicsOperationsCountPerfClientThread* perfThread : m_client_threads){
-		perfThread->start();
-		while(!perfThread->ready()) {
-			usleep(Config::RDMA_SLEEP_INTERVAL);
-		}
+	if(m_is_server){
+		rdma::PerfTest::global_barrier_server(m_server, (size_t)thread_count);
+	} else {
+		for(AtomicsOperationsCountPerfClientThread* perfThread : m_client_threads){ perfThread->start(); }
+		for(AtomicsOperationsCountPerfClientThread* perfThread : m_client_threads){ while(!perfThread->ready()) usleep(Config::RDMA_SLEEP_INTERVAL); }
 	}
 }
 
@@ -168,7 +174,7 @@ void rdma::AtomicsOperationsCountPerfTest::setupTest(){
 
 	} else {
 		// Client
-		for (int i = 0; i < m_thread_count; i++) {
+		for (int i = 0; i < thread_count; i++) {
 			AtomicsOperationsCountPerfClientThread* perfThread = new AtomicsOperationsCountPerfClientThread(m_memory, m_rdma_addresses, m_ownIpPort, m_sequencerIpPort, m_buffer_slots, m_iterations_per_thread);
 			m_client_threads.push_back(perfThread);
 		}
@@ -186,8 +192,20 @@ void rdma::AtomicsOperationsCountPerfTest::runTest(){
 			std::cout << "Server running on '" << rdma::Config::getIP(rdma::Config::RDMA_INTERFACE) << ":" << m_rdma_port << "'" << std::endl; // TODO REMOVE
 		}
 		
+		// Measure Latency for fetching & adding
+		if(hasTestOperation(FETCH_ADD_OPERATION)){
+			makeThreadsReady(FETCH_ADD_OPERATION); // fetch & add
+			runThreads();
+		}
+
+		// Measure Latency for comparing & swaping
+		if(hasTestOperation(COMPARE_SWAP_OPERATION)){
+			makeThreadsReady(COMPARE_SWAP_OPERATION); // compare & swap
+			runThreads();
+		}
+
 		// waiting until clients have connected
-		while(m_server->getConnectedConnIDs().size() < (size_t)m_thread_count) usleep(Config::RDMA_SLEEP_INTERVAL);
+		while(m_server->getConnectedConnIDs().size() < (size_t)thread_count) usleep(Config::RDMA_SLEEP_INTERVAL);
 
 		// wait until clients have finished
 		while (m_server->isRunning() && m_server->getConnectedConnIDs().size() > 0) usleep(Config::RDMA_SLEEP_INTERVAL);
@@ -228,12 +246,12 @@ std::string rdma::AtomicsOperationsCountPerfTest::getTestResults(std::string csv
 		*/
 
 		const long double tu = (long double)NANO_SEC; // 1sec (nano to seconds as time unit)
-        const uint64_t iters = m_iterations_per_thread * m_thread_count;
+        const uint64_t iters = m_iterations_per_thread * thread_count * m_rdma_addresses.size();
 
 		int64_t maxFetchAdd=-1, minFetchAdd=std::numeric_limits<int64_t>::max();
 		int64_t maxCompareSwap=-1, minCompareSwap=std::numeric_limits<int64_t>::max();
-		int64_t arrFetchAdd[m_thread_count];
-		int64_t arrCompareSwap[m_thread_count];
+		int64_t arrFetchAdd[thread_count];
+		int64_t arrCompareSwap[thread_count];
 		long double avgFetchAdd=0, medianFetchAdd, avgCompareSwap=0, medianCompareSwap;
 		const long double div = 1; // TODO not sure why additional   m_thread_count  is too much
 		const long double divAvg = m_client_threads.size() * div;
@@ -251,10 +269,10 @@ std::string rdma::AtomicsOperationsCountPerfTest::getTestResults(std::string csv
 		minFetchAdd /= div; maxFetchAdd /= div;
 		minCompareSwap /= div; maxCompareSwap /= div;
 
-		std::sort(arrFetchAdd, arrFetchAdd + m_thread_count);
-		std::sort(arrCompareSwap, arrCompareSwap + m_thread_count);
-		medianFetchAdd = arrFetchAdd[(int)(m_thread_count/2)] / div;
-		medianCompareSwap = arrCompareSwap[(int)(m_thread_count/2)] / div;
+		std::sort(arrFetchAdd, arrFetchAdd + thread_count);
+		std::sort(arrCompareSwap, arrCompareSwap + thread_count);
+		medianFetchAdd = arrFetchAdd[(int)(thread_count/2)] / div;
+		medianCompareSwap = arrCompareSwap[(int)(thread_count/2)] / div;
 
 		// write results into CSV file
 		if(!csvFileName.empty()){

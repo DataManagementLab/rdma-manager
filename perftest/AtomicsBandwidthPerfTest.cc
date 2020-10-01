@@ -12,11 +12,13 @@ mutex rdma::AtomicsBandwidthPerfTest::waitLock;
 condition_variable rdma::AtomicsBandwidthPerfTest::waitCv;
 bool rdma::AtomicsBandwidthPerfTest::signaled;
 rdma::TestOperation rdma::AtomicsBandwidthPerfTest::testOperation;
+int rdma::AtomicsBandwidthPerfTest::thread_count;
 
 rdma::AtomicsBandwidthPerfClientThread::AtomicsBandwidthPerfClientThread(BaseMemory *memory, std::vector<std::string>& rdma_addresses, std::string ownIpPort, std::string sequencerIpPort, int buffer_slots, size_t iterations_per_thread) {
 	this->m_client = new RDMAClient<ReliableRDMA>(memory, "AtomicsBandwidthPerfTestClient", ownIpPort, sequencerIpPort);
 	this->m_rdma_addresses = rdma_addresses;
-	this->m_memory_per_thread = buffer_slots * rdma::ATOMICS_SIZE;
+	this->m_remote_memory_per_thread = buffer_slots * rdma::ATOMICS_SIZE;
+	this->m_memory_per_thread = m_remote_memory_per_thread * rdma_addresses.size();
 	this->m_buffer_slots = buffer_slots;
 	this->m_iterations_per_thread = iterations_per_thread;
 	m_remOffsets = new size_t[m_rdma_addresses.size()];
@@ -32,7 +34,7 @@ rdma::AtomicsBandwidthPerfClientThread::AtomicsBandwidthPerfClientThread(BaseMem
 		}
 		//std::cout << "Thread connected to '" << conn << "'" << std::endl; // TODO REMOVE
 		m_addr.push_back(nodeId);
-		m_client->remoteAlloc(conn, m_memory_per_thread, m_remOffsets[i]);
+		m_client->remoteAlloc(conn, m_remote_memory_per_thread, m_remOffsets[i]);
 	}
 
 	m_local_memory = m_client->localMalloc(m_memory_per_thread);
@@ -43,7 +45,7 @@ rdma::AtomicsBandwidthPerfClientThread::AtomicsBandwidthPerfClientThread(BaseMem
 rdma::AtomicsBandwidthPerfClientThread::~AtomicsBandwidthPerfClientThread() {
 	for (size_t i = 0; i < m_rdma_addresses.size(); ++i) {
 		string addr = m_rdma_addresses[i];
-		m_client->remoteFree(addr, m_memory_per_thread, m_remOffsets[i]);
+		m_client->remoteFree(addr, m_remote_memory_per_thread, m_remOffsets[i]);
 	}
     delete m_remOffsets;
 	delete m_local_memory; // implicitly deletes local allocs in RDMAClient
@@ -51,7 +53,8 @@ rdma::AtomicsBandwidthPerfClientThread::~AtomicsBandwidthPerfClientThread() {
 }
 
 void rdma::AtomicsBandwidthPerfClientThread::run() {
-	unique_lock<mutex> lck(AtomicsBandwidthPerfTest::waitLock);
+	rdma::PerfTest::global_barrier_client(m_client, m_addr); // global barrier
+	unique_lock<mutex> lck(AtomicsBandwidthPerfTest::waitLock); // local barrier
 	if (!AtomicsBandwidthPerfTest::signaled) {
 		m_ready = true;
 		AtomicsBandwidthPerfTest::waitCv.wait(lck);
@@ -88,7 +91,9 @@ void rdma::AtomicsBandwidthPerfClientThread::run() {
 
 
 
-rdma::AtomicsBandwidthPerfTest::AtomicsBandwidthPerfTest(int testOperations, bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, std::string ownIpPort, std::string sequencerIpPort, int local_gpu_index, int remote_gpu_index, int thread_count, int buffer_slots, uint64_t iterations_per_thread) : PerfTest(testOperations){
+rdma::AtomicsBandwidthPerfTest::AtomicsBandwidthPerfTest(int testOperations, bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, std::string ownIpPort, std::string sequencerIpPort, int local_gpu_index, int remote_gpu_index, int client_count, int thread_count, int buffer_slots, uint64_t iterations_per_thread) : PerfTest(testOperations){
+	thread_count *= client_count;
+	
 	this->m_is_server = is_server;
 	this->m_rdma_port = rdma_port;
 	this->m_ownIpPort = ownIpPort;
@@ -96,8 +101,8 @@ rdma::AtomicsBandwidthPerfTest::AtomicsBandwidthPerfTest(int testOperations, boo
 	this->m_local_gpu_index = local_gpu_index;
 	this->m_actual_gpu_index = -1;
 	this->m_remote_gpu_index = remote_gpu_index;
-	this->m_thread_count = thread_count;
-	this->m_memory_size = thread_count * rdma::ATOMICS_SIZE * buffer_slots;
+	this->thread_count = thread_count;
+	this->m_memory_size = thread_count * rdma::ATOMICS_SIZE * buffer_slots * rdma_addresses.size();
 	this->m_buffer_slots = buffer_slots;
 	this->m_iterations_per_thread = iterations_per_thread;
 	this->m_rdma_addresses = rdma_addresses;
@@ -114,10 +119,11 @@ rdma::AtomicsBandwidthPerfTest::~AtomicsBandwidthPerfTest(){
 
 std::string rdma::AtomicsBandwidthPerfTest::getTestParameters(bool forCSV){
 	std::ostringstream oss;
-	oss << (m_is_server ? "Server" : "Client") << ", threads=" << m_thread_count << ", bufferslots=" << m_buffer_slots << ", packetsize=" << rdma::ATOMICS_SIZE << ", memory=";
-	oss << m_memory_size << " (" << m_thread_count << "x " << m_buffer_slots << "x " << rdma::ATOMICS_SIZE << ")";
+	oss << (m_is_server ? "Server" : "Client") << ", threads=" << thread_count << ", bufferslots=" << m_buffer_slots << ", packetsize=" << rdma::ATOMICS_SIZE;
+	oss << ", memory=" << m_memory_size << " (2x " << thread_count << "x " << m_buffer_slots << "x ";
+	if(!m_is_server){ oss << m_rdma_addresses.size() << "x "; } oss << rdma::ATOMICS_SIZE << ")";
 	oss << ", memory_type=" << getMemoryName(m_local_gpu_index, m_actual_gpu_index) << (m_remote_gpu_index!=-404 ? "->"+getMemoryName(m_remote_gpu_index) : "");
-	if(!forCSV){ oss << ", iterations=" << (m_iterations_per_thread*m_thread_count); }
+	if(!forCSV){ oss << ", iterations=" << (m_iterations_per_thread*thread_count); }
 	return oss.str();
 }
 std::string rdma::AtomicsBandwidthPerfTest::getTestParameters(){
@@ -127,11 +133,11 @@ std::string rdma::AtomicsBandwidthPerfTest::getTestParameters(){
 void rdma::AtomicsBandwidthPerfTest::makeThreadsReady(TestOperation testOperation){
 	AtomicsBandwidthPerfTest::testOperation = testOperation;
 	AtomicsBandwidthPerfTest::signaled = false;
-	for(AtomicsBandwidthPerfClientThread* perfThread : m_client_threads){
-		perfThread->start();
-		while(!perfThread->ready()) {
-			usleep(Config::RDMA_SLEEP_INTERVAL);
-		}
+	if(m_is_server){
+		rdma::PerfTest::global_barrier_server(m_server, (size_t)thread_count);
+	} else {
+		for(AtomicsBandwidthPerfClientThread* perfThread : m_client_threads){ perfThread->start(); }
+		for(AtomicsBandwidthPerfClientThread* perfThread : m_client_threads){ while(!perfThread->ready()) usleep(Config::RDMA_SLEEP_INTERVAL); }
 	}
 }
 
@@ -168,7 +174,7 @@ void rdma::AtomicsBandwidthPerfTest::setupTest(){
 
 	} else {
 		// Client
-		for (int i = 0; i < m_thread_count; i++) {
+		for (int i = 0; i < thread_count; i++) {
 			AtomicsBandwidthPerfClientThread* perfThread = new AtomicsBandwidthPerfClientThread(m_memory, m_rdma_addresses, m_ownIpPort, m_sequencerIpPort, m_buffer_slots, m_iterations_per_thread);
 			m_client_threads.push_back(perfThread);
 		}
@@ -186,8 +192,20 @@ void rdma::AtomicsBandwidthPerfTest::runTest(){
 			std::cout << "Server running on '" << rdma::Config::getIP(rdma::Config::RDMA_INTERFACE) << ":" << m_rdma_port << "'" << std::endl; // TODO REMOVE
 		}
 		
+		// Measure Latency for fetching & adding
+		if(hasTestOperation(FETCH_ADD_OPERATION)){
+			makeThreadsReady(FETCH_ADD_OPERATION); // fetch & add
+			runThreads();
+		}
+
+		// Measure Latency for comparing & swaping
+		if(hasTestOperation(COMPARE_SWAP_OPERATION)){
+			makeThreadsReady(COMPARE_SWAP_OPERATION); // compare & swap
+			runThreads();
+		}
+
 		// waiting until clients have connected
-		while(m_server->getConnectedConnIDs().size() < (size_t)m_thread_count) usleep(Config::RDMA_SLEEP_INTERVAL);
+		while(m_server->getConnectedConnIDs().size() < (size_t)thread_count) usleep(Config::RDMA_SLEEP_INTERVAL);
 
 		// wait until clients have finished
 		while (m_server->isRunning() && m_server->getConnectedConnIDs().size() > 0) usleep(Config::RDMA_SLEEP_INTERVAL);
@@ -229,15 +247,15 @@ std::string rdma::AtomicsBandwidthPerfTest::getTestResults(std::string csvFileNa
 
 		const long double tu = (long double)NANO_SEC; // 1sec (nano to seconds as time unit)
 		
-		const uint64_t iters = m_iterations_per_thread * m_thread_count;
-		uint64_t transferedBytesFetchAdd = iters * rdma::ATOMICS_SIZE * 1; // 8 bytes send (IGNORE: + 8 bytes receive)
-		uint64_t transferedBytesCompSwap = iters * rdma::ATOMICS_SIZE * 2; // 16 bytes send (IGNORE: + 8 bytes receive)
+		const uint64_t iters = m_iterations_per_thread * thread_count;
+		uint64_t transferedBytesFetchAdd = iters * rdma::ATOMICS_SIZE * m_rdma_addresses.size() * 1 ; // 8 bytes send (IGNORE: + 8 bytes receive)
+		uint64_t transferedBytesCompSwap = iters * rdma::ATOMICS_SIZE * m_rdma_addresses.size() * 1; // 8 bytes send (IGNORE: + 8 bytes receive)
 		int64_t maxFetchAddMs=-1, minFetchAddMs=std::numeric_limits<int64_t>::max();
 		int64_t maxCompareSwapMs=-1, minCompareSwapMs=std::numeric_limits<int64_t>::max();
-		int64_t arrFetchAddMs[m_thread_count];
-		int64_t arrCompareSwapMs[m_thread_count];
+		int64_t arrFetchAddMs[thread_count];
+		int64_t arrCompareSwapMs[thread_count];
 		long double avgFetchAddMs=0, medianFetchAddMs, avgCompareSwapMs=0, medianCompareSwapMs;
-		const long double div = 1; // TODO not sure why additional   m_thread_count  is too much
+		const long double div = 1; // TODO not sure why additional   thread_count  is too much
 		const long double divAvg = m_client_threads.size() * div;
 		for(size_t i=0; i<m_client_threads.size(); i++){
 			AtomicsBandwidthPerfClientThread *thr = m_client_threads[i];
@@ -253,10 +271,10 @@ std::string rdma::AtomicsBandwidthPerfTest::getTestResults(std::string csvFileNa
 		minFetchAddMs /= div; maxFetchAddMs /= div;
 		minCompareSwapMs /= div; maxCompareSwapMs /= div;
 
-		std::sort(arrFetchAddMs, arrFetchAddMs + m_thread_count);
-		std::sort(arrCompareSwapMs, arrCompareSwapMs + m_thread_count);
-		medianFetchAddMs = arrFetchAddMs[(int)(m_thread_count/2)] / div;
-		medianCompareSwapMs = arrCompareSwapMs[(int)(m_thread_count/2)] / div;
+		std::sort(arrFetchAddMs, arrFetchAddMs + thread_count);
+		std::sort(arrCompareSwapMs, arrCompareSwapMs + thread_count);
+		medianFetchAddMs = arrFetchAddMs[(int)(thread_count/2)] / div;
+		medianCompareSwapMs = arrCompareSwapMs[(int)(thread_count/2)] / div;
 
 		// write results into CSV file
 		if(!csvFileName.empty()){

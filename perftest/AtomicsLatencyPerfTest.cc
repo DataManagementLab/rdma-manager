@@ -15,8 +15,8 @@ int rdma::AtomicsLatencyPerfTest::thread_count;
 rdma::AtomicsLatencyPerfClientThread::AtomicsLatencyPerfClientThread(BaseMemory *memory, std::vector<std::string>& rdma_addresses, std::string ownIpPort, std::string sequencerIpPort, int buffer_slots, size_t iterations_per_thread) {
 	this->m_client = new RDMAClient<ReliableRDMA>(memory, "AtomicsLatencyPerfTestClient", ownIpPort, sequencerIpPort);
 	this->m_rdma_addresses = rdma_addresses;
-	this->m_remote_memory_size_per_thread = buffer_slots * rdma::ATOMICS_SIZE;
-	this->m_memory_per_thread = m_remote_memory_size_per_thread * rdma_addresses.size();
+	this->m_remote_memory_per_thread = buffer_slots * rdma::ATOMICS_SIZE;
+	this->m_memory_per_thread = m_remote_memory_per_thread * rdma_addresses.size();
 	this->m_buffer_slots = buffer_slots;
 	this->m_iterations_per_thread = iterations_per_thread;
 	this->m_remOffsets = new size_t[m_rdma_addresses.size()];
@@ -34,7 +34,7 @@ rdma::AtomicsLatencyPerfClientThread::AtomicsLatencyPerfClientThread(BaseMemory 
 		}
 		//std::cout << "Thread connected to '" << conn << "'" << std::endl; // TODO REMOVE
 		m_addr.push_back(nodeId);
-		m_client->remoteAlloc(conn, m_remote_memory_size_per_thread, m_remOffsets[i]);
+		m_client->remoteAlloc(conn, m_remote_memory_per_thread, m_remOffsets[i]);
 	}
 
 	m_local_memory = m_client->localMalloc(m_memory_per_thread);
@@ -45,7 +45,7 @@ rdma::AtomicsLatencyPerfClientThread::AtomicsLatencyPerfClientThread(BaseMemory 
 rdma::AtomicsLatencyPerfClientThread::~AtomicsLatencyPerfClientThread() {
 	for (size_t i = 0; i < m_rdma_addresses.size(); ++i) {
 		string addr = m_rdma_addresses[i];
-		m_client->remoteFree(addr, m_remote_memory_size_per_thread, m_remOffsets[i]);
+		m_client->remoteFree(addr, m_remote_memory_per_thread, m_remOffsets[i]);
 	}
     delete m_remOffsets;
 	delete m_local_memory; // implicitly deletes local allocs in RDMAClient

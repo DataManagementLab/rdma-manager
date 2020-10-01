@@ -519,7 +519,7 @@ int main(int argc, char *argv[]){
                         if(t == ATOMICS_BANDWIDTH_TEST){
                             // Atomics Bandwidth Test
                             testName = "Atomics Bandwidth";
-                            test = new rdma::AtomicsBandwidthPerfTest(test_ops, FLAGS_server, addresses, FLAGS_port, ownIpPort, sequencerIpAddr, local_gpu_index, remote_gpu_index, thread_count, buffer_slots, iterations_per_thread);
+                            test = new rdma::AtomicsBandwidthPerfTest(test_ops, FLAGS_server, addresses, FLAGS_port, ownIpPort, sequencerIpAddr, local_gpu_index, remote_gpu_index, FLAGS_clients, thread_count, buffer_slots, iterations_per_thread);
 
                         } else if(t == ATOMICS_LATENCY_TEST){
                             // Atomics Latency Test
@@ -529,7 +529,7 @@ int main(int argc, char *argv[]){
                         } else if(t == ATOMICS_OPERATIONS_COUNT_TEST){
                             // Atomics Operations Count Test
                             testName = "Atomics Operations Count";
-                            test = new rdma::AtomicsOperationsCountPerfTest(test_ops, FLAGS_server, addresses, FLAGS_port, ownIpPort, sequencerIpAddr, local_gpu_index, remote_gpu_index, thread_count, buffer_slots, iterations_per_thread);
+                            test = new rdma::AtomicsOperationsCountPerfTest(test_ops, FLAGS_server, addresses, FLAGS_port, ownIpPort, sequencerIpAddr, local_gpu_index, remote_gpu_index, FLAGS_clients, thread_count, buffer_slots, iterations_per_thread);
                         }
 
                         if(test != nullptr){
