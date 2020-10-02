@@ -49,7 +49,8 @@ DEFINE_bool(ignoreerrors, false, "If an error occurs test will be skiped and exe
 DEFINE_string(config, "./bin/conf/RDMA.conf", "Path to the config file");
 
 enum TEST { BANDWIDTH_TEST=1, LATENCY_TEST=2, OPERATIONS_COUNT_TEST=3, ATOMICS_BANDWIDTH_TEST=4, ATOMICS_LATENCY_TEST=5, ATOMICS_OPERATIONS_COUNT_TEST=6 };
-const uint64_t MINIMUM_PACKET_SIZE = 4; // >=4 for latency to transfer remote offset,  GPUDirect needs at least 128
+extern const uint64_t MINIMUM_PACKET_SIZE = 4; // >=4 for latency to transfer remote offset
+
 
 static std::vector<int> parseIntList(std::string str){
     std::vector<int> v;
@@ -224,14 +225,14 @@ int main(int argc, char *argv[]){
     }
     if(FLAGS_fulltest){
         // TODO for some reason GPUDirect not working for GPU memory smaller than 128 bytes
-        if(FLAGS_packetsize.empty()) FLAGS_packetsize = "256,512,1024,2048,4096,8192,16384,32768,65536,131072,262144,524288,1048576";
+        if(FLAGS_packetsize.empty()) FLAGS_packetsize = "4,8,16,32,64,128,256,512,1024,2048,4096,8192,16384,32768,65536,131072,262144,524288,1048576";
         if(FLAGS_threads.empty()) FLAGS_threads = "1,2,4,8,16";
         if(FLAGS_iterations.empty()) FLAGS_iterations = "500,500000";
         if(FLAGS_bufferslots.empty()) FLAGS_bufferslots = "1,16";
 
     } else if(FLAGS_halftest){
         // TODO for some reason GPUDirect not working for GPU memory smaller than 128 bytes
-        if(FLAGS_packetsize.empty()) FLAGS_packetsize = "256,1024,4096,16384,65536,262144,1048576";
+        if(FLAGS_packetsize.empty()) FLAGS_packetsize = "8,64,256,1024,4096,16384,65536,262144,1048576";
         if(FLAGS_threads.empty()) FLAGS_threads = "1,4,16";
         if(FLAGS_iterations.empty()) FLAGS_iterations = "500,500000";
         if(FLAGS_bufferslots.empty()) FLAGS_bufferslots = "1,16";
@@ -482,6 +483,16 @@ int main(int argc, char *argv[]){
                         for(rdma::WriteMode &write_mode : write_modes){
                             csvAddHeader = true;
                             for(uint64_t &packet_size : packetsizes){
+
+                                // skip if GPU and packet size < Config::GPUDIRECT_MINIMUM_MSG_SIZE  (same if condition lower)
+                                if((FLAGS_server ? remote_gpu_index : local_gpu_index) > (int)rdma::MEMORY_TYPE::MAIN && packet_size < rdma::Config::GPUDIRECT_MINIMUM_MSG_SIZE){
+                                    std::cout << "SKIPPING TEST BECAUSE LOCAL GPU " << local_gpu_index << " (>" << (int)rdma::MEMORY_TYPE::MAIN;
+                                    std::cout << ") AND PACKET SIZE " << packet_size << " (<" << rdma::Config::GPUDIRECT_MINIMUM_MSG_SIZE << ")" << std::endl;
+                                    testCounter++;
+                                    csvAddHeader = false;
+                                    continue;
+                                }
+
                                 test = nullptr;
                                 uint64_t iterations_per_thread = (uint64_t)((long double)transfersize / (long double)packet_size + 0.5);
                                 if(FLAGS_maxiterations > 0 && iterations_per_thread > (uint64_t)FLAGS_maxiterations) iterations_per_thread = FLAGS_maxiterations;
@@ -542,6 +553,16 @@ int main(int argc, char *argv[]){
                         for(rdma::WriteMode &write_mode : write_modes){
                             csvAddHeader = true;
                             for(uint64_t &packet_size : packetsizes){
+
+                                // skip if GPU and packet size < Config::GPUDIRECT_MINIMUM_MSG_SIZE  (same if condition above)
+                                if((FLAGS_server ? remote_gpu_index : local_gpu_index) > (int)rdma::MEMORY_TYPE::MAIN && packet_size < rdma::Config::GPUDIRECT_MINIMUM_MSG_SIZE){
+                                    std::cout << "SKIPPING TEST BECAUSE LOCAL GPU " << local_gpu_index << " (>" << (int)rdma::MEMORY_TYPE::MAIN;
+                                    std::cout << ") AND PACKET SIZE " << packet_size << " (<" << rdma::Config::GPUDIRECT_MINIMUM_MSG_SIZE << ")" << std::endl;
+                                    testCounter++;
+                                    csvAddHeader = false;
+                                    continue;
+                                }
+
                                 test = nullptr;
 
                                 if(maxtransfersize > 0){

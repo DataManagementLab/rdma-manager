@@ -73,6 +73,15 @@ public:
         return ((char*)buffer + offset);
     }
 
+    /* Function:  isGPUMemory
+     * --------------------
+     * Returns true if the memory is 
+     * allocated on a GPU
+     */ 
+    virtual bool isGPUMemory() {
+        return false;
+    }
+
     /* Function: openContext
      * ---------------------
      * Must be called before using the raw pointer if it 

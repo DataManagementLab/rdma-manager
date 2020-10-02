@@ -74,6 +74,10 @@ public:
         return this->device_index;
     }
 
+    virtual bool isGPUMemory() override {
+        return true;
+    }
+
     virtual void openContext() override;
 
     virtual void closeContext() override;

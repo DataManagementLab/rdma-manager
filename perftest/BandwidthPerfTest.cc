@@ -54,7 +54,13 @@ rdma::BandwidthPerfClientThread::BandwidthPerfClientThread(BaseMemory *memory, s
 	// send nodeID to tell remote thread how to respond
 	for(size_t connIdx=0; connIdx < m_rdma_addresses.size(); connIdx++){
 		m_local_memory->set((uint32_t)m_client->getOwnNodeID(), 0);
-		m_client->write(m_addr[connIdx], m_remOffsets[connIdx], m_local_memory->pointer(), sizeof(uint32_t), true);
+		if(m_client->getBufferObj()->isGPUMemory()){ // TODO REMOVE
+			m_client->write(m_addr[connIdx], m_remOffsets[connIdx], m_local_memory->pointer(), rdma::Config::GPUDIRECT_MINIMUM_MSG_SIZE, true); // TODO REMOVE
+		} else { // TODO REMOVE
+
+			m_client->write(m_addr[connIdx], m_remOffsets[connIdx], m_local_memory->pointer(), sizeof(uint32_t), true);
+
+		} // TODO REMOVE
 	}
 	m_local_memory->setMemory(1);
 }
