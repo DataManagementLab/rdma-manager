@@ -54,106 +54,118 @@ void AbstractCudaMemory::setMemory(int value, size_t offset, size_t num){
     closeContext();
 }
 
-void AbstractCudaMemory::copyTo(void *destination){
+
+void AbstractCudaMemory::copyTo(void *destination, MEMORY_TYPE memtype){
     size_t s = sizeof(destination);
-    copyTo(destination, (s < this->mem_size ? s : this->mem_size));
+    copyTo(destination, (s < this->mem_size ? s : this->mem_size), memtype);
 }
 
-void AbstractCudaMemory::copyTo(void *destination, size_t num){
-    copyTo(destination, 0, 0, num);
+void AbstractCudaMemory::copyTo(void *destination, size_t num, MEMORY_TYPE memtype){
+    copyTo(destination, 0, 0, num, memtype);
 }
 
-void AbstractCudaMemory::copyTo(void *destination, size_t destOffset, size_t srcOffset, size_t num){
-    openContext();
-    checkCudaError(cudaMemcpy((void*)((size_t)destination + destOffset), (void*)((size_t)this->buffer + srcOffset), num, cudaMemcpyDeviceToHost), 
-                                "AbstractCudaMemory::copyTo could not copy data to given destination\n");
-    closeContext();
+void AbstractCudaMemory::copyTo(void *destination, size_t destOffset, size_t srcOffset, size_t num, MEMORY_TYPE memtype){
+    destination = (void*)((size_t)destination + destOffset);
+    void* source = (void*)((size_t)this->buffer + srcOffset);
+    if((int)memtype <= (int)MEMORY_TYPE::MAIN){
+        checkCudaError(cudaMemcpy(destination, source, num, cudaMemcpyDeviceToHost), 
+                                    "AbstractCudaMemory::copyTo could not copy data from GPU to MAIN\n");
+    } else {
+        checkCudaError(cudaMemcpy(destination, source, num, cudaMemcpyDeviceToDevice), 
+                                    "AbstractCudaMemory::copyTo could not copy data from GPU to GPU\n");
+    }
 }
 
-void AbstractCudaMemory::copyFrom(const void *source){
+void AbstractCudaMemory::copyFrom(const void *source, MEMORY_TYPE memtype){
     size_t s = sizeof(source);
-    copyFrom(source, (s < this->mem_size ? s : this->mem_size));
+    copyFrom(source, (s < this->mem_size ? s : this->mem_size), memtype);
 }
 
-void AbstractCudaMemory::copyFrom(const void *source, size_t num){
-    copyFrom(source, 0, 0, num);
+void AbstractCudaMemory::copyFrom(const void *source, size_t num, MEMORY_TYPE memtype){
+    copyFrom(source, 0, 0, num, memtype);
 }
 
-void AbstractCudaMemory::copyFrom(const void *source, size_t srcOffset, size_t destOffset, size_t num){
-    openContext();
-    checkCudaError(cudaMemcpy((void*)((size_t)this->buffer + destOffset), (void*)((size_t)source + srcOffset), num, cudaMemcpyHostToDevice), 
-                                "AbstractCudaMemory::copyFrom could not copy data from given source\n");
-    closeContext();
+void AbstractCudaMemory::copyFrom(const void *source, size_t srcOffset, size_t destOffset, size_t num, MEMORY_TYPE memtype){
+    source = (void*)((size_t)source + srcOffset);
+    void* destination = (void*)((size_t)this->buffer + destOffset);
+    if((int)memtype <= (int)MEMORY_TYPE::MAIN){
+        checkCudaError(cudaMemcpy(destination, source, num, cudaMemcpyHostToDevice), 
+                                    "AbstractCudaMemory::copyFrom could not copy data from MAIN TO GPU\n");
+    } else {
+        checkCudaError(cudaMemcpy(destination, source, num, cudaMemcpyDeviceToDevice), 
+                                    "AbstractCudaMemory::copyFrom could not copy data from GPU TO GPU\n");
+    }
 }
+
 
 char AbstractCudaMemory::getChar(size_t offset){
     char tmp[1];
-    copyTo((void*)tmp, 0, offset, sizeof(tmp));
+    copyTo((void*)tmp, 0, offset, sizeof(tmp), MEMORY_TYPE::MAIN);
     return tmp[0];
 }
 
 void AbstractCudaMemory::set(char value, size_t offset){
-    copyFrom((void*)&value, 0, offset, sizeof(value));
+    copyFrom((void*)&value, 0, offset, sizeof(value), MEMORY_TYPE::MAIN);
 }
 
 int16_t AbstractCudaMemory::getInt16(size_t offset){
     int16_t tmp[1];
-    copyTo((void*)tmp, 0, offset, sizeof(tmp));
+    copyTo((void*)tmp, 0, offset, sizeof(tmp), MEMORY_TYPE::MAIN);
     return tmp[0];
 }
 
 void AbstractCudaMemory::set(int16_t value, size_t offset){
-    copyFrom((void*)&value, 0, offset, sizeof(value));
+    copyFrom((void*)&value, 0, offset, sizeof(value), MEMORY_TYPE::MAIN);
 }
 
 uint16_t AbstractCudaMemory::getUInt16(size_t offset){
     uint16_t tmp[1];
-    copyTo((void*)tmp, 0, offset, sizeof(tmp));
+    copyTo((void*)tmp, 0, offset, sizeof(tmp), MEMORY_TYPE::MAIN);
     return tmp[0];
 }
 
 void AbstractCudaMemory::set(uint16_t value, size_t offset){
-    copyFrom((void*)&value, 0, offset, sizeof(value));
+    copyFrom((void*)&value, 0, offset, sizeof(value), MEMORY_TYPE::MAIN);
 }
 
 int32_t AbstractCudaMemory::getInt32(size_t offset){
     int32_t tmp[1];
-    copyTo((void*)tmp, 0, offset, sizeof(tmp));
+    copyTo((void*)tmp, 0, offset, sizeof(tmp), MEMORY_TYPE::MAIN);
     return tmp[0];
 }
 
 void AbstractCudaMemory::set(int32_t value, size_t offset){
-    copyFrom((void*)&value, 0, offset, sizeof(value));
+    copyFrom((void*)&value, 0, offset, sizeof(value), MEMORY_TYPE::MAIN);
 }
 
 uint32_t AbstractCudaMemory::getUInt32(size_t offset){
     uint32_t tmp[1];
-    copyTo((void*)tmp, 0, offset, sizeof(tmp));
+    copyTo((void*)tmp, 0, offset, sizeof(tmp), MEMORY_TYPE::MAIN);
     return tmp[0];
 }
 
 void AbstractCudaMemory::set(uint32_t value, size_t offset){
-    copyFrom((void*)&value, 0, offset, sizeof(value));
+    copyFrom((void*)&value, 0, offset, sizeof(value), MEMORY_TYPE::MAIN);
 }
 
 int64_t AbstractCudaMemory::getInt64(size_t offset){
     int64_t tmp[1];
-    copyTo((void*)tmp, 0, offset, sizeof(tmp));
+    copyTo((void*)tmp, 0, offset, sizeof(tmp), MEMORY_TYPE::MAIN);
     return tmp[0];
 }
 
 void AbstractCudaMemory::set(int64_t value, size_t offset){
-    copyFrom((void*)&value, 0, offset, sizeof(value));
+    copyFrom((void*)&value, 0, offset, sizeof(value), MEMORY_TYPE::MAIN);
 }
 
 uint64_t AbstractCudaMemory::getUInt64(size_t offset){
     uint64_t tmp[1];
-    copyTo((void*)tmp, 0, offset, sizeof(tmp));
+    copyTo((void*)tmp, 0, offset, sizeof(tmp), MEMORY_TYPE::MAIN);
     return tmp[0];
 }
 
 void AbstractCudaMemory::set(uint64_t value, size_t offset){
-    copyFrom((void*)&value, 0, offset, sizeof(value));
+    copyFrom((void*)&value, 0, offset, sizeof(value), MEMORY_TYPE::MAIN);
 }
 
 #endif /* CUDA support */

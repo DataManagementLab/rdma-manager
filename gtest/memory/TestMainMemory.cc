@@ -23,8 +23,8 @@ void test(bool huge, MainMemory *mem){
     mem->setMemory(0);
     ASSERT_TRUE(strcmp((char*)mem->pointer(), check) == 0);
 
-    mem->copyFrom(msg);
-    mem->copyTo(check);
+    mem->copyFrom(msg, MEMORY_TYPE::MAIN);
+    mem->copyTo(check, MEMORY_TYPE::MAIN);
     ASSERT_TRUE(strcmp(msg, check) == 0);
 
     char value = 8, offset = 5;

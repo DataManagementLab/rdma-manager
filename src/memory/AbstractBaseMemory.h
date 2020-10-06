@@ -4,12 +4,41 @@
 #include <stdio.h>
 #include <cstdint>
 #include <string>
+#include <stdexcept>
+
+#ifdef CUDA_ENABLED /* defined in CMakeLists.txt to globally enable/disable CUDA support */
+#include <cuda_runtime_api.h>
+#endif
 
 namespace rdma {
+
+
+enum MEMORY_TYPE { MAIN=-3, GPU_NUMA=-2, GPU_DEFAULT=-1, GPU_0=0, GPU_1=1, GPU_2=2, GPU_3=3, GPU_4=4};
+
 
 class AbstractBaseMemory {
 
 protected:
+
+#ifdef CUDA_ENABLED /* defined in CMakeLists.txt to globally enable/disable CUDA support */
+    /* Function:  checkCudaError
+     * ---------------------
+     * Handles CUDA errors
+     *
+     * code:  CUDA error code that should be handled
+     * msg:   Message that should be printed if code is an error code
+     *
+     */
+    static void checkCudaError(cudaError_t code, const char* msg){
+        if(code != cudaSuccess){
+            //fprintf(stderr, "CUDA-Error(%i): %s", code, msg);
+            throw std::runtime_error("CUDA-Error("+std::to_string(code)+") has occurred: "+msg);
+        }
+    }
+#endif
+
+
+
     size_t mem_size;
     void *buffer = NULL;
 
@@ -73,10 +102,17 @@ public:
         return ((char*)buffer + offset);
     }
 
+    /* Function:  isMainMemory
+     * --------------------
+     * Returns true if the memory is allocated in main memory
+     */ 
+    virtual bool isMainMemory() {
+        return false;
+    }
+
     /* Function:  isGPUMemory
      * --------------------
-     * Returns true if the memory is 
-     * allocated on a GPU
+     * Returns true if the memory is allocated on a GPU
      */ 
     virtual bool isGPUMemory() {
         return false;
@@ -173,15 +209,16 @@ public:
      */
     virtual void setMemory(int value, size_t offset, size_t num) = 0;
 
+
     /* Function:  copyTo
      * ---------------------
      * Copies the data from the handled memory to a given destination.
      * Same behavior as memcpy()
      *
      * destination:  the data in the handled memory should be copied to
-     *
+     * memtype:      memory type of the destination (default to main memory, which GPU doesn't matter)
      */
-    virtual void copyTo(void *destination) = 0;
+    virtual void copyTo(void *destination, MEMORY_TYPE memtype=MEMORY_TYPE::MAIN) = 0;
 
     /* Function:  copyTo
      * ---------------------
@@ -190,9 +227,9 @@ public:
      *
      * destination:  the data in the handled memory should be copied to
      * num:          how many bytes should be copied
-     *
+     * memtype:      memory type of the destination (default to main memory, which GPU doesn't matter)
      */
-    virtual void copyTo(void *destination, size_t num) = 0;
+    virtual void copyTo(void *destination, size_t num, MEMORY_TYPE memtype=MEMORY_TYPE::MAIN) = 0;
 
     /* Function:  copyTo
      * ---------------------
@@ -203,9 +240,9 @@ public:
      * destOffset:   offset where to start writing bytes at destination
      * srcOffset:    offset where to start reading bytes at this buffer
      * num:          how many bytes should be copied
-     *
+     * memtype:      memory type of the destination (default to main memory, which GPU doesn't matter)
      */
-    virtual void copyTo(void *destination, size_t destOffset, size_t srcOffset, size_t num) = 0;
+    virtual void copyTo(void *destination, size_t destOffset, size_t srcOffset, size_t num, MEMORY_TYPE memtype=MEMORY_TYPE::MAIN) = 0;
 
     /* Function:  copyFrom
      * ---------------------
@@ -213,9 +250,9 @@ public:
      * Same behavior as memcpy()
      *
      * source:  the data that should be copied to
-     *
+     * memtype: memory type of the source (default from main memory, which GPU doesn't matter)
      */
-    virtual void copyFrom(const void *source) = 0;
+    virtual void copyFrom(const void *source, MEMORY_TYPE memtype=MEMORY_TYPE::MAIN) = 0;
 
     /* Function:  copyFrom
      * ---------------------
@@ -224,9 +261,9 @@ public:
      *
      * source:  the data that should be copied to
      * num:     how many bytes should be copied
-     *
+     * memtype: memory type of the source (default from main memory, which GPU doesn't matter)
      */
-    virtual void copyFrom(const void *source, size_t num) = 0;
+    virtual void copyFrom(const void *source, size_t num, MEMORY_TYPE memtype=MEMORY_TYPE::MAIN) = 0;
 
     /* Function:  copyFrom
      * ---------------------
@@ -237,9 +274,10 @@ public:
      * srcOffset:    offset where to start reading bytes at source
      * destOffset:   offset where to start writing bytes at this buffer
      * num:     how many bytes should be copied
-     *
+     * memtype: memory type of the source (default from main memory, which GPU doesn't matter)
      */
-    virtual void copyFrom(const void *source, size_t srcOffset, size_t destOffset, size_t num) = 0;
+    virtual void copyFrom(const void *source, size_t srcOffset, size_t destOffset, size_t num, MEMORY_TYPE memtype=MEMORY_TYPE::MAIN) = 0;
+
 
     /* Function:  getChar
      * ---------------------

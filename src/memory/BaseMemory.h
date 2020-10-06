@@ -13,8 +13,6 @@
 
 namespace rdma {
 
-enum MEMORY_TYPE { MAIN=-3, GPU_NUMA=-2, GPU_DEFAULT=-1, GPU_0=0, GPU_1=1, GPU_2=2, GPU_3=3};
-
 struct rdma_mem_t {
   size_t size; // size of memory region
   bool free;

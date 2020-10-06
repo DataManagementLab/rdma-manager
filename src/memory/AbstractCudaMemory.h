@@ -1,11 +1,10 @@
-#ifdef CUDA_ENABLED /* defined in CMakeLists.txt to globally enable/disable CUDA support */
-
 #ifndef AbstractCudaMemory_H_
 #define AbstractCudaMemory_H_
 
 #include "AbstractBaseMemory.h"
-#include <cuda_runtime_api.h>
-#include <stdexcept>
+
+
+#ifdef CUDA_ENABLED /* defined in CMakeLists.txt to globally enable/disable CUDA support */
 
 namespace rdma {
     
@@ -13,21 +12,6 @@ class AbstractCudaMemory : virtual public AbstractBaseMemory {
 
 protected:
     int device_index, previous_device_index, open_context_counter = 0;
-
-    /* Function:  checkCudaError
-     * ---------------------
-     * Handles CUDA errors
-     *
-     * code:  CUDA error code that should be handled
-     * msg:   Message that should be printed if code is an error code
-     *
-     */
-    void checkCudaError(cudaError_t code, const char* msg){
-        if(code != cudaSuccess){
-            fprintf(stderr, "CUDA-Error(%i): %s", code, msg);
-            throw std::runtime_error("CUDA error has occurred!");
-        }
-    }
 
     /* Constructor
      * --------------
@@ -74,7 +58,7 @@ public:
         return this->device_index;
     }
 
-    virtual bool isGPUMemory() override {
+    bool isGPUMemory() override {
         return true;
     }
 
@@ -88,17 +72,17 @@ public:
 
     virtual void setMemory(int value, size_t offset, size_t num) override;
 
-    virtual void copyTo(void *destination) override;
+    virtual void copyTo(void *destination, MEMORY_TYPE memtype=MEMORY_TYPE::MAIN) override;
 
-    virtual void copyTo(void *destination, size_t num) override;
+    virtual void copyTo(void *destination, size_t num, MEMORY_TYPE memtype=MEMORY_TYPE::MAIN) override;
 
-    virtual void copyTo(void *destination, size_t destOffset, size_t srcOffset, size_t num) override;
+    virtual void copyTo(void *destination, size_t destOffset, size_t srcOffset, size_t num, MEMORY_TYPE memtype=MEMORY_TYPE::MAIN) override;
 
-    virtual void copyFrom(const void *source) override;
+    virtual void copyFrom(const void *source, MEMORY_TYPE memtype=MEMORY_TYPE::MAIN) override;
 
-    virtual void copyFrom(const void *source, size_t num) override;
+    virtual void copyFrom(const void *source, size_t num, MEMORY_TYPE memtype=MEMORY_TYPE::MAIN) override;
 
-    virtual void copyFrom(const void *source, size_t srcOffset, size_t destOffset, size_t num) override;
+    virtual void copyFrom(const void *source, size_t srcOffset, size_t destOffset, size_t num, MEMORY_TYPE memtype=MEMORY_TYPE::MAIN) override;
 
     virtual char getChar(size_t offset) override;
 
@@ -131,5 +115,6 @@ public:
 
 } // namespace rdma
 
-#endif /* AbstractCudaMemory_H_ */
 #endif /* CUDA support */
+
+#endif /* AbstractCudaMemory_H_ */

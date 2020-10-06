@@ -29,6 +29,10 @@ public:
      */
     AbstractMainMemory(void* buffer, size_t mem_size);
 
+    bool isMainMemory() override {
+        return true;
+    }
+
     virtual void openContext() override;
 
     virtual void closeContext() override;
@@ -39,17 +43,17 @@ public:
 
     virtual void setMemory(int value, size_t offset, size_t num) override;
 
-    virtual void copyTo(void *destination) override;
+    virtual void copyTo(void *destination, MEMORY_TYPE memtype=MEMORY_TYPE::MAIN) override;
 
-    virtual void copyTo(void *destination, size_t num) override;
+    virtual void copyTo(void *destination, size_t num, MEMORY_TYPE memtype=MEMORY_TYPE::MAIN) override;
 
-    virtual void copyTo(void *destination, size_t destOffset, size_t srcOffset, size_t num) override;
+    virtual void copyTo(void *destination, size_t destOffset, size_t srcOffset, size_t num, MEMORY_TYPE memtype=MEMORY_TYPE::MAIN) override;
 
-    virtual void copyFrom(const void *source) override;
+    virtual void copyFrom(const void *source, MEMORY_TYPE memtype=MEMORY_TYPE::MAIN) override;
 
-    virtual void copyFrom(const void *source, size_t num) override;
+    virtual void copyFrom(const void *source, size_t num, MEMORY_TYPE memtype=MEMORY_TYPE::MAIN) override;
 
-    virtual void copyFrom(const void *source, size_t srcOffset, size_t destOffset, size_t num) override;
+    virtual void copyFrom(const void *source, size_t srcOffset, size_t destOffset, size_t num, MEMORY_TYPE memtype=MEMORY_TYPE::MAIN) override;
 
     virtual char getChar(size_t offset) override;
 

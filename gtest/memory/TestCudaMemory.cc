@@ -25,8 +25,8 @@ void test(CudaMemory *mem){
     cudaMemcpy((void*)check, mem->pointer(), sizeof(check), cudaMemcpyDeviceToHost);
     ASSERT_TRUE(strlen(check)==0);
 
-    mem->copyFrom(msg);
-    mem->copyTo(check);
+    mem->copyFrom(msg, MEMORY_TYPE::MAIN);
+    mem->copyTo(check, MEMORY_TYPE::MAIN);
     ASSERT_TRUE(strcmp(msg, check) == 0);
 
     char value = 8, offset = 5;
