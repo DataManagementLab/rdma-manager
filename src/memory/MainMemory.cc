@@ -65,3 +65,7 @@ LocalBaseMemoryStub *MainMemory::malloc(size_t size){
       free(ptr);
     });
 }
+
+LocalBaseMemoryStub *MainMemory::createStub(void* rootBuffer, size_t rootOffset, size_t mem_size, std::function<void(const void* buffer)> freeFunc){
+    return (LocalBaseMemoryStub*) new LocalMainMemoryStub(rootBuffer, rootOffset, mem_size, freeFunc);
+}

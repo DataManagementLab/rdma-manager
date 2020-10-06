@@ -46,4 +46,8 @@ LocalBaseMemoryStub *CudaMemory::malloc(size_t size){
     });
 }
 
+LocalBaseMemoryStub *CudaMemory::createStub(void* rootBuffer, size_t rootOffset, size_t mem_size, std::function<void(const void* buffer)> freeFunc){
+    return (LocalBaseMemoryStub*) new LocalCudaMemoryStub(rootBuffer, rootOffset, mem_size, this->device_index, freeFunc);
+}
+
 #endif /* CUDA support */

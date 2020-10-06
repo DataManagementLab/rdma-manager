@@ -76,6 +76,8 @@ public:
     virtual ~CudaMemory();
 
     LocalBaseMemoryStub *malloc(size_t size) override;
+
+    LocalBaseMemoryStub *createStub(void* rootBuffer, size_t rootOffset, size_t mem_size, std::function<void(const void* buffer)> freeFunc) override;
 };
 
 } // namespace rdma
