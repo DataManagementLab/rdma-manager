@@ -69,7 +69,7 @@ class Config
     //RDMA
     static size_t RDMA_MEMSIZE;
     static string RDMA_SERVER_ADDRESSES; // if localhost should be same as IP behind CONFIG::RDMA_INTERFACE
-    static uint32_t RDMA_PORT;
+    static uint16_t RDMA_PORT;
     static uint32_t RDMA_NUMAREGION;
     static std::string RDMA_DEVICE_FILE_PATH;
     static uint32_t RDMA_IBPORT;
@@ -87,7 +87,7 @@ class Config
     const static int PROTO_RECV_TIMEOUT = 50; // milliseconds
 
     static std::string SEQUENCER_IP;
-    static uint32_t SEQUENCER_PORT;
+    static uint16_t SEQUENCER_PORT;
 
     static std::string RDMA_INTERFACE;
 
