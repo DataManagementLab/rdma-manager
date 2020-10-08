@@ -80,7 +80,8 @@ class Config
     
     static uint32_t RDMA_UD_MTU;
 
-    const static uint32_t GPUDIRECT_MINIMUM_MSG_SIZE = 256; // TODO REMOVE
+    const static uint32_t RDMA_MINIMUM_MSG_SIZE = 1;
+    const static uint32_t GPUDIRECT_MINIMUM_MSG_SIZE = 256;
 
     const static int PROTO_MAX_SOCKETS = 1024;
     const static int PROTO_SEND_TIMEOUT = 50; // milliseconds
