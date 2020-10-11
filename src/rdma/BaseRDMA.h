@@ -166,7 +166,7 @@ class BaseRDMA {
   // virtual void pollReceive(const rdmaConnID rdmaConnID, uint32_t &ret_qp_num)
   // = 0;
 
-  virtual void pollSend(const rdmaConnID rdmaConnID, bool doPoll = true) = 0;
+  virtual void pollSend(const rdmaConnID rdmaConnID, bool doPoll = true, uint32_t *imm = nullptr) = 0;
 
   // unicast connection management
   virtual void initQPWithSuppliedID(const rdmaConnID suppliedID) = 0;

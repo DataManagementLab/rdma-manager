@@ -299,7 +299,7 @@ int UnreliableRDMA::pollReceive(const rdmaConnID, bool doPoll,uint32_t* imm) {
   return ne;
 }
 
-void UnreliableRDMA::pollSend(const rdmaConnID, bool doPoll) {
+void UnreliableRDMA::pollSend(const rdmaConnID, bool doPoll, uint32_t *imm) {
   int ne;
   struct ibv_wc wc;
 
@@ -314,6 +314,10 @@ void UnreliableRDMA::pollSend(const rdmaConnID, bool doPoll) {
       throw runtime_error("RDMA completion event in CQ with error! " + to_string(wc.status));
     }
   } while (ne == 0 && doPoll);
+
+  if(imm != nullptr && ne > 0){
+      *imm = wc.imm_data;
+  }
 
   if (doPoll) {
     if (ne < 0) {

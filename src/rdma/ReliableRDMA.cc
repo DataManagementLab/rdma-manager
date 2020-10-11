@@ -324,8 +324,15 @@ void ReliableRDMA::compareAndSwap(const rdmaConnID rdmaConnID, size_t offset,
 
 //------------------------------------------------------------------------------------//
 
-void ReliableRDMA::send(const rdmaConnID rdmaConnID, const void *memAddr,
-                        size_t size, bool signaled) {
+void ReliableRDMA::send(const rdmaConnID rdmaConnID, const void* memAddr, size_t size, bool signaled){
+  sendImpl(rdmaConnID, memAddr, size, signaled, nullptr);
+}
+
+void ReliableRDMA::sendImm(const rdmaConnID rdmaConnID, const void* memAddr, size_t size, uint32_t imm, bool signaled){
+  sendImpl(rdmaConnID, memAddr, size, signaled, &imm);
+}
+
+void ReliableRDMA::sendImpl(const rdmaConnID rdmaConnID, const void *memAddr, size_t size, bool signaled, uint32_t *imm) {
   DebugCode(
       if (memAddr < m_buffer->pointer() ||
           (char *)memAddr + size > (char *)m_buffer->pointer() + m_buffer->ib_mr()->length) {
@@ -352,6 +359,9 @@ void ReliableRDMA::send(const rdmaConnID rdmaConnID, const void *memAddr,
   } else {
     sr.send_flags = 0;
   }
+
+  if(imm!= nullptr)
+    sr.imm_data = *imm;
 
   struct ibv_send_wr *bad_wr = NULL;
   if ((errno = ibv_post_send(localQP.qp, &sr, &bad_wr))) {
@@ -431,7 +441,7 @@ int ReliableRDMA::pollReceive(const rdmaConnID rdmaConnID, bool doPoll,uint32_t*
   if (ne < 0) {
     throw runtime_error("RDMA polling from CQ failed!");
   }
-  if(imm !=nullptr&& ne > 0){
+  if(imm !=nullptr && ne > 0){
     *imm = wc.imm_data;
   }
 
@@ -440,7 +450,7 @@ int ReliableRDMA::pollReceive(const rdmaConnID rdmaConnID, bool doPoll,uint32_t*
 
 //------------------------------------------------------------------------------------//
 
-void ReliableRDMA::pollSend(const rdmaConnID rdmaConnID, bool doPoll) {
+void ReliableRDMA::pollSend(const rdmaConnID rdmaConnID, bool doPoll, uint32_t *imm) {
   int ne;
   struct ibv_wc wc;
 
@@ -455,6 +465,10 @@ void ReliableRDMA::pollSend(const rdmaConnID rdmaConnID, bool doPoll) {
                           to_string(wc.status));
     }
   } while (ne == 0 && doPoll);
+
+  if(imm != nullptr && ne > 0){
+    *imm = wc.imm_data;
+  }
 
   if (doPoll) {
     if (ne < 0) {

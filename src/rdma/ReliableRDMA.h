@@ -222,6 +222,26 @@ class ReliableRDMA : public BaseRDMA {
     compareAndSwap(rdmaConnID, offset, memAddr, toCompare, toSwap, sizeof(int64_t), signaled);
   }
 
+
+  /* Function: sendImm
+   * ----------------
+   * Sends data of a given array to the remote side. 
+   * The remote side has to first call receive and 
+   * then handle the incoming data.
+   * 
+   * rdmaConnID:  id of the remote
+   * memAddr:     address of the local array containing the data 
+   *              that should be sent
+   * size:        how many bytes should be transfered
+   * imm:         immediate value that receiver can retriev with pollReceive()
+   * signaled:    if true the function blocks until the send has fully been 
+   *              completed. Multiple sends can be called. 
+   *              At max Config::RDMA_MAX_WR fetches can be performed at once 
+   *              without signaled=true.
+   */
+  virtual void sendImm(const rdmaConnID rdmaConnID, const void *memAddr,
+                    size_t size, uint32_t imm, bool signaled);
+
   void send(const rdmaConnID rdmaConnID, const void* memAddr, size_t size,
             bool signaled) override;
   
@@ -231,7 +251,7 @@ class ReliableRDMA : public BaseRDMA {
   int pollReceive(const rdmaConnID rdmaConnID, bool doPoll = true,uint32_t* = nullptr) override;
 
   void pollReceiveBatch(size_t srq_id, size_t& num_completed, bool& doPoll);
-  void pollSend(const rdmaConnID rdmaConnID, bool doPoll) override;
+  void pollSend(const rdmaConnID rdmaConnID, bool doPoll, uint32_t *imm = nullptr) override;
 
   void* localAlloc(const size_t& size) override;
   void localFree(const void* ptr) override;
@@ -320,6 +340,9 @@ class ReliableRDMA : public BaseRDMA {
       }
     }
   }
+
+  inline __attribute__((always_inline)) void 
+  sendImpl(const rdmaConnID rdmaConnID, const void *memAddr, size_t size, bool signaled, uint32_t *imm = nullptr);
 
   virtual void destroyQPs() override;
   void createQP(struct ib_qp_t* qp) override;
