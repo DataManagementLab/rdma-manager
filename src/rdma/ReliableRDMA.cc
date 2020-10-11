@@ -383,8 +383,8 @@ void ReliableRDMA::send(const rdmaConnID rdmaConnID, const void *memAddr,
 
 void ReliableRDMA::receive(const rdmaConnID rdmaConnID, const void *memAddr,
                            size_t size) {
-  DebugCode(if (memAddr < m_buffer->pointer() ||
-                memAddr > (char *)m_buffer->pointer() + m_buffer->ib_mr()->length) {
+  DebugCode(if(memAddr != nullptr && size > 0 && 
+      (memAddr < m_buffer->pointer() || memAddr > (char *)m_buffer->pointer() + m_buffer->ib_mr()->length)) {
     Logging::error(__FILE__, __LINE__,
                    "Passed memAddr falls out of buffer addr space");
   })
