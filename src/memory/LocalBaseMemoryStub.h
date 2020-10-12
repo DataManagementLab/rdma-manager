@@ -25,7 +25,7 @@ public:
      * freeFunc:  function handle to release memory part
      * 
      */
-    LocalBaseMemoryStub(void* rootBuffer, size_t rootOffset, size_t mem_size, std::function<void(const void* buffer)> freeFunc);
+    LocalBaseMemoryStub(void* rootBuffer, size_t rootOffset, size_t mem_size, std::function<void(const void* buffer)> freeFunc=nullptr);
 
     /* Destructor
      * -------------
@@ -70,7 +70,7 @@ public:
      * mem_size:  how big the memory part is (beginning from buffer+offset)
      * freeFunc:  function handle to release memory part
      */
-    virtual LocalBaseMemoryStub *createStub(void* rootBuffer, size_t rootOffset, size_t mem_size, std::function<void(const void* buffer)> freeFunc) = 0;
+    virtual LocalBaseMemoryStub *createStub(void* rootBuffer, size_t rootOffset, size_t mem_size, std::function<void(const void* buffer)> freeFunc=nullptr) = 0;
 };
 
 } // namespace rdma

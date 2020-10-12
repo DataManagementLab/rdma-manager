@@ -14,7 +14,8 @@ LocalBaseMemoryStub::LocalBaseMemoryStub(void* rootBuffer, size_t rootOffset, si
 }
 
 LocalBaseMemoryStub::~LocalBaseMemoryStub(){
-    this->freeFunc(this->buffer);
+    if(this->freeFunc)
+        this->freeFunc(this->buffer);
 }
 
 
