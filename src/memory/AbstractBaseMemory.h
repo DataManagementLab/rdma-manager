@@ -298,6 +298,44 @@ public:
      */
     virtual void set(char value, size_t offset) = 0;
 
+    /* Function:  getInt8
+     * ---------------------
+     * Reads a 8 bit int
+     * 
+     * offset: where to start reading
+     * return: read int
+     */
+    virtual int8_t getInt8(size_t offset) = 0;
+
+    /* Function:  set
+     * ---------------------
+     * Writes a 8 bit int
+     * 
+     * value:  value that should be written
+     * offset: where to start writing
+     * 
+     */
+    virtual void set(int8_t value, size_t offset) = 0;
+
+    /* Function:  getUInt8
+     * ---------------------
+     * Reads a 8 bit unsigned int
+     * 
+     * offset: where to start reading
+     * return: read int
+     */
+    virtual uint8_t getUInt8(size_t offset) = 0;
+
+    /* Function:  set
+     * ---------------------
+     * Writes a 8 bit unsigned int
+     * 
+     * value:  value that should be written
+     * offset: where to start writing
+     * 
+     */
+    virtual void set(uint8_t value, size_t offset) = 0;
+
     /* Function:  getInt16
      * ---------------------
      * Reads a 16 bit int

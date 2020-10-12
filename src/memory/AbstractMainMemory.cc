@@ -83,6 +83,24 @@ inline void AbstractMainMemory::set(char value, size_t offset){
     ((char*)this->buffer)[offset] = value;
 }
 
+inline int8_t AbstractMainMemory::getInt8(size_t offset){
+    return *(int8_t*)((size_t)this->buffer + offset);
+}
+
+inline void AbstractMainMemory::set(int8_t value, size_t offset){
+    int8_t *tmp = (int8_t*)((size_t)this->buffer + offset);
+    *tmp = value;
+}
+
+inline uint8_t AbstractMainMemory::getUInt8(size_t offset){
+    return *(uint8_t*)((size_t)this->buffer + offset);
+}
+
+inline void AbstractMainMemory::set(uint8_t value, size_t offset){
+    uint8_t *tmp = (uint8_t*)((size_t)this->buffer + offset);
+    *tmp = value;
+}
+
 inline int16_t AbstractMainMemory::getInt16(size_t offset){
     return *(int16_t*)((size_t)this->buffer + offset);
 }

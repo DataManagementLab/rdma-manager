@@ -88,6 +88,14 @@ public:
 
     virtual void set(char value, size_t offset) override;
 
+    virtual int8_t getInt8(size_t offset) override;
+
+    virtual void set(int8_t value, size_t offset) override;
+
+    virtual uint8_t getUInt8(size_t offset) override;
+
+    virtual void set(uint8_t value, size_t offset) override;
+
     virtual int16_t getInt16(size_t offset) override;
 
     virtual void set(int16_t value, size_t offset) override;

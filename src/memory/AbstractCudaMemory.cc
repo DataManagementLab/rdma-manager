@@ -108,6 +108,26 @@ void AbstractCudaMemory::set(char value, size_t offset){
     copyFrom((void*)&value, 0, offset, sizeof(value), MEMORY_TYPE::MAIN);
 }
 
+int8_t AbstractCudaMemory::getInt8(size_t offset){
+    int8_t tmp[1];
+    copyTo((void*)tmp, 0, offset, sizeof(tmp), MEMORY_TYPE::MAIN);
+    return tmp[0];
+}
+
+void AbstractCudaMemory::set(int8_t value, size_t offset){
+    copyFrom((void*)&value, 0, offset, sizeof(value), MEMORY_TYPE::MAIN);
+}
+
+uint8_t AbstractCudaMemory::getUInt8(size_t offset){
+    uint8_t tmp[1];
+    copyTo((void*)tmp, 0, offset, sizeof(tmp), MEMORY_TYPE::MAIN);
+    return tmp[0];
+}
+
+void AbstractCudaMemory::set(uint8_t value, size_t offset){
+    copyFrom((void*)&value, 0, offset, sizeof(value), MEMORY_TYPE::MAIN);
+}
+
 int16_t AbstractCudaMemory::getInt16(size_t offset){
     int16_t tmp[1];
     copyTo((void*)tmp, 0, offset, sizeof(tmp), MEMORY_TYPE::MAIN);
