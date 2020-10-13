@@ -13,7 +13,7 @@
 
 namespace rdma {
 
-class MainFactory {
+class MemoryFactory {
 public:
 
     /**
