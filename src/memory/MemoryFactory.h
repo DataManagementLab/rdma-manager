@@ -89,7 +89,7 @@ public:
      * @return  Raw allocated memory object
      */
     static BaseMemory* createRawMemory(MEMORY_TYPE mem_type, size_t size, bool huge, int numa_node){
-        return createRawMemory(mem_type, size, HUGEPAGE, Config::RDMA_NUMAREGION, -1);
+        return createRawMemory(mem_type, size, huge, numa_node, -1);
     }
 
     /**
@@ -141,10 +141,10 @@ public:
             case MEMORY_TYPE::GPU_3:
             case MEMORY_TYPE::GPU_4: 
                 #ifdef CUDA_ENABLED /* defined in CMakeLists.txt to globally enable/disable CUDA support */
-                    return (BaseMemory*) new CudaMemory(true, size, (int)mem_type, ib_numa);
+                    return (BaseMemory*) new CudaMemory(register_ibv, size, (int)mem_type, ib_numa);
                 #endif
 
-            case MEMORY_TYPE::MAIN: return (BaseMemory*) new MainMemory(true, size, huge, numa_node);
+            case MEMORY_TYPE::MAIN: return (BaseMemory*) new MainMemory(register_ibv, size, huge, numa_node);
 
             default: return nullptr;
         }
