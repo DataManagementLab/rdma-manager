@@ -72,6 +72,22 @@ public:
      */
     CudaMemory(size_t mem_size, int device_index, int ib_numa);
 
+    /* Constructor
+     * --------------
+     * Allocates CUDA (GPU) memory
+     *
+     * register_ibv:  If memory should be registered with IBV
+     * mem_size:      size how much memory should be allocated
+     * device_index:  index of the GPU device that should be used to
+     *                allocate the memory. If -1 the currently 
+     *                selected device will be used. If -2 a device 
+     *                will be selected based on the preferred NUMA region
+     * ib_numa:       Defines on which NUMA region the memory should be 
+     *                registered for IBV. (-1 to automatically detect NUMA region)
+     *
+     */
+    CudaMemory(bool register_ibv, size_t mem_size, int device_index, int ib_numa);
+
     // destructor
     virtual ~CudaMemory();
 

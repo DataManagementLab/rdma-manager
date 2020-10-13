@@ -10,7 +10,8 @@ CudaMemory::CudaMemory(size_t mem_size) : CudaMemory(mem_size, -2){}
 CudaMemory::CudaMemory(size_t mem_size, MEMORY_TYPE memory_type) : CudaMemory(mem_size, (int)memory_type, -1){}
 CudaMemory::CudaMemory(size_t mem_size, int device_index) : CudaMemory(mem_size, device_index, -1){}
 CudaMemory::CudaMemory(size_t mem_size, MEMORY_TYPE memory_type, int ib_numa) : CudaMemory(mem_size, (int)memory_type, ib_numa){}
-CudaMemory::CudaMemory(size_t mem_size, int device_index, int ib_numa) : AbstractBaseMemory(mem_size), AbstractCudaMemory(mem_size, device_index), BaseMemory(mem_size, ib_numa){
+CudaMemory::CudaMemory(size_t mem_size, int device_index, int ib_numa) : CudaMemory(true, mem_size, device_index, ib_numa){}
+CudaMemory::CudaMemory(bool register_ibv, size_t mem_size, int device_index, int ib_numa) : AbstractBaseMemory(mem_size), AbstractCudaMemory(mem_size, device_index), BaseMemory(register_ibv, mem_size, ib_numa){
     if(this->device_index < -2) throw std::invalid_argument("Device index cannot be smaller than -2. See documentation");
     if(this->device_index == -2) this->device_index = GpuNumaUtils::get_cuda_device_index_by_numa();
 

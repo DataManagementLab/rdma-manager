@@ -62,6 +62,21 @@ public:
      */
     MainMemory(size_t mem_size, bool huge, int numa_node);
 
+    /* Constructor
+     * --------------
+     * Allocates main memory.
+     * Uses therefore malloc() or mmap()
+     *
+     * register_ibv:  If memory should be registered with IBV
+     * mem_size:  size how much memory should be allocated
+     * huge:      If true then a huge memory block can be 
+     *            allocated (uses therefore mmap())
+     * numa_node: Index of the NUMA node where the memory
+     *            should be allocated on (LINUX only)
+     *
+     */
+    MainMemory(bool register_ibv, size_t mem_size, bool huge, int numa_node);
+
     // destructor
     virtual ~MainMemory();
 

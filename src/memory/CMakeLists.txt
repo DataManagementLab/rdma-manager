@@ -17,6 +17,7 @@ set(RDMA_MEMORY_SRC
   LocalMainMemoryStub.cc
   LocalCudaMemoryStub.h
   LocalCudaMemoryStub.cc
+  MemoryFactory.h
 ) # Adding headers required for portability reasons http://voices.canonical.com/jussi.pakkanen/2013/03/26/a-list-of-common-cmake-antipatterns/
 add_library(rdma_memory_lib ${RDMA_MEMORY_SRC})
 target_include_directories(rdma_memory_lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

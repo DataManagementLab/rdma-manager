@@ -21,7 +21,8 @@ using namespace rdma;
 rdma_mem_t BaseMemory::s_nillmem;
 
 // constructor
-BaseMemory::BaseMemory(size_t mem_size, int numa_node, int ib_port) : AbstractBaseMemory(mem_size){
+BaseMemory::BaseMemory(bool register_ibv, size_t mem_size, int numa_node, int ib_port) : AbstractBaseMemory(mem_size){
+    this->m_ibv = register_ibv;
     this->ib_port = ib_port;
     this->numa_node = numa_node;
     this->m_rdmaMem.push_back(rdma_mem_t(mem_size, true, 0));
@@ -30,6 +31,8 @@ BaseMemory::BaseMemory(size_t mem_size, int numa_node, int ib_port) : AbstractBa
 
 void BaseMemory::preInit(){
     // Logging::debug(__FILE__, __LINE__, "Create memory region");
+
+    if(!m_ibv) return; // skip if memory should not be registered with IBV
 
     struct ibv_device **dev_list = nullptr;
     struct ibv_device *ib_dev = nullptr;
@@ -81,6 +84,9 @@ void BaseMemory::preInit(){
 
 
 void BaseMemory::postInit(){
+
+    if(!m_ibv) return; // skip if memory should not be registered with IBV
+
     // create protected domain
     this->pd = ibv_alloc_pd(this->ib_ctx);
     if (this->pd == 0) {
@@ -99,6 +105,9 @@ void BaseMemory::postInit(){
 }
 
 BaseMemory::~BaseMemory(){
+
+    if(!m_ibv) return; // skip if memory should not be registered with IBV
+
     // de-register memory region
     if (this->mr != nullptr){
         if(ibv_dereg_mr(this->mr))
@@ -117,6 +126,10 @@ BaseMemory::~BaseMemory(){
         ibv_close_device(this->ib_ctx);
         this->ib_ctx = nullptr;
     }
+}
+
+bool BaseMemory::isIBV(){
+    return this->m_ibv;
 }
 
 int BaseMemory::getNumaNode(){

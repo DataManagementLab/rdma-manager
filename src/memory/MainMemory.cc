@@ -13,12 +13,13 @@ using namespace rdma;
 MainMemory::MainMemory(size_t mem_size) : MainMemory(mem_size, (bool)HUGEPAGE){}
 MainMemory::MainMemory(size_t mem_size, bool huge) : MainMemory(mem_size, huge, Config::RDMA_NUMAREGION){}
 MainMemory::MainMemory(size_t mem_size, int numa_node) : MainMemory(mem_size, (bool)HUGEPAGE, numa_node){}
-MainMemory::MainMemory(size_t mem_size, bool huge, int numa_node) : AbstractBaseMemory(mem_size), AbstractMainMemory(mem_size), BaseMemory(mem_size, numa_node){
+MainMemory::MainMemory(size_t mem_size, bool huge, int numa_node) : MainMemory(true, mem_size, huge, numa_node){}
+MainMemory::MainMemory(bool register_ibv, size_t mem_size, bool huge, int numa_node) : AbstractBaseMemory(mem_size), AbstractMainMemory(mem_size), BaseMemory(register_ibv, mem_size, numa_node){
     this->huge = huge;
 
     this->preInit();
 
-    // allocate memory
+    // allocate memory (same as in MemoryFactory)
     #ifdef LINUX
         if(huge){
             this->buffer = mmap(NULL, this->mem_size, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
@@ -42,7 +43,7 @@ MainMemory::MainMemory(size_t mem_size, bool huge, int numa_node) : AbstractBase
 
 // destructor
 MainMemory::~MainMemory(){
-    // release memory
+    // release memory (same as in MemoryFactory)
     #ifdef LINUX
         if(this->huge){
             munmap(this->buffer, this->mem_size);

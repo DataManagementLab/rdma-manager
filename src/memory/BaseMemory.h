@@ -30,6 +30,7 @@ class BaseMemory : virtual public AbstractBaseMemory {
 
 protected:
     int numa_node;
+    bool m_ibv;
 
     struct ibv_pd *pd; // ProtectionDomain handle
     struct ibv_mr *mr; // MemoryRegistration handle for buffer
@@ -55,17 +56,26 @@ public:
     /* Constructor
      * --------------
      * Base class to allocate specific memory
-     *
+     * 
+     * register_ibv:  If memory should be registered with IBV
      * mem_size:  size how much memory should be allocated
      *
      */
-    BaseMemory(size_t mem_size, int numa_node=Config::RDMA_NUMAREGION, int ib_port=Config::RDMA_IBPORT);
+    BaseMemory(bool register_ibv, size_t mem_size, int numa_node=Config::RDMA_NUMAREGION, int ib_port=Config::RDMA_IBPORT);
 
     /* Destructor
      * -------------
      * Releases the allocated memory
      */
     virtual ~BaseMemory();
+
+    /* Function: isIBV
+     * -------------
+     * Returns true memory is registered with IBV
+     * 
+     * return:  true if IBV memory
+     */
+    bool isIBV();
 
     /* Function: getNumaNode
      * -------------
