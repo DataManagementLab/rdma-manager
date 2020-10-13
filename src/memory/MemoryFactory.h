@@ -37,7 +37,7 @@ public:
      * @return  Allocated memory object that is directly registered with IBV
      */
     static BaseMemory* createMemory(MEMORY_TYPE mem_type, size_t size, bool huge, int numa_node){
-        return createMemory(mem_type, size, HUGEPAGE, Config::RDMA_NUMAREGION, -1);
+        return createMemory(mem_type, size, huge, numa_node, -1);
     }
 
     /**
@@ -141,7 +141,7 @@ public:
             case MEMORY_TYPE::GPU_3:
             case MEMORY_TYPE::GPU_4: 
                 #ifdef CUDA_ENABLED /* defined in CMakeLists.txt to globally enable/disable CUDA support */
-                    return (BaseMemory*) new CudaMemory(true, mem_size, mem_type, ib_numa);
+                    return (BaseMemory*) new CudaMemory(true, size, (int)mem_type, ib_numa);
                 #endif
 
             case MEMORY_TYPE::MAIN: return (BaseMemory*) new MainMemory(true, size, huge, numa_node);
