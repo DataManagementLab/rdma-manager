@@ -26,6 +26,7 @@ set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR}/bin)
 # --- [ END SETTINGS ] ------------------------------------------------------------------------------------------------
 # ---------------------------------------------------------------------------------------------------------------------
 
+
 # Allows CUDA_ENABLED flag to be set by other projects 
 if(NOT DEFINED CUDA_ENABLED)
     set(CUDA_ENABLED ${CUDA_SUPPORTED})
@@ -83,4 +84,4 @@ add_subdirectory(gtest)
 add_subdirectory(perftest_old)
 add_subdirectory(perftest)
 
-unset(CUDA_ENABLED CACHE)
+unset(CUDA_SUPPORTED CACHE)
