@@ -26,6 +26,10 @@ set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR}/bin)
 # --- [ END SETTINGS ] ------------------------------------------------------------------------------------------------
 # ---------------------------------------------------------------------------------------------------------------------
 
+# Manage CUDA support in root CMakeLists.txt of DPI project
+if(DEFINED CUDA_FOR_DPI)
+    set(CUDA_ENABLED ${CUDA_FOR_DPI})
+endif()
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
     MESSAGE(STATUS "  BUILD TYPE:     DEBUG  (not suitable for release)")
