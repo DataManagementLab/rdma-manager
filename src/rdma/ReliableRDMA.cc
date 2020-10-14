@@ -351,7 +351,7 @@ void ReliableRDMA::sendImpl(const rdmaConnID rdmaConnID, const void *memAddr, si
   memset(&sr, 0, sizeof(sr));
   sr.sg_list = &sge;
   sr.num_sge = 1;
-  sr.opcode = IBV_WR_SEND;
+  sr.opcode = (imm==nullptr ? IBV_WR_SEND : IBV_WR_SEND_WITH_IMM);
   sr.next = NULL;
 
   if (signaled) {
