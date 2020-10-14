@@ -14,8 +14,8 @@ set(CMAKE_BUILD_TYPE Release)
 # Compiler Options
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DLINUX -std=c++17 -Wall -Wextra -DHUGEPAGE")
 
-# If CUDA and therefore GPUDirect is supported. Otherwise set to 'OFF' to compile completly without CUDA and onyl RDMA
-option(CUDA_ENABLED "CUDA support" ON)
+# If CUDA and therefore GPUDirect is supported. Otherwise set to 'OFF' to compile without CUDA and onyl support RDMA
+option(CUDA_SUPPORTED "CUDA enabled" ON)
 
 # Path where the CMake modules are located to find all required libraries 
 set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/modules)
@@ -26,9 +26,9 @@ set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR}/bin)
 # --- [ END SETTINGS ] ------------------------------------------------------------------------------------------------
 # ---------------------------------------------------------------------------------------------------------------------
 
-# Manage CUDA support in root CMakeLists.txt of DPI project
-if(DEFINED CUDA_FOR_DPI)
-    set(CUDA_ENABLED ${CUDA_FOR_DPI})
+# Allows CUDA_ENABLED flag to be set by other projects 
+if(NOT DEFINED CUDA_ENABLED)
+    set(CUDA_ENABLED ${CUDA_SUPPORTED})
 endif()
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
