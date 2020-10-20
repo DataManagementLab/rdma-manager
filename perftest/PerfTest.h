@@ -62,8 +62,7 @@ public:
 
     static inline void global_barrier_client(rdma::RDMAClient<ReliableRDMA> *client, const std::vector<NodeID> &connectionIDs){
         // Didn't use fetchAndAdd because memory polling is on GPUs very slow
-        size_t msgSize = 1; if(msgSize < rdma::Config::GPUDIRECT_MINIMUM_MSG_SIZE) msgSize =  rdma::Config::GPUDIRECT_MINIMUM_MSG_SIZE;
-
+        size_t msgSize = 1; //if(msgSize < rdma::Config::GPUDIRECT_MINIMUM_MSG_SIZE) msgSize =  rdma::Config::GPUDIRECT_MINIMUM_MSG_SIZE;
         for(const size_t &nodeID : connectionIDs){
             client->receive(nodeID, client->getBuffer(), msgSize);
         }
@@ -80,7 +79,7 @@ public:
         // Didn't use fetchAndAdd because memory polling is on GPUs very slow
         std::vector<size_t> clientIds = server->getConnectedConnIDs();
         std::set<size_t> alreadyConnectedIds;
-        size_t msgSize = 1; if(msgSize < rdma::Config::GPUDIRECT_MINIMUM_MSG_SIZE) msgSize =  rdma::Config::GPUDIRECT_MINIMUM_MSG_SIZE;
+        size_t msgSize = 1; //if(msgSize < rdma::Config::GPUDIRECT_MINIMUM_MSG_SIZE) msgSize =  rdma::Config::GPUDIRECT_MINIMUM_MSG_SIZE;
 
         // wait until all clients are connected and post receive for each
         do {

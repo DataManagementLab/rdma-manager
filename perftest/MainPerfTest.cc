@@ -179,7 +179,7 @@ static void runTest(size_t testNumber, size_t testIterations, std::string testNa
 static void initialSyncAsServer(std::string ownIpPort, std::string sequencerIpPort, size_t expected_clients){
     int port = rdma::Network::getPortOfConnection(ownIpPort);
     std::string addr = rdma::Network::getAddressOfConnection(ownIpPort);
-    uint64_t mem_size = 1; if(mem_size < rdma::Config::GPUDIRECT_MINIMUM_MSG_SIZE) mem_size =  rdma::Config::GPUDIRECT_MINIMUM_MSG_SIZE;
+    uint64_t mem_size = 1; //if(mem_size < rdma::Config::GPUDIRECT_MINIMUM_MSG_SIZE) mem_size =  rdma::Config::GPUDIRECT_MINIMUM_MSG_SIZE;
     rdma::RDMAServer<rdma::ReliableRDMA> *server = new rdma::RDMAServer<rdma::ReliableRDMA>(std::string("IntialSyncServer"), port, addr, mem_size, sequencerIpPort);
     server->startServer();
     rdma::PerfTest::global_barrier_server(server, expected_clients);
@@ -188,7 +188,7 @@ static void initialSyncAsServer(std::string ownIpPort, std::string sequencerIpPo
 }
 
 static void initialSyncAsClient(const std::vector<std::string> &serverIpAndPorts, std::string ownIpPort, std::string sequencerIpPort){
-    uint64_t mem_size = 1; if(mem_size < rdma::Config::GPUDIRECT_MINIMUM_MSG_SIZE) mem_size =  rdma::Config::GPUDIRECT_MINIMUM_MSG_SIZE;
+    uint64_t mem_size = 1; //if(mem_size < rdma::Config::GPUDIRECT_MINIMUM_MSG_SIZE) mem_size =  rdma::Config::GPUDIRECT_MINIMUM_MSG_SIZE;
     rdma::RDMAClient<rdma::ReliableRDMA> *client = new rdma::RDMAClient<rdma::ReliableRDMA>(mem_size, "InitialSyncClient", ownIpPort, sequencerIpPort);
     std::vector<NodeID> nodeIds;
     for(auto &ipPort : serverIpAndPorts){
