@@ -221,8 +221,8 @@ int main(int argc, char *argv[]){
     if(FLAGS_fulltest || FLAGS_halftest || FLAGS_quicktest){
         FLAGS_csv = true;
         if(FLAGS_test.empty()) FLAGS_test = "write_bw,write_lat,write_ops,read_bw,read_lat,read_ops,send_bw,send_lat,send_ops,fetch_bw,fetch_lat,fetch_ops,swap_bw,swap_lat,swap_ops";
-        if(FLAGS_memtype.empty()) FLAGS_memtype = FLAGS_server ? "-3,-2,-3,-3" : "-3,-3,-2,-2";
-        if(FLAGS_remote_memtype.empty()) FLAGS_remote_memtype = FLAGS_server ? "-3,-3,-2,-2" : "-3,-2,-3,-2";
+        if(FLAGS_memtype.empty()) FLAGS_memtype = (FLAGS_server ? "-3,-2,-3,-3" : "-3,-3,-2,-2");
+        if(FLAGS_remote_memtype.empty()) FLAGS_remote_memtype = (FLAGS_server ? "-3,-3,-2,-2" : "-3,-2,-3,-2");
     }
     if(FLAGS_fulltest){
         // TODO for some reason GPUDirect not working for GPU memory smaller than 128 bytes
@@ -487,7 +487,7 @@ int main(int argc, char *argv[]){
 
                                 // skip if GPU and packet size < Config::GPUDIRECT_MINIMUM_MSG_SIZE  (same if condition lower)
                                 if((FLAGS_server ? remote_gpu_index : local_gpu_index) > (int)rdma::MEMORY_TYPE::MAIN && packet_size < rdma::Config::GPUDIRECT_MINIMUM_MSG_SIZE){
-                                    std::cout << "SKIPPING TEST BECAUSE LOCAL GPU " << local_gpu_index << " (>" << (int)rdma::MEMORY_TYPE::MAIN;
+                                    std::cout << "SKIPPING TEST BECAUSE GPU " << (FLAGS_server ? remote_gpu_index : local_gpu_index) << " (>" << (int)rdma::MEMORY_TYPE::MAIN;
                                     std::cout << ") AND PACKET SIZE " << packet_size << " (<" << rdma::Config::GPUDIRECT_MINIMUM_MSG_SIZE << ")" << std::endl;
                                     testCounter++;
                                     csvAddHeader = false;
