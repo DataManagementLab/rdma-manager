@@ -179,7 +179,7 @@ static void runTest(size_t testNumber, size_t testIterations, std::string testNa
 static void initialSyncAsServer(std::string ownIpPort, std::string sequencerIpPort, size_t expected_clients){
     int port = rdma::Network::getPortOfConnection(ownIpPort);
     std::string addr = rdma::Network::getAddressOfConnection(ownIpPort);
-    uint64_t mem_size = 1;
+    uint64_t mem_size = 1; if(mem_size < rdma::Config::GPUDIRECT_MINIMUM_MSG_SIZE) mem_size =  rdma::Config::GPUDIRECT_MINIMUM_MSG_SIZE;
     rdma::RDMAServer<rdma::ReliableRDMA> *server = new rdma::RDMAServer<rdma::ReliableRDMA>(std::string("IntialSyncServer"), port, addr, mem_size, sequencerIpPort);
     server->startServer();
     rdma::PerfTest::global_barrier_server(server, expected_clients);
@@ -188,7 +188,7 @@ static void initialSyncAsServer(std::string ownIpPort, std::string sequencerIpPo
 }
 
 static void initialSyncAsClient(const std::vector<std::string> &serverIpAndPorts, std::string ownIpPort, std::string sequencerIpPort){
-    uint64_t mem_size = 1;
+    uint64_t mem_size = 1; if(mem_size < rdma::Config::GPUDIRECT_MINIMUM_MSG_SIZE) mem_size =  rdma::Config::GPUDIRECT_MINIMUM_MSG_SIZE;
     rdma::RDMAClient<rdma::ReliableRDMA> *client = new rdma::RDMAClient<rdma::ReliableRDMA>(mem_size, "InitialSyncClient", ownIpPort, sequencerIpPort);
     std::vector<NodeID> nodeIds;
     for(auto &ipPort : serverIpAndPorts){
@@ -200,6 +200,16 @@ static void initialSyncAsClient(const std::vector<std::string> &serverIpAndPorts
     rdma::PerfTest::global_barrier_client(client, nodeIds);
     delete client;
     usleep(2*rdma::Config::RDMA_SLEEP_INTERVAL);
+}
+
+
+static bool checkInvalidTestParams(size_t packet_size, int local_gpu_index, int remote_gpu_index){
+    // skip if GPU and packet size < Config::GPUDIRECT_MINIMUM_MSG_SIZE  (same if condition lower)
+    if((FLAGS_server ? remote_gpu_index : local_gpu_index) > (int)rdma::MEMORY_TYPE::MAIN && packet_size < rdma::Config::GPUDIRECT_MINIMUM_MSG_SIZE){
+        std::cout << "SKIPPING TEST BECAUSE GPU " << (FLAGS_server ? remote_gpu_index : local_gpu_index) << " (>" << (int)rdma::MEMORY_TYPE::MAIN;
+        std::cout << ") AND PACKET SIZE " << packet_size << " (<" << rdma::Config::GPUDIRECT_MINIMUM_MSG_SIZE << ")" << std::endl;
+        return true;
+    } return false;
 }
 
 
@@ -484,16 +494,6 @@ int main(int argc, char *argv[]){
                         for(rdma::WriteMode &write_mode : write_modes){
                             csvAddHeader = true;
                             for(uint64_t &packet_size : packetsizes){
-
-                                // skip if GPU and packet size < Config::GPUDIRECT_MINIMUM_MSG_SIZE  (same if condition lower)
-                                if((FLAGS_server ? remote_gpu_index : local_gpu_index) > (int)rdma::MEMORY_TYPE::MAIN && packet_size < rdma::Config::GPUDIRECT_MINIMUM_MSG_SIZE){
-                                    std::cout << "SKIPPING TEST BECAUSE GPU " << (FLAGS_server ? remote_gpu_index : local_gpu_index) << " (>" << (int)rdma::MEMORY_TYPE::MAIN;
-                                    std::cout << ") AND PACKET SIZE " << packet_size << " (<" << rdma::Config::GPUDIRECT_MINIMUM_MSG_SIZE << ")" << std::endl;
-                                    testCounter++;
-                                    csvAddHeader = false;
-                                    continue;
-                                }
-
                                 test = nullptr;
                                 uint64_t iterations_per_thread = (uint64_t)((long double)transfersize / (long double)packet_size + 0.5);
                                 if(FLAGS_maxiterations > 0 && iterations_per_thread > (uint64_t)FLAGS_maxiterations) iterations_per_thread = FLAGS_maxiterations;
@@ -501,11 +501,17 @@ int main(int argc, char *argv[]){
                                 if(iterations_per_thread==0) iterations_per_thread = 1;
 
                                 if(t == BANDWIDTH_TEST){
+                                    if(checkInvalidTestParams(packet_size, local_gpu_index, remote_gpu_index)){
+                                        testCounter++; csvAddHeader = true; continue;
+                                    }
                                     // Bandwidth Test
                                     testName = "Bandwidth";
                                     test = new rdma::BandwidthPerfTest(test_ops, FLAGS_server, addresses, FLAGS_port, ownIpPort, sequencerIpAddr, local_gpu_index, remote_gpu_index, FLAGS_clients, thread_count, packet_size, buffer_slots, iterations_per_thread, write_mode);
 
                                 } else if(t == OPERATIONS_COUNT_TEST){
+                                    if(checkInvalidTestParams(packet_size, local_gpu_index, remote_gpu_index)){
+                                        testCounter++; csvAddHeader = true; continue;
+                                    }
                                     // Operations Count Test
                                     testName = "Operations Count";
                                     test = new rdma::OperationsCountPerfTest(test_ops, FLAGS_server, addresses, FLAGS_port, ownIpPort, sequencerIpAddr, local_gpu_index, remote_gpu_index, FLAGS_clients, thread_count, packet_size, buffer_slots, iterations_per_thread, write_mode);
@@ -554,16 +560,6 @@ int main(int argc, char *argv[]){
                         for(rdma::WriteMode &write_mode : write_modes){
                             csvAddHeader = true;
                             for(uint64_t &packet_size : packetsizes){
-
-                                // skip if GPU and packet size < Config::GPUDIRECT_MINIMUM_MSG_SIZE  (same if condition above)
-                                if((FLAGS_server ? remote_gpu_index : local_gpu_index) > (int)rdma::MEMORY_TYPE::MAIN && packet_size < rdma::Config::GPUDIRECT_MINIMUM_MSG_SIZE){
-                                    std::cout << "SKIPPING TEST BECAUSE LOCAL GPU " << local_gpu_index << " (>" << (int)rdma::MEMORY_TYPE::MAIN;
-                                    std::cout << ") AND PACKET SIZE " << packet_size << " (<" << rdma::Config::GPUDIRECT_MINIMUM_MSG_SIZE << ")" << std::endl;
-                                    testCounter++;
-                                    csvAddHeader = false;
-                                    continue;
-                                }
-
                                 test = nullptr;
 
                                 if(maxtransfersize > 0){
@@ -575,6 +571,9 @@ int main(int argc, char *argv[]){
                                 }
 
                                 if(t == LATENCY_TEST){
+                                    if(checkInvalidTestParams(packet_size, local_gpu_index, remote_gpu_index)){
+                                        testCounter++; csvAddHeader = true; continue;
+                                    }
                                     // Latency Test
                                     testName = "Latency";
                                     test = new rdma::LatencyPerfTest(test_ops, FLAGS_server, addresses, FLAGS_port, ownIpPort, sequencerIpAddr, local_gpu_index, remote_gpu_index, FLAGS_clients, thread_count, packet_size, buffer_slots, iterations_per_thread, write_mode);

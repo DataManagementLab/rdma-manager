@@ -62,12 +62,14 @@ public:
 
     static inline void global_barrier_client(rdma::RDMAClient<ReliableRDMA> *client, const std::vector<NodeID> &connectionIDs){
         // Didn't use fetchAndAdd because memory polling is on GPUs very slow
+        size_t msgSize = 1; if(msgSize < rdma::Config::GPUDIRECT_MINIMUM_MSG_SIZE) msgSize =  rdma::Config::GPUDIRECT_MINIMUM_MSG_SIZE;
+
         for(const size_t &nodeID : connectionIDs){
-            client->receive(nodeID, client->getBuffer(), (size_t)1);
+            client->receive(nodeID, client->getBuffer(), msgSize);
         }
         usleep(rdma::Config::PERFORMANCE_TEST_SERVER_TIME_ADVANTAGE); // let server first post its barrier
         for(const size_t &nodeID : connectionIDs){
-            client->send(nodeID, client->getBuffer(), (size_t)1, true);
+            client->send(nodeID, client->getBuffer(), msgSize, true);
         }
         for(const size_t &nodeID : connectionIDs){
             client->pollReceive(nodeID, true);
@@ -78,6 +80,7 @@ public:
         // Didn't use fetchAndAdd because memory polling is on GPUs very slow
         std::vector<size_t> clientIds = server->getConnectedConnIDs();
         std::set<size_t> alreadyConnectedIds;
+        size_t msgSize = 1; if(msgSize < rdma::Config::GPUDIRECT_MINIMUM_MSG_SIZE) msgSize =  rdma::Config::GPUDIRECT_MINIMUM_MSG_SIZE;
 
         // wait until all clients are connected and post receive for each
         do {
@@ -85,7 +88,7 @@ public:
                 for(const size_t &nodeID : clientIds){
                     if(alreadyConnectedIds.find(nodeID) == alreadyConnectedIds.end()){
                         alreadyConnectedIds.insert(nodeID);
-                        server->receive(nodeID, server->getBuffer(), (size_t)1);
+                        server->receive(nodeID, server->getBuffer(), msgSize);
                     }
                 }
             } else if(alreadyConnectedIds.size() < expected_thread_count) {
@@ -99,7 +102,7 @@ public:
             server->pollReceive(nodeID, true);
         }
         for(const size_t &nodeID : clientIds){
-            server->send(nodeID, server->getBuffer(), (size_t)1, true);
+            server->send(nodeID, server->getBuffer(), msgSize, true);
         }
     };
 
