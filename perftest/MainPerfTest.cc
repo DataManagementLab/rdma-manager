@@ -204,6 +204,7 @@ static void initialSyncAsClient(const std::vector<std::string> &serverIpAndPorts
 
 
 int main(int argc, char *argv[]){
+    std::cout << std::endl << "INFO:  All bandwidth measurements are correctly measured in MiB/s to be compareable to other tools and network stats but labeled as MB/s as this is commonly practiced!" << std::endl << std::endl;
     std::cout << "Parsing arguments ..." << std::endl;
     gflags::ParseCommandLineFlags(&argc, &argv, true);
     std::cout << "Arguments parsed" << std::endl << "Loading config ..." << std::endl;
