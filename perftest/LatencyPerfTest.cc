@@ -268,9 +268,7 @@ void rdma::LatencyPerfServerThread::run() {
 						m_server->pollReceive(m_respond_conn_id, true, (uint32_t*)&remoteBaseOffsetIndex);
 						remoteOffset = remoteBaseOffsetIndex / 2 * m_packet_size;
 						m_server->receiveWriteImm(m_respond_conn_id);
-						std::cout << "BEFORE: " << m_packet_size << std::endl; // TODO REMOVE
 						m_server->writeImm(m_respond_conn_id, remoteOffset, (void*)arrRecv, m_packet_size, (uint32_t)0, true);
-						std::cout << "AFTER" << std::endl; // TODO REMOVE
 					}
 					sendOffset = (m_iterations_per_thread % m_buffer_slots) * m_packet_size;
 					receiveOffset = sendOffset + receiveBaseOffset;
