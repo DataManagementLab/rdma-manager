@@ -78,8 +78,9 @@ rdma::BandwidthPerfClientThread::~BandwidthPerfClientThread() {
 
 
 void rdma::BandwidthPerfClientThread::run() {
-	rdma::PerfTest::global_barrier_client(m_client, m_addr); // global barrier
+	m_elapsedWriteMs = -1; m_elapsedReadMs = -1; m_elapsedSendMs = -1;
 
+	rdma::PerfTest::global_barrier_client(m_client, m_addr); // global barrier
 	unique_lock<mutex> lck(BandwidthPerfTest::waitLock); // local barrier
 	if (!BandwidthPerfTest::signaled) {
 		m_ready = true;

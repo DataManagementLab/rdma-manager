@@ -53,6 +53,8 @@ rdma::AtomicsOperationsCountPerfClientThread::~AtomicsOperationsCountPerfClientT
 }
 
 void rdma::AtomicsOperationsCountPerfClientThread::run() {
+	m_elapsedFetchAdd = -1; m_elapsedCompareSwap = -1;
+
 	rdma::PerfTest::global_barrier_client(m_client, m_addr); // global barrier
 	unique_lock<mutex> lck(AtomicsOperationsCountPerfTest::waitLock); // local barrier
 	if (!AtomicsOperationsCountPerfTest::signaled) {

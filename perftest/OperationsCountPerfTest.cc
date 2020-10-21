@@ -71,8 +71,9 @@ rdma::OperationsCountPerfClientThread::~OperationsCountPerfClientThread() {
 }
 
 void rdma::OperationsCountPerfClientThread::run() {
-	rdma::PerfTest::global_barrier_client(m_client, m_addr); // global barrier
+	m_elapsedWrite = -1; m_elapsedRead = -1; m_elapsedSend = -1;
 
+	rdma::PerfTest::global_barrier_client(m_client, m_addr); // global barrier
 	unique_lock<mutex> lck(OperationsCountPerfTest::waitLock); // local barrier
 	if (!OperationsCountPerfTest::signaled) {
 		m_ready = true;
