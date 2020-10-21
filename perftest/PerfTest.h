@@ -80,6 +80,7 @@ public:
         for(const size_t &nodeID : connectionIDs){
             client->pollReceive(nodeID, true);
         }
+        usleep(rdma::Config::PERFORMANCE_TEST_SERVER_TIME_ADVANTAGE); // give server an additional head start
     };
 
     static inline void global_barrier_server(rdma::RDMAServer<ReliableRDMA> *server, size_t expected_thread_count){
