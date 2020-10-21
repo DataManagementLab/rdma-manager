@@ -53,8 +53,6 @@ rdma::AtomicsBandwidthPerfClientThread::~AtomicsBandwidthPerfClientThread() {
 }
 
 void rdma::AtomicsBandwidthPerfClientThread::run() {
-	m_elapsedFetchAddMs = -1; m_elapsedCompareSwapMs = -1;
-
 	rdma::PerfTest::global_barrier_client(m_client, m_addr); // global barrier
 	unique_lock<mutex> lck(AtomicsBandwidthPerfTest::waitLock); // local barrier
 	if (!AtomicsBandwidthPerfTest::signaled) {

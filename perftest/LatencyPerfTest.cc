@@ -76,10 +76,6 @@ rdma::LatencyPerfClientThread::~LatencyPerfClientThread() {
 }
 
 void rdma::LatencyPerfClientThread::run() {
-	m_sumWriteMs = 0; m_minWriteMs=std::numeric_limits<int64_t>::max(); m_maxWriteMs=-1;
-	m_sumReadMs = 0; m_minReadMs=std::numeric_limits<int64_t>::max(); m_maxReadMs=-1;
-	m_sumSendMs = 0; m_minSendMs=std::numeric_limits<int64_t>::max(); m_maxSendMs=-1;
-
 	rdma::PerfTest::global_barrier_client(m_client, m_addr); // global barrier
 	unique_lock<mutex> lck(LatencyPerfTest::waitLock); // local barrier
 	if (!LatencyPerfTest::signaled) {

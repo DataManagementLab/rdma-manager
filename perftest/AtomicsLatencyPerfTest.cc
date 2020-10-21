@@ -56,9 +56,6 @@ rdma::AtomicsLatencyPerfClientThread::~AtomicsLatencyPerfClientThread() {
 }
 
 void rdma::AtomicsLatencyPerfClientThread::run() {
-	m_sumFetchAddMs = 0; m_minFetchAddMs=std::numeric_limits<int64_t>::max(); m_maxFetchAddMs=-1;
-	m_sumCompareSwapMs = 0; m_minCompareSwapMs=std::numeric_limits<int64_t>::max(); m_maxCompareSwapMs=-1;
-
 	rdma::PerfTest::global_barrier_client(m_client, m_addr); // global barrier
 	unique_lock<mutex> lck(AtomicsLatencyPerfTest::waitLock); // local barrier
 	if (!AtomicsLatencyPerfTest::signaled) {
