@@ -68,7 +68,14 @@ public:
         }
         usleep(rdma::Config::PERFORMANCE_TEST_SERVER_TIME_ADVANTAGE); // let server first post its barrier
         for(const size_t &nodeID : connectionIDs){
-            client->send(nodeID, client->getBuffer(), msgSize, true);
+            do {
+                try {
+                    client->send(nodeID, client->getBuffer(), msgSize, true); // try sending (server might not be ready yet)
+                    break; // successfully sent, so break infinite loop
+                } catch (...){ // if sending fails then server wasn't ready yet so repeat after short pause
+                    usleep(rdma::Config::PERFORMANCE_TEST_SERVER_TIME_ADVANTAGE);
+                }
+            } while(true);
         }
         for(const size_t &nodeID : connectionIDs){
             client->pollReceive(nodeID, true);
