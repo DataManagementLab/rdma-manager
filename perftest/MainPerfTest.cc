@@ -241,20 +241,21 @@ int main(int argc, char *argv[]){
         if(FLAGS_packetsize.empty()) FLAGS_packetsize = "all";
         if(FLAGS_threads.empty()) FLAGS_threads = "1,2,4,8,16";
         if(FLAGS_iterations.empty()) FLAGS_iterations = "500,500000";
+        if(FLAGS_transfersize.empty()) FLAGS_transfersize = "1GB,24GB";
         if(FLAGS_bufferslots.empty()) FLAGS_bufferslots = "1,16";
 
     } else if(FLAGS_halftest){
         // TODO for some reason GPUDirect not working for GPU memory smaller than 128 bytes
         if(FLAGS_packetsize.empty()) FLAGS_packetsize = "8,64,256,1024,4096,16384,65536,262144,1048576";
         if(FLAGS_threads.empty()) FLAGS_threads = "1,4,16";
-        if(FLAGS_iterations.empty()) FLAGS_iterations = "500,500000";
         if(FLAGS_bufferslots.empty()) FLAGS_bufferslots = "1,16";
 
     } else if(FLAGS_quicktest){
         // TODO for some reason GPUDirect not working for GPU memory smaller than 128 bytes
         if(FLAGS_packetsize.empty()) FLAGS_packetsize = "256,1024,4096,16384,65536";
         if(FLAGS_threads.empty()) FLAGS_threads = "1,4";
-        if(FLAGS_iterations.empty()) FLAGS_iterations = "500000";
+        if(FLAGS_iterations.empty()) FLAGS_iterations = "50000";
+        if(FLAGS_transfersize.empty()) FLAGS_transfersize = "1GB";
     }
 
 
