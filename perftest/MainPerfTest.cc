@@ -183,7 +183,9 @@ static void initialSyncAsServer(std::string ownIpPort, std::string sequencerIpPo
     rdma::RDMAServer<rdma::ReliableRDMA> *server = new rdma::RDMAServer<rdma::ReliableRDMA>(std::string("IntialSyncServer"), port, addr, mem_size, sequencerIpPort);
     server->startServer();
     rdma::PerfTest::global_barrier_server(server, expected_clients);
-    usleep(rdma::Config::RDMA_SLEEP_INTERVAL);
+    while(!server->getConnectedConnIDs().empty()){
+        usleep(rdma::Config::RDMA_SLEEP_INTERVAL); // wait for all clients to disconnect
+    }
     delete server;
 }
 
@@ -199,7 +201,7 @@ static void initialSyncAsClient(const std::vector<std::string> &serverIpAndPorts
     }
     rdma::PerfTest::global_barrier_client(client, nodeIds);
     delete client;
-    usleep(2*rdma::Config::RDMA_SLEEP_INTERVAL);
+    usleep(2*rdma::Config::RDMA_SLEEP_INTERVAL + rdma::Config::PERFORMANCE_TEST_SERVER_TIME_ADVANTAGE); // ensure that all clients have disconnected
 }
 
 
