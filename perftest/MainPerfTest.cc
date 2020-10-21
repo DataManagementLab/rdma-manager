@@ -268,7 +268,7 @@ int main(int argc, char *argv[]){
     if(FLAGS_transfersize.empty()) FLAGS_transfersize = "24GB";
 
     // Checking if all packet sizes are requested
-    std::string packetSizeStr;
+    std::string packetSizeStr = FLAGS_packetsize;
     std::transform(packetSizeStr.begin(), packetSizeStr.end(), packetSizeStr.begin(), ::tolower);
     if(packetSizeStr.find("all") != std::string::npos || packetSizeStr.find("full") != std::string::npos){
         FLAGS_packetsize = "4,8,16,32,64,128,256,512,1024,2048,4096,8192,16384,32768,65536,131072,262144,524288,1048576";
