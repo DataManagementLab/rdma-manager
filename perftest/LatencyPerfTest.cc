@@ -49,6 +49,7 @@ rdma::LatencyPerfClientThread::LatencyPerfClientThread(BaseMemory *memory, std::
 	}
 	m_local_memory = m_client->localMalloc(m_memory_size_per_thread);
 	m_local_memory->openContext();
+	m_local_memory->setRandom(); // use thread specific workload to prevent compression 
 
 	// send nodeID to tell remote thread how to respond
 	size_t nodeIdMsgSize = sizeof(uint32_t);
@@ -57,7 +58,6 @@ rdma::LatencyPerfClientThread::LatencyPerfClientThread(BaseMemory *memory, std::
 		m_local_memory->set((uint32_t)m_client->getOwnNodeID(), 0);
 		m_client->write(m_addr[connIdx], m_remOffsets[connIdx], m_local_memory->pointer(), nodeIdMsgSize, true);
 	}
-	m_local_memory->setRandom(); // use thread specific workload to prevent compression 
 }
 
 rdma::LatencyPerfClientThread::~LatencyPerfClientThread() {

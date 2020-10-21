@@ -50,6 +50,7 @@ rdma::BandwidthPerfClientThread::BandwidthPerfClientThread(BaseMemory *memory, s
 
 	m_local_memory = m_client->localMalloc(m_memory_size_per_thread);
 	m_local_memory->openContext();
+	m_local_memory->setRandom(); // use thread specific workload to prevent compression 
 	
 	// send nodeID to tell remote thread how to respond
 	for(size_t connIdx=0; connIdx < m_rdma_addresses.size(); connIdx++){
@@ -62,7 +63,6 @@ rdma::BandwidthPerfClientThread::BandwidthPerfClientThread(BaseMemory *memory, s
 
 		} // TODO REMOVE
 	}
-	m_local_memory->setRandom(); // use thread specific workload to prevent compression 
 }
 
 

@@ -50,13 +50,13 @@ rdma::OperationsCountPerfClientThread::OperationsCountPerfClientThread(BaseMemor
 
 	m_local_memory = m_client->localMalloc(m_memory_size_per_thread);
 	m_local_memory->openContext();
+	m_local_memory->setRandom(); // use thread specific workload to prevent compression 
 	
 	// send nodeID to tell remote thread how to respond
 	for(size_t connIdx=0; connIdx < m_rdma_addresses.size(); connIdx++){
 		m_local_memory->set((uint32_t)m_client->getOwnNodeID(), 0);
 		m_client->write(m_addr[connIdx], m_remOffsets[connIdx], m_local_memory->pointer(), sizeof(uint32_t), true);
 	}
-	m_local_memory->setRandom(); // use thread specific workload to prevent compression 
 }
 
 
