@@ -114,7 +114,7 @@ class Config
     static int HELLO_PORT;
 
     // PERFORMANCE TEST SERVER START ADVANTAGE
-    const static int PERFORMANCE_TEST_SERVER_TIME_ADVANTAGE = 100 * 1000; // 100ms
+    const static int PERFORMANCE_TEST_SERVER_TIME_ADVANTAGE = 600 * 1000; // 600ms
 
     // static string& getIPFromNodeId(NodeID& nodeid);
     // static string& getIPFromNodeId(const NodeID& nodeid);
