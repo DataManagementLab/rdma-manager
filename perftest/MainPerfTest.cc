@@ -30,7 +30,7 @@ DEFINE_bool(server, false, "Act as server for a client to test performance");
 DEFINE_int32(clients, 1, "Just required by server to know how many clients will connect. Multiplies amount of threads by this amount of clients");
 DEFINE_string(memtype, "", "Memory type or index of GPU for memory allocation ('-3' or 'MAIN' for Main memory, '-2' or 'GPU.NUMA' for NUMA aware GPU, '-1' or 'GPU.D' for default GPU, '0..n' or 'GPU.i' i index for fixed GPU | multiples separated by comma without space) [Default -3]");
 DEFINE_string(remote_memtype, "", "Just for prettier result printing and therefore not essential. Same as  --memtype  flag but for remote side (should be empty or same length as  --memtype  flag)");
-DEFINE_string(packetsize, "", "Packet size in bytes (multiples separated by comma without space) [Default 4096B, Min 4B]");
+DEFINE_string(packetsize, "", "Packet size in bytes or write 'all' to check for all powers of two (multiples separated by comma without space) [Default 4096B, Min 4B]");
 DEFINE_string(bufferslots, "", "How many packets the buffer can hold (round-robin distribution of packets inside buffer | multiples separated by comma without space) [Default 16]");
 DEFINE_string(threads, "", "Each thread starts its own connection to the server. Server and other clients need exactly the same value (multiples separated by comma without space) [Default 1]");
 DEFINE_string(iterations, "", "Amount of transfers for latency and all atomics tests (multiples separated by comma without space) [Default 500000]");
@@ -238,7 +238,7 @@ int main(int argc, char *argv[]){
     }
     if(FLAGS_fulltest){
         // TODO for some reason GPUDirect not working for GPU memory smaller than 128 bytes
-        if(FLAGS_packetsize.empty()) FLAGS_packetsize = "4,8,16,32,64,128,256,512,1024,2048,4096,8192,16384,32768,65536,131072,262144,524288,1048576";
+        if(FLAGS_packetsize.empty()) FLAGS_packetsize = "all";
         if(FLAGS_threads.empty()) FLAGS_threads = "1,2,4,8,16";
         if(FLAGS_iterations.empty()) FLAGS_iterations = "500,500000";
         if(FLAGS_bufferslots.empty()) FLAGS_bufferslots = "1,16";
@@ -266,6 +266,13 @@ int main(int argc, char *argv[]){
     if(FLAGS_threads.empty()) FLAGS_threads = "1";
     if(FLAGS_iterations.empty()) FLAGS_iterations = "500000";
     if(FLAGS_transfersize.empty()) FLAGS_transfersize = "24GB";
+
+    // Checking if all packet sizes are requested
+    std::string packetSizeStr;
+    std::transform(packetSizeStr.begin(), packetSizeStr.end(), packetSizeStr.begin(), ::tolower);
+    if(packetSizeStr.find("all") != std::string::npos || packetSizeStr.find("full") != std::string::npos){
+        FLAGS_packetsize = "4,8,16,32,64,128,256,512,1024,2048,4096,8192,16384,32768,65536,131072,262144,524288,1048576";
+    }
 
 
     // Parsing values
