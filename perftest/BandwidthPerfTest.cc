@@ -87,9 +87,15 @@ void rdma::BandwidthPerfClientThread::run() {
 	lck.unlock();
 	m_ready = false;
 	
-	size_t sendCounter = 0, receiveCounter = 0, totalBudget = m_iterations_per_thread;
+	size_t totalBudget = m_iterations_per_thread;
 	size_t offset, sendOffset, receiveOffset, remoteOffset;
 	uint32_t receiveRootOffsetIdx;
+
+	size_t workingConnections = m_rdma_addresses.size();
+	std::vector<size_t> totalBudgets(workingConnections, m_iterations_per_thread);
+	std::vector<size_t> pendingReceives(workingConnections, 0); // each connection counds how many receive it expects
+	uint32_t imm;
+
 	auto start = rdma::PerfTest::startTimer();
 	switch(BandwidthPerfTest::testOperation){
 		case WRITE_OPERATION: // Write
@@ -160,41 +166,37 @@ void rdma::BandwidthPerfClientThread::run() {
 			break;
 
 		case SEND_RECEIVE_OPERATION: // Send & Receive
-			// alternating send/receive blocks to not overfill queues
-			for(size_t i = 0; i < m_iterations_per_thread; i+=2*m_max_rdma_wr_per_thread){
-				int budgetS = m_iterations_per_thread - i;
-				if(budgetS > (int)m_max_rdma_wr_per_thread){ budgetS = m_max_rdma_wr_per_thread; }
-				totalBudget -= budgetS;
+			do {
+				for(size_t connIdx=0; connIdx < m_rdma_addresses.size(); connIdx++){
+					size_t totalBudget = totalBudgets[connIdx];
+					size_t pendingBudget = pendingReceives[connIdx];
+					
+					if(totalBudget == 0 && pendingBudget == 0) continue; // skip this connection as it has already finished
 
-				int budgetR = totalBudget;
-				if(budgetR >(int)m_max_rdma_wr_per_thread){ budgetR = m_max_rdma_wr_per_thread; }
-				totalBudget -= budgetR;
+					// send as many messages as possible
+					size_t connOffset = connIdx * m_packet_size * m_buffer_slots;
+					size_t sendBudget = m_max_rdma_wr_per_thread - pendingBudget; // calculate how many receives can be posted
+					if(sendBudget > totalBudget) sendBudget = totalBudget; // check if possible receives exeeds actual left totalBudget
+					for(size_t i=0; i<sendBudget; i++){
+						sendOffset = connOffset + ((totalBudget-i) % m_buffer_slots) * m_packet_size;
+						m_client->receive(m_addr[connIdx], nullptr, 0); // just for ACK
+						m_client->send(m_addr[connIdx], m_local_memory->pointer(sendOffset), m_packet_size, (i+1)==sendBudget);
+					}
+					totalBudgets[connIdx] -= sendBudget; // decrement totalBudget by amount of sent messages
+					pendingReceives[connIdx] += sendBudget; // increment pending receives by amount of sent messages
 
-				for(int j = 0; j < budgetR; j++){
-					offset = receiveCounter * m_packet_size;
-					receiveCounter = (receiveCounter+1) % m_buffer_slots;
-					for(size_t connIdx=0; connIdx < m_rdma_addresses.size(); connIdx++){
-						receiveOffset = offset * (connIdx+1) * 2;
-						m_client->receive(m_addr[connIdx], m_local_memory->pointer(receiveOffset), m_packet_size);
+					// poll ACKs
+					do {
+						if(m_client->pollReceive(m_addr[connIdx], false, &imm) <= 0) break; // break because no more ACKs
+						pendingReceives[connIdx] -= imm; // decrement pending receives by received amount
+					} while(true);
+
+					if(totalBudgets[connIdx] == 0 && pendingReceives[connIdx] == 0){ // check if connection has finished
+						workingConnections--;
 					}
 				}
-
-				for(int j = 0; j < budgetS; j++){
-					offset = sendCounter * m_packet_size;
-					sendCounter = (sendCounter+1) % m_buffer_slots;
-					for(size_t connIdx=0; connIdx < m_rdma_addresses.size(); connIdx++){
-						sendOffset = offset * (connIdx+1) * 2 + m_packet_size;
-						m_client->send(m_addr[connIdx], m_local_memory->pointer(sendOffset), m_packet_size, (j+1)==budgetS); // signaled: (j+1)==budget
-					}
-				}
-
-				for(int j = 0; j < budgetR; j++){
-					for(size_t connIdx=0; connIdx < m_rdma_addresses.size(); connIdx++){
-						m_client->pollReceive(m_addr[connIdx], true);
-					}
-				}
-			}
-			m_elapsedSendMs = rdma::PerfTest::stopTimer(start);
+			} while(workingConnections > 0);
+			m_elapsedSendMs = rdma::PerfTest::stopTimer(start); // stop timer
 			break;
 		
 		default: throw invalid_argument("BandwidthPerfClientThread unknown test mode");
@@ -238,38 +240,38 @@ void rdma::BandwidthPerfServerThread::run() {
 	}
 
 	size_t i = 0;
-	int sendCounter = 0, receiveCounter = 0, totalBudget = m_iterations_per_thread, budgetR = totalBudget, budgetS;
+	size_t sendCounter = 0, totalBudget = m_iterations_per_thread, budgetR = totalBudget, budgetS;
 	size_t sendOffset, receiveOffset, remoteOffset;
 	uint32_t remoteBaseOffsetIndex[m_max_rdma_wr_per_thread];
 	switch(BandwidthPerfTest::testOperation){
 		case WRITE_OPERATION:
 			if(m_write_mode == WRITE_MODE_IMMEDIATE){
 				// Calculate receive budget for even blocks
-				if(budgetR > (int)m_max_rdma_wr_per_thread){ budgetR = m_max_rdma_wr_per_thread; }
+				if(budgetR > m_max_rdma_wr_per_thread){ budgetR = m_max_rdma_wr_per_thread; }
 				totalBudget -= budgetR;
 				i += budgetR;
-				for(int j = 0; j < budgetR; j++){
+				for(size_t j = 0; j < budgetR; j++){
 					m_server->receiveWriteImm(m_respond_conn_id);
 				}
 
 				do {
 					// Calculate send budget for odd blocks
 					budgetS = totalBudget;
-					if(budgetS > (int)m_max_rdma_wr_per_thread){ budgetS = m_max_rdma_wr_per_thread; }
+					if(budgetS > m_max_rdma_wr_per_thread){ budgetS = m_max_rdma_wr_per_thread; }
 					totalBudget -= budgetS;
-					for(int j = 0; j < budgetR; j++){
+					for(size_t j = 0; j < budgetR; j++){
 						m_server->pollReceive(m_respond_conn_id, true, &remoteBaseOffsetIndex[j]);
 					}
 
 					// Calculate receive budget for even blocks
 					budgetR = totalBudget; 
-					if(budgetR > (int)m_max_rdma_wr_per_thread){ budgetR = m_max_rdma_wr_per_thread; }
+					if(budgetR > m_max_rdma_wr_per_thread){ budgetR = m_max_rdma_wr_per_thread; }
 					totalBudget -= budgetR;
 
-					for(int j = 0; j < budgetR; j++){
+					for(size_t j = 0; j < budgetR; j++){
 						m_server->receiveWriteImm(m_respond_conn_id);
 					}
-					for(int j = 0; j < budgetS; j++){
+					for(size_t j = 0; j < budgetS; j++){
 						sendCounter = (sendCounter+1) % m_buffer_slots;
 						sendOffset = sendCounter * m_packet_size + m_memory_size_per_thread;
 						remoteOffset = remoteBaseOffsetIndex[j] * m_packet_size; 
@@ -279,7 +281,7 @@ void rdma::BandwidthPerfServerThread::run() {
 					i += 2 * m_max_rdma_wr_per_thread;
 				} while(i < m_iterations_per_thread);
 
-				for(int j = 0; j < budgetR; j++){ // final poll to sync up with client again
+				for(size_t j = 0; j < budgetR; j++){ // final poll to sync up with client again
 					m_server->pollReceive(m_respond_conn_id, true, &remoteBaseOffsetIndex[j]);
 				}
 			}
@@ -289,48 +291,32 @@ void rdma::BandwidthPerfServerThread::run() {
 			break;
 
 		case SEND_RECEIVE_OPERATION:
-			// Calculate receive budget for even blocks
-			if(budgetR > (int)m_max_rdma_wr_per_thread){ budgetR = m_max_rdma_wr_per_thread; }
-			totalBudget -= budgetR;
-			i += budgetR;
-			for(int j = 0; j < budgetR; j++){
-				receiveCounter = (receiveCounter+1) % m_buffer_slots;
-				receiveOffset = receiveCounter * m_packet_size + receiveBaseOffset;
+			totalBudget = m_iterations_per_thread;
+			budgetR = (totalBudget > m_max_rdma_wr_per_thread ? m_max_rdma_wr_per_thread : totalBudget); // how many receives can be posted
+			for(size_t i=0; i<budgetR; i++){ // intially post enough receives
+				receiveOffset = receiveBaseOffset + ((totalBudget-i) % m_buffer_slots) * m_packet_size;
 				m_server->receive(m_respond_conn_id, m_local_memory->pointer(receiveOffset), m_packet_size);
 			}
+			budgetR = 0;
 
 			do {
-				// Calculate send budget for odd blocks
-				budgetS = totalBudget;
-				if(budgetS > (int)m_max_rdma_wr_per_thread){ budgetS = m_max_rdma_wr_per_thread; }
-				totalBudget -= budgetS;
-
-				for(int j = 0; j < budgetR; j++){
-					m_server->pollReceive(m_respond_conn_id, true);
-				}
-
-				// Calculate receive budget for even blocks
-				budgetR = totalBudget; 
-				if(budgetR > (int)m_max_rdma_wr_per_thread){ budgetR = m_max_rdma_wr_per_thread; }
-				totalBudget -= budgetR;
-				for(int j = 0; j < budgetR; j++){
-					receiveCounter = (receiveCounter+1) % m_buffer_slots;
-					receiveOffset = receiveCounter * m_packet_size + receiveBaseOffset;
+				bool block = true;
+				do { // poll as many receives as possible after first one received
+					if(m_server->pollReceive(m_respond_conn_id, block) <= 0) break; // break if no more messages received
+					block = false;
+					budgetR++;
+					totalBudget--;
+				} while(true);
+				// immediatly repost enough receives again if necessary
+				for(size_t i=0; i < budgetR && totalBudget >= m_max_rdma_wr_per_thread; i++){ // first block already intially posted
+					receiveOffset = receiveBaseOffset + ((totalBudget + budgetR-i) % m_buffer_slots) * m_packet_size; // TODO 
 					m_server->receive(m_respond_conn_id, m_local_memory->pointer(receiveOffset), m_packet_size);
 				}
-
-				for(int j = 0; j < budgetS; j++){
-					sendCounter = (sendCounter+1) % m_buffer_slots;
-					sendOffset = sendCounter * m_packet_size;
-					m_server->send(m_respond_conn_id, m_local_memory->pointer(sendOffset), m_packet_size, (j+1)==budgetS); // signaled: (j+1)==budget
+				for(size_t i=0; i < budgetR; i++){
+					m_server->writeImm(m_respond_conn_id, 0, nullptr, 0, (uint32_t)1, true); // ACK each packet individuall TODO bunch
 				}
-
-				i += 2 * m_max_rdma_wr_per_thread;
-			} while(i < m_iterations_per_thread);
-			
-			for(int j = 0; j < budgetR; j++){ // Finaly poll to sync up with client again
-				m_server->pollReceive(m_respond_conn_id, true);
-			}
+				budgetR = 0;
+			} while(totalBudget > 0);
 			break;
 
 		default: throw invalid_argument("BandwidthPerfServerThread unknown test mode");

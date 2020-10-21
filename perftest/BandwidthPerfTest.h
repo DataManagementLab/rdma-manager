@@ -61,7 +61,7 @@ private:
 	size_t m_iterations_per_thread;
 	size_t m_max_rdma_wr_per_thread;
 	WriteMode m_write_mode;
-	int32_t m_respond_conn_id = -1;
+	volatile int32_t m_respond_conn_id = -1; // must be volatile to prevent operation swapping of receive() and writeImm() in send test
 	RDMAServer<ReliableRDMA> *m_server;
 	LocalBaseMemoryStub *m_local_memory;
 };
