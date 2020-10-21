@@ -16,7 +16,7 @@ namespace rdma {
 
 class OperationsCountPerfClientThread : public Thread {
 public:
-	OperationsCountPerfClientThread(BaseMemory *memory, std::vector<std::string>& rdma_addresses, std::string ownIpPort, std::string sequencerIpPort, size_t packet_size, int buffer_slots, size_t iterations_per_thread, size_t max_rdma_wr_per_thread, WriteMode write_mode);
+	OperationsCountPerfClientThread(BaseMemory *memory, std::vector<std::string>& rdma_addresses, std::string ownIpPort, std::string sequencerIpPort, size_t packet_size, int buffer_slots, size_t iterations_per_thread, size_t max_rdma_wr_per_thread, WriteMode write_mode, size_t thread_id);
 	~OperationsCountPerfClientThread();
 	void run();
 	bool ready() {
@@ -46,7 +46,7 @@ private:
 
 class OperationsCountPerfServerThread : public Thread {
 public:
-	OperationsCountPerfServerThread(RDMAServer<ReliableRDMA> *server, size_t packet_size, int buffer_slots, size_t iterations_per_thread, size_t max_rdma_wr_per_thread, WriteMode write_mode);
+	OperationsCountPerfServerThread(RDMAServer<ReliableRDMA> *server, size_t packet_size, int buffer_slots, size_t iterations_per_thread, size_t max_rdma_wr_per_thread, WriteMode write_mode, size_t thread_id);
 	~OperationsCountPerfServerThread();
 	void run();
 	bool ready(){
@@ -82,7 +82,7 @@ public:
 	static condition_variable waitCv;
 	static bool signaled;
 	static TestOperation testOperation;
-	static int thread_count;
+	static size_t thread_count;
 
 private:
 	bool m_is_server;

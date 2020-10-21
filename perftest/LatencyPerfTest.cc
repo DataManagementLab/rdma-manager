@@ -9,8 +9,8 @@ mutex rdma::LatencyPerfTest::waitLock;
 condition_variable rdma::LatencyPerfTest::waitCv;
 bool rdma::LatencyPerfTest::signaled;
 rdma::TestOperation rdma::LatencyPerfTest::testOperation;
-int rdma::LatencyPerfTest::client_count;
-int rdma::LatencyPerfTest::thread_count;
+size_t rdma::LatencyPerfTest::client_count;
+size_t rdma::LatencyPerfTest::thread_count;
 
 /*	LT: Local Thread, RT: Remote Thread, B: BufferSlot, C: Connection, R: Receive Packet Size, S: Send Packet Size
  *
@@ -19,7 +19,7 @@ int rdma::LatencyPerfTest::thread_count;
  */
 
 
-rdma::LatencyPerfClientThread::LatencyPerfClientThread(BaseMemory *memory, std::vector<std::string>& rdma_addresses, std::string ownIpPort, std::string sequencerIpPort, size_t packet_size, int buffer_slots, size_t iterations_per_thread, WriteMode write_mode) {
+rdma::LatencyPerfClientThread::LatencyPerfClientThread(BaseMemory *memory, std::vector<std::string>& rdma_addresses, std::string ownIpPort, std::string sequencerIpPort, size_t packet_size, int buffer_slots, size_t iterations_per_thread, WriteMode write_mode, size_t thread_id) {
 	this->m_client = new RDMAClient<ReliableRDMA>(memory, "LatencyPerfTestClient", ownIpPort, sequencerIpPort);
 	this->m_rdma_addresses = rdma_addresses;
 	this->m_packet_size = packet_size;
@@ -57,7 +57,7 @@ rdma::LatencyPerfClientThread::LatencyPerfClientThread(BaseMemory *memory, std::
 		m_local_memory->set((uint32_t)m_client->getOwnNodeID(), 0);
 		m_client->write(m_addr[connIdx], m_remOffsets[connIdx], m_local_memory->pointer(), nodeIdMsgSize, true);
 	}
-	m_local_memory->setMemory(1);
+	m_local_memory->setMemory(thread_id % 255); // use thread specific workload to prevent compression 
 }
 
 rdma::LatencyPerfClientThread::~LatencyPerfClientThread() {
@@ -205,7 +205,7 @@ void rdma::LatencyPerfClientThread::run() {
 }
 
 
-rdma::LatencyPerfServerThread::LatencyPerfServerThread(RDMAServer<ReliableRDMA> *server, size_t packet_size, int buffer_slots, size_t iterations_per_thread, WriteMode write_mode) {
+rdma::LatencyPerfServerThread::LatencyPerfServerThread(RDMAServer<ReliableRDMA> *server, size_t packet_size, int buffer_slots, size_t iterations_per_thread, WriteMode write_mode, size_t thread_id) {
 	this->m_server = server;
 	this->m_packet_size = packet_size;
 	this->m_buffer_slots = buffer_slots;
@@ -214,6 +214,7 @@ rdma::LatencyPerfServerThread::LatencyPerfServerThread(RDMAServer<ReliableRDMA> 
 	this->m_write_mode = write_mode;
 	this->m_local_memory = server->localMalloc(this->m_memory_size_per_thread);
 	this->m_local_memory->openContext();
+	this->m_local_memory->setMemory(thread_id % 255); // use thread specific workload to prevent compression 
 }
 
 rdma::LatencyPerfServerThread::~LatencyPerfServerThread() {
@@ -402,15 +403,15 @@ void rdma::LatencyPerfTest::setupTest(){
 	if(m_is_server){
 		// Server
 		m_server = new RDMAServer<ReliableRDMA>("LatencyTestRDMAServer", m_rdma_port, Network::getAddressOfConnection(m_ownIpPort), m_memory, m_sequencerIpPort);
-		for (int thread_id = 0; thread_id < thread_count; thread_id++) {
-			LatencyPerfServerThread* perfThread = new LatencyPerfServerThread(m_server, m_packet_size, m_buffer_slots, m_iterations_per_thread, m_write_mode);
+		for (size_t thread_id = 0; thread_id < thread_count; thread_id++) {
+			LatencyPerfServerThread* perfThread = new LatencyPerfServerThread(m_server, m_packet_size, m_buffer_slots, m_iterations_per_thread, m_write_mode, thread_id);
 			m_server_threads.push_back(perfThread);
 		}
 
 	} else {
 		// Client
-		for (int i = 0; i < thread_count; i++) {
-			LatencyPerfClientThread* perfThread = new LatencyPerfClientThread(m_memory, m_rdma_addresses, m_ownIpPort, m_sequencerIpPort, m_packet_size, m_buffer_slots, m_iterations_per_thread, m_write_mode);
+		for (size_t thread_id = 0; thread_id < thread_count; thread_id++) {
+			LatencyPerfClientThread* perfThread = new LatencyPerfClientThread(m_memory, m_rdma_addresses, m_ownIpPort, m_sequencerIpPort, m_packet_size, m_buffer_slots, m_iterations_per_thread, m_write_mode, thread_id);
 			m_client_threads.push_back(perfThread);
 		}
 	}

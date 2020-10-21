@@ -18,7 +18,7 @@ namespace rdma {
 
 class LatencyPerfClientThread : public Thread {
 public:
-	LatencyPerfClientThread(BaseMemory *memory, std::vector<std::string>& rdma_addresses, std::string ownIpPort, std::string sequencerIpPort, size_t packet_size, int buffer_slots, size_t iterations_per_thread, WriteMode write_mode);
+	LatencyPerfClientThread(BaseMemory *memory, std::vector<std::string>& rdma_addresses, std::string ownIpPort, std::string sequencerIpPort, size_t packet_size, int buffer_slots, size_t iterations_per_thread, WriteMode write_mode, size_t thread_id);
 	~LatencyPerfClientThread();
 	void run();
 	bool ready() {
@@ -48,7 +48,7 @@ private:
 
 class LatencyPerfServerThread : public Thread {
 public:
-	LatencyPerfServerThread(RDMAServer<ReliableRDMA> *server, size_t packet_size, int buffer_slots, size_t iterations_per_thread, WriteMode write_mode);
+	LatencyPerfServerThread(RDMAServer<ReliableRDMA> *server, size_t packet_size, int buffer_slots, size_t iterations_per_thread, WriteMode write_mode, size_t thread_id);
 	~LatencyPerfServerThread();
 	void run();
 	bool ready(){
@@ -83,7 +83,7 @@ public:
 	static condition_variable waitCv;
 	static bool signaled;
 	static TestOperation testOperation;
-	static int thread_count, client_count;
+	static size_t thread_count, client_count;
 
 private:
 	bool m_is_server;

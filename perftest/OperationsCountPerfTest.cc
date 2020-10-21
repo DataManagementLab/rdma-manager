@@ -20,9 +20,9 @@ mutex rdma::OperationsCountPerfTest::waitLock;
 condition_variable rdma::OperationsCountPerfTest::waitCv;
 bool rdma::OperationsCountPerfTest::signaled;
 rdma::TestOperation rdma::OperationsCountPerfTest::testOperation;
-int rdma::OperationsCountPerfTest::thread_count;
+size_t rdma::OperationsCountPerfTest::thread_count;
 
-rdma::OperationsCountPerfClientThread::OperationsCountPerfClientThread(BaseMemory *memory, std::vector<std::string>& rdma_addresses, std::string ownIpPort, std::string sequencerIpPort, size_t packet_size, int buffer_slots, size_t iterations_per_thread, size_t max_rdma_wr_per_thread, WriteMode write_mode) {
+rdma::OperationsCountPerfClientThread::OperationsCountPerfClientThread(BaseMemory *memory, std::vector<std::string>& rdma_addresses, std::string ownIpPort, std::string sequencerIpPort, size_t packet_size, int buffer_slots, size_t iterations_per_thread, size_t max_rdma_wr_per_thread, WriteMode write_mode, size_t thread_id) {
 	this->m_client = new RDMAClient<ReliableRDMA>(memory, "OperationsCountPerfTestClient", ownIpPort, sequencerIpPort);
 	this->m_rdma_addresses = rdma_addresses;
 	this->m_packet_size = packet_size;
@@ -56,7 +56,7 @@ rdma::OperationsCountPerfClientThread::OperationsCountPerfClientThread(BaseMemor
 		m_local_memory->set((uint32_t)m_client->getOwnNodeID(), 0);
 		m_client->write(m_addr[connIdx], m_remOffsets[connIdx], m_local_memory->pointer(), sizeof(uint32_t), true);
 	}
-	m_local_memory->setMemory(1);
+	m_local_memory->setMemory(thread_id % 255); // use thread specific workload to prevent compression 
 }
 
 
@@ -198,7 +198,7 @@ void rdma::OperationsCountPerfClientThread::run() {
 
 
 
-rdma::OperationsCountPerfServerThread::OperationsCountPerfServerThread(RDMAServer<ReliableRDMA> *server, size_t packet_size, int buffer_slots, size_t iterations_per_thread, size_t max_rdma_wr_per_thread, WriteMode write_mode) {
+rdma::OperationsCountPerfServerThread::OperationsCountPerfServerThread(RDMAServer<ReliableRDMA> *server, size_t packet_size, int buffer_slots, size_t iterations_per_thread, size_t max_rdma_wr_per_thread, WriteMode write_mode, size_t thread_id) {
 	this->m_server = server;
 	this->m_packet_size = packet_size;
 	this->m_buffer_slots = buffer_slots;
@@ -208,6 +208,7 @@ rdma::OperationsCountPerfServerThread::OperationsCountPerfServerThread(RDMAServe
 	this->m_write_mode = write_mode;
 	this->m_local_memory = server->localMalloc(this->m_memory_size_per_thread);
 	this->m_local_memory->openContext();
+	this->m_local_memory->setMemory(thread_id % 255); // use thread specific workload to prevent compression 
 }
 
 
@@ -438,8 +439,8 @@ void rdma::OperationsCountPerfTest::setupTest(){
 	if(m_is_server){
 		// Server
 		m_server = new RDMAServer<ReliableRDMA>("OperationsCountTestRDMAServer", m_rdma_port, Network::getAddressOfConnection(m_ownIpPort), m_memory, m_sequencerIpPort);
-		for (int thread_id = 0; thread_id < thread_count; thread_id++) {
-			OperationsCountPerfServerThread* perfThread = new OperationsCountPerfServerThread(m_server, m_packet_size, m_buffer_slots, m_iterations_per_thread, max_rdma_wr_per_thread, m_write_mode);
+		for (size_t thread_id = 0; thread_id < thread_count; thread_id++) {
+			OperationsCountPerfServerThread* perfThread = new OperationsCountPerfServerThread(m_server, m_packet_size, m_buffer_slots, m_iterations_per_thread, max_rdma_wr_per_thread, m_write_mode, thread_id);
 			m_server_threads.push_back(perfThread);
 		}
 		/* If server only allows to be single threaded
@@ -448,8 +449,8 @@ void rdma::OperationsCountPerfTest::setupTest(){
 
 	} else {
 		// Client
-		for (int i = 0; i < thread_count; i++) {
-			OperationsCountPerfClientThread* perfThread = new OperationsCountPerfClientThread(m_memory, m_rdma_addresses, m_ownIpPort, m_sequencerIpPort, m_packet_size, m_buffer_slots, m_iterations_per_thread, max_rdma_wr_per_thread, m_write_mode);
+		for (size_t thread_id = 0; thread_id < thread_count; thread_id++) {
+			OperationsCountPerfClientThread* perfThread = new OperationsCountPerfClientThread(m_memory, m_rdma_addresses, m_ownIpPort, m_sequencerIpPort, m_packet_size, m_buffer_slots, m_iterations_per_thread, max_rdma_wr_per_thread, m_write_mode, thread_id);
 			m_client_threads.push_back(perfThread);
 		}
 	}
