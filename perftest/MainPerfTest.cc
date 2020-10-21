@@ -30,7 +30,7 @@ DEFINE_bool(server, false, "Act as server for a client to test performance");
 DEFINE_int32(clients, 1, "Just required by server to know how many clients will connect. Multiplies amount of threads by this amount of clients");
 DEFINE_string(memtype, "", "Memory type or index of GPU for memory allocation ('-3' or 'MAIN' for Main memory, '-2' or 'GPU.NUMA' for NUMA aware GPU, '-1' or 'GPU.D' for default GPU, '0..n' or 'GPU.i' i index for fixed GPU | multiples separated by comma without space) [Default -3]");
 DEFINE_string(remote_memtype, "", "Just for prettier result printing and therefore not essential. Same as  --memtype  flag but for remote side (should be empty or same length as  --memtype  flag)");
-DEFINE_string(packetsize, "", "Packet size in bytes or 'all' for all powers of two, 'small' for a bunch of small packet sizes, 'big' for a bunch of big packet sizes (multiple numbers separated by comma without space) [Default 4096B, Min 4B]");
+DEFINE_string(packetsize, "", "Packet size in bytes or 'all' for all powers of two, 'small' for a bunch of small packet sizes, 'big' for a bunch of big packet sizes, 'mid' for a bunch between small and big (multiple numbers separated by comma without space) [Default 4096B, Min 4B]");
 DEFINE_string(bufferslots, "", "How many packets the buffer can hold (round-robin distribution of packets inside buffer | multiples separated by comma without space) [Default 16]");
 DEFINE_string(threads, "", "Each thread starts its own connection to the server. Server and other clients need exactly the same value (multiples separated by comma without space) [Default 1]");
 DEFINE_string(iterations, "", "Amount of transfers for latency and all atomics tests (multiples separated by comma without space) [Default 500000]");
@@ -274,6 +274,8 @@ int main(int argc, char *argv[]){
         FLAGS_packetsize = "4,8,16,32,64,128,256,512,1024,2048,4096,8192,16384,32768,65536,131072,262144,524288,1048576";
     } else if(std::string("smalls").find(packetSizeStr) != std::string::npos || std::string("tiny").find(packetSizeStr) != std::string::npos){
         FLAGS_packetsize = "4,8,16,32,64,128,256,512,1024,2048,4096";
+    } else if(std::string("middles").find(packetSizeStr) != std::string::npos || std::string("mediums").find(packetSizeStr) != std::string::npos){
+        FLAGS_packetsize = "512,1024,2048,4096,8192,16384,32768,65536";
     } else if(std::string("bigs").find(packetSizeStr) != std::string::npos || std::string("huges").find(packetSizeStr) != std::string::npos){
         FLAGS_packetsize = "8192,16384,32768,65536,131072,262144,524288,1048576";
     }
