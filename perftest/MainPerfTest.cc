@@ -231,7 +231,7 @@ int main(int argc, char *argv[]){
     if(FLAGS_fulltest || FLAGS_halftest || FLAGS_quicktest){
         FLAGS_csv = true;
         if(FLAGS_test.empty()) FLAGS_test = "write_bw,write_lat,write_ops,read_bw,read_lat,read_ops,send_bw,send_lat,send_ops,fetch_bw,fetch_lat,fetch_ops,swap_bw,swap_lat,swap_ops";
-        if(FLAGS_memtype.empty()) FLAGS_memtype = (FLAGS_server ? "-3,-2,-3,-3" : "-3,-3,-2,-2");
+        if(FLAGS_memtype.empty()) FLAGS_memtype = (FLAGS_server ? "-3,-2,-3,-2" : "-3,-3,-2,-2");
         if(FLAGS_remote_memtype.empty()) FLAGS_remote_memtype = (FLAGS_server ? "-3,-3,-2,-2" : "-3,-2,-3,-2");
     }
     if(FLAGS_fulltest){
@@ -328,7 +328,7 @@ int main(int argc, char *argv[]){
 		local_memtypes.clear(); local_memtypes.push_back(-3);
 	#endif
 
-    if(remote_memtypes.size() == 0) remote_memtypes.push_back(-404);
+    if(remote_memtypes.empty()) remote_memtypes.push_back(-404);
 
     // Parse write mode names
     std::vector<rdma::WriteMode> write_modes;
@@ -367,7 +367,7 @@ int main(int argc, char *argv[]){
         bool parse_op = true;
 
         // Parse test type
-        if(std::string("bandwidth").find(testName) == 0){
+        if(std::string("bandwidth").find(testName) == 0 || std::string("bw").find(testName) == 0){
             test = BANDWIDTH_TEST;
             test_ops = (testOperations.find(test) != testOperations.end() ? testOperations[test] : 0);
             if(test_ops == 0){ count *= transfersizes.size() * packetsizes.size() * write_modes.size(); }
@@ -382,7 +382,8 @@ int main(int argc, char *argv[]){
             test_ops = (testOperations.find(test) != testOperations.end() ? testOperations[test] : 0);
             if(test_ops == 0){ count *= transfersizes.size() * packetsizes.size() * write_modes.size(); }
             parse_op = false;
-        } else if(std::string("atomicbandwidth").find(testName) == 0 || std::string("atomicsbandwidth").find(testName) == 0){
+        } else if(std::string("atomicbandwidth").find(testName) == 0 || std::string("atomicsbandwidth").find(testName) == 0 || 
+                    std::string("atomicbw").find(testName) == 0 || std::string("atomicsbw").find(testName) == 0){
             test = ATOMICS_BANDWIDTH_TEST;
             test_ops = (testOperations.find(test) != testOperations.end() ? testOperations[test] : 0);
             if(test_ops == 0){ count *= iteration_counts.size(); }
@@ -483,6 +484,7 @@ int main(int argc, char *argv[]){
         for(size_t gpui = 0; gpui < local_memtypes.size(); gpui++){
             const int local_gpu_index = local_memtypes[gpui];
             const int remote_gpu_index = remote_memtypes[gpui % remote_memtypes.size()];
+
             for(int &thread_count : thread_counts){
                 for(int &buffer_slots : bufferslots){
                     bool csvAddHeader = true;
