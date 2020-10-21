@@ -1,6 +1,7 @@
 #ifndef AbstractBaseMemory_H_
 #define AbstractBaseMemory_H_
 
+#include "../utils/RandomHelper.h"
 #include <stdio.h>
 #include <cstdint>
 #include <string>
@@ -175,6 +176,35 @@ public:
      * 
      */
     virtual void print(size_t offset, size_t length);
+
+    /* Function:  setRandom
+     * ---------------------
+     * Randomly initializes each byte of the buffer
+     * 
+     */
+    virtual void setRandom(){
+        setRandom(0, this->mem_size);
+    }
+
+    /* Function:  setRandom
+     * ---------------------
+     * Randomly initializes byte-wise a part of the buffer
+     * num:  How many bytes should be randomized
+     */
+    virtual void setRandom(size_t num){
+        setRandom(0, num);
+    }
+
+    /* Function:  setRandom
+     * ---------------------
+     * Randomly initializes byte-wise a part of the buffer
+     * off:  Offset where to start randomizing
+     * num:  How many bytes should be randomized
+     */
+    virtual void setRandom(size_t off, size_t num){
+        std::vector<uint8_t> rd = RandomHelper::generateRandomVector(num);
+        this->copyFrom((void*)&rd, 0, off, num, rdma::MEMORY_TYPE::MAIN);
+    }
 
     /* Function:  setMemory
      * ---------------------

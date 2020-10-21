@@ -16,7 +16,7 @@ namespace rdma {
 
 class BandwidthPerfClientThread : public Thread {
 public:
-	BandwidthPerfClientThread(BaseMemory *memory, std::vector<std::string>& rdma_addresses, std::string ownIpPort, std::string sequencerIpPort, size_t packet_size, int buffer_slots, size_t iterations_per_thread, size_t max_rdma_wr_per_thread, WriteMode write_mode, size_t thread_id);
+	BandwidthPerfClientThread(BaseMemory *memory, std::vector<std::string>& rdma_addresses, std::string ownIpPort, std::string sequencerIpPort, size_t packet_size, int buffer_slots, size_t iterations_per_thread, size_t max_rdma_wr_per_thread, WriteMode write_mode);
 	~BandwidthPerfClientThread();
 	void run();
 	bool ready() {
@@ -46,7 +46,7 @@ private:
 
 class BandwidthPerfServerThread : public Thread {
 public:
-	BandwidthPerfServerThread(RDMAServer<ReliableRDMA> *server, size_t packet_size, int buffer_slots, size_t iterations_per_thread, size_t max_rdma_wr_per_thread, WriteMode write_mode, size_t thread_id);
+	BandwidthPerfServerThread(RDMAServer<ReliableRDMA> *server, size_t packet_size, int buffer_slots, size_t iterations_per_thread, size_t max_rdma_wr_per_thread, WriteMode write_mode);
 	~BandwidthPerfServerThread();
 	void run();
 	bool ready(){
