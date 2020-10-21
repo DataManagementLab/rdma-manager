@@ -37,6 +37,8 @@ public:
 
     virtual void closeContext() override;
 
+    void setRandom(size_t off, size_t num) override;
+
     virtual void setMemory(int value) override;
 
     virtual void setMemory(int value, size_t num) override;

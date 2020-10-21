@@ -204,6 +204,7 @@ public:
     virtual void setRandom(size_t off, size_t num){
         std::vector<uint8_t> rd = RandomHelper::generateRandomVector(num);
         this->copyFrom((void*)rd.data(), 0, off, num, rdma::MEMORY_TYPE::MAIN);
+        delete rd.data();
     }
 
     /* Function:  setMemory

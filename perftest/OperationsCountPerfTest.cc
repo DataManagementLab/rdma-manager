@@ -50,7 +50,7 @@ rdma::OperationsCountPerfClientThread::OperationsCountPerfClientThread(BaseMemor
 
 	m_local_memory = m_client->localMalloc(m_memory_size_per_thread);
 	m_local_memory->openContext();
-	m_local_memory->setRandom(); // use thread specific workload to prevent compression 
+	if(m_local_memory->isMainMemory()) m_local_memory->setRandom(); // use thread specific workload to prevent compression 
 	
 	// send nodeID to tell remote thread how to respond
 	for(size_t connIdx=0; connIdx < m_rdma_addresses.size(); connIdx++){
@@ -208,7 +208,7 @@ rdma::OperationsCountPerfServerThread::OperationsCountPerfServerThread(RDMAServe
 	this->m_write_mode = write_mode;
 	this->m_local_memory = server->localMalloc(this->m_memory_size_per_thread);
 	this->m_local_memory->openContext();
-	this->m_local_memory->setRandom(); // use thread specific workload to prevent compression 
+	if(m_local_memory->isMainMemory()) m_local_memory->setRandom(); // use thread specific workload to prevent compression 
 }
 
 

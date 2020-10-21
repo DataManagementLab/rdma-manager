@@ -16,6 +16,10 @@ void AbstractMainMemory::closeContext(){
 
 }
 
+inline void AbstractMainMemory::setRandom(size_t off, size_t num){
+    RandomHelper::randomizeMainMemory((char*)this->buffer, off, num);
+}
+
 inline void AbstractMainMemory::setMemory(int value){
     setMemory(value, 0, this->mem_size);
 }
