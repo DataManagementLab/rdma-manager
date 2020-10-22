@@ -72,7 +72,7 @@ void rdma::AtomicsLatencyPerfClientThread::run() {
 					int offset = (i % m_buffer_slots) * rdma::ATOMICS_SIZE;
 					auto start = rdma::PerfTest::startTimer();
 					m_client->fetchAndAdd(m_addr[connIdx], m_remOffsets[connIdx] + offset, m_local_memory->pointer(offset), 2, rdma::ATOMICS_SIZE, true); // true=signaled
-					int64_t time = rdma::PerfTest::stopTimer(start) / 2; // one trip time
+					int64_t time = rdma::PerfTest::stopTimer(start);
 					m_sumFetchAddMs += time;
 					if(m_minFetchAddMs > time) m_minFetchAddMs = time;
 					if(m_maxFetchAddMs < time) m_maxFetchAddMs = time;
@@ -86,7 +86,7 @@ void rdma::AtomicsLatencyPerfClientThread::run() {
 					int offset = (i % m_buffer_slots) * rdma::ATOMICS_SIZE;
 					auto start = rdma::PerfTest::startTimer();
 					m_client->compareAndSwap(m_addr[connIdx], m_remOffsets[connIdx] + offset, m_local_memory->pointer(offset), i, i+1, rdma::ATOMICS_SIZE, true); // true=signaled
-					int64_t time = rdma::PerfTest::stopTimer(start) / 2; // one trip time
+					int64_t time = rdma::PerfTest::stopTimer(start);
 					m_sumCompareSwapMs += time;
 					if(m_minCompareSwapMs > time) m_minCompareSwapMs = time;
 					if(m_maxCompareSwapMs < time) m_maxCompareSwapMs = time;
@@ -308,7 +308,6 @@ std::string rdma::AtomicsLatencyPerfTest::getTestResults(std::string csvFileName
 		// generate result string
 		std::ostringstream oss;
 		oss << rdma::CONSOLE_PRINT_NOTATION << rdma::CONSOLE_PRINT_PRECISION;
-		oss << " Measured as 'one trip time' latencies:" << std::endl;
 		if(hasTestOperation(FETCH_ADD_OPERATION)){
 			oss << " - Fetch&Add:       average = " << rdma::PerfTest::convertTime(avgFetchAddMs) << "    median = " << rdma::PerfTest::convertTime(medianFetchAddMs);
 			oss << "    range = " <<  rdma::PerfTest::convertTime(minFetchAddMs) << " - " << rdma::PerfTest::convertTime(maxFetchAddMs) << std::endl;
