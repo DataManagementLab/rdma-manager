@@ -308,6 +308,7 @@ std::string rdma::AtomicsLatencyPerfTest::getTestResults(std::string csvFileName
 		// generate result string
 		std::ostringstream oss;
 		oss << rdma::CONSOLE_PRINT_NOTATION << rdma::CONSOLE_PRINT_PRECISION;
+		oss << "Measured as full latencies per operation:" << std::endl;
 		if(hasTestOperation(FETCH_ADD_OPERATION)){
 			oss << " - Fetch&Add:       average = " << rdma::PerfTest::convertTime(avgFetchAddMs) << "    median = " << rdma::PerfTest::convertTime(medianFetchAddMs);
 			oss << "    range = " <<  rdma::PerfTest::convertTime(minFetchAddMs) << " - " << rdma::PerfTest::convertTime(maxFetchAddMs) << std::endl;
