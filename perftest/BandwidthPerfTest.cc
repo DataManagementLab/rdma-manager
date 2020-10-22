@@ -28,7 +28,7 @@ rdma::BandwidthPerfClientThread::BandwidthPerfClientThread(BaseMemory *memory, s
 	this->m_packet_size = packet_size;
 	this->m_buffer_slots = buffer_slots;
 	this->m_remote_memory_size_per_thread = packet_size * buffer_slots; // remote memory size per thread
-	this->m_memory_size_per_thread = m_remote_memory_size_per_thread * rdma_addresses.size() * 2; // local memory size per thread (*2 because send/recv separat)
+	this->m_memory_size_per_thread = m_remote_memory_size_per_thread * rdma_addresses.size(); // local memory size per thread
 	this->m_iterations_per_thread = iterations_per_thread;
 	this->m_max_rdma_wr_per_thread = max_rdma_wr_per_thread;
 	this->m_write_mode = write_mode;
@@ -87,10 +87,8 @@ void rdma::BandwidthPerfClientThread::run() {
 	lck.unlock();
 	m_ready = false;
 	
-	size_t totalBudget = m_iterations_per_thread;
-	size_t offset, sendOffset, receiveOffset, remoteOffset;
-	uint32_t receiveRootOffsetIdx;
-
+	size_t offset, sendOffset, receiveOffset, remoteOffset, ackMsgCounter = 0;
+	size_t ackMsgPackgin = m_max_rdma_wr_per_thread/2; if(ackMsgPackgin<1) ackMsgPackgin=1; // how many ACK should be packet into a single ACK message
 	size_t workingConnections = m_rdma_addresses.size();
 	std::vector<size_t> totalBudgets(workingConnections, m_iterations_per_thread);
 	std::vector<size_t> pendingMessages(workingConnections, 0); // each connection counds how many receive it expects
@@ -103,48 +101,50 @@ void rdma::BandwidthPerfClientThread::run() {
 				case WRITE_MODE_NORMAL:
 					// one sided - server does nothing
 					for(size_t i = 0; i < m_iterations_per_thread; i++){
+						bool signaled = ( (i+1)==m_iterations_per_thread );
 						size_t offset = (i % m_buffer_slots) * m_packet_size;
 						for(size_t connIdx=0; connIdx < m_rdma_addresses.size(); connIdx++){
-							bool signaled = (i == (m_iterations_per_thread - 1));
-							size_t sendOffset = offset * (connIdx+1) * 2 + m_packet_size;
+							size_t sendOffset = connIdx * m_packet_size * m_buffer_slots + offset;
 							size_t remoteOffset = m_remOffsets[connIdx] + offset;
 							m_client->write(m_addr[connIdx], remoteOffset, m_local_memory->pointer(sendOffset), m_packet_size, signaled);
 						}
 					}
 					break;
 				case WRITE_MODE_IMMEDIATE:
-					// two sided - alternating burst sending
-					for(size_t i = 0; i < m_iterations_per_thread; i+=2*m_max_rdma_wr_per_thread){
-						int budgetS = totalBudget;
-						if(budgetS > (int)m_max_rdma_wr_per_thread){ budgetS = m_max_rdma_wr_per_thread; }
-						totalBudget -= budgetS;
+					do {
+						for(size_t connIdx=0; connIdx < m_rdma_addresses.size(); connIdx++){
+							size_t totalBudget = totalBudgets[connIdx];
+							size_t pendingMsgs = pendingMessages[connIdx];
+							
+							if(totalBudget == 0 && pendingMsgs == 0) continue; // skip this connection as it has already finished
 
-						int budgetR = totalBudget;
-						if(budgetR >(int)m_max_rdma_wr_per_thread){ budgetR = m_max_rdma_wr_per_thread; }
-						totalBudget -= budgetR;
+							// send as many messages as possible
+							size_t connOffset = connIdx * m_packet_size * m_buffer_slots;
+							size_t sendBudget = m_max_rdma_wr_per_thread - pendingMsgs; // calculate how many receives can be posted
+							if(sendBudget > totalBudget) sendBudget = totalBudget; // check if possible receives exeeds actual left totalBudget
+							for(size_t i=0; i<sendBudget; i++){
+								if(ackMsgCounter == 0) m_client->receiveWriteImm(m_addr[connIdx]); // just for ACK
+								ackMsgCounter = (ackMsgCounter+1 < ackMsgPackgin ? ackMsgCounter+1 : 0);
 
-						for(int j = 0; j < budgetR; j++){
-							for(size_t connIdx=0; connIdx < m_rdma_addresses.size(); connIdx++){
-								m_client->receiveWriteImm(m_addr[connIdx]);
+								offset = ((totalBudget-i) % m_buffer_slots) * m_packet_size;
+								remoteOffset = m_remOffsets[connIdx] + offset;
+								sendOffset = connOffset + offset;
+								m_client->writeImm(m_addr[connIdx], remoteOffset, m_local_memory->pointer(sendOffset), m_packet_size, (uint32_t)0, (i+1)==sendBudget);
+							}
+							totalBudgets[connIdx] -= sendBudget; // decrement totalBudget by amount of sent messages
+							pendingMessages[connIdx] += sendBudget; // increment pending receives by amount of sent messages
+
+							// poll ACKs
+							do {
+								if(m_client->pollReceive(m_addr[connIdx], pendingMessages[connIdx]==m_max_rdma_wr_per_thread, &imm) <= 0) break; // break because no more ACKs
+								pendingMessages[connIdx] -= imm; // decrement pending receives by received amount
+							} while(true);
+
+							if(totalBudgets[connIdx] == 0 && pendingMessages[connIdx] == 0){ // check if connection has finished
+								workingConnections--;
 							}
 						}
-						for(int j = 0; j < budgetS; j++){
-							offset = (i % m_buffer_slots) * m_packet_size;
-							for(size_t connIdx=0; connIdx < m_rdma_addresses.size(); connIdx++){
-								receiveOffset = offset * (connIdx+1) * 2;
-								sendOffset = receiveOffset + m_packet_size;
-								receiveRootOffsetIdx = (m_local_memory->getRootOffset() + receiveOffset) / m_packet_size;
-								remoteOffset = m_remOffsets[connIdx]+offset;
-								m_client->writeImm(m_addr[connIdx], remoteOffset, m_local_memory->pointer(sendOffset), m_packet_size, receiveRootOffsetIdx, (j+1)==budgetS);
-							}
-						}
-
-						for(int j = 0; j < budgetR; j++){
-							for(size_t connIdx=0; connIdx < m_rdma_addresses.size(); connIdx++){
-								m_client->pollReceive(m_addr[connIdx], true);
-							}
-						}
-					}
+					} while(workingConnections > 0);
 					break;
 				default: throw invalid_argument("BandwidthPerfClientThread unknown write mode");
 			}
@@ -154,10 +154,10 @@ void rdma::BandwidthPerfClientThread::run() {
 		case READ_OPERATION: // Read
 			// one sided - server does nothing
 			for(size_t i = 0; i < m_iterations_per_thread; i++){
+				bool signaled = ( (i+1)==m_iterations_per_thread );
 				offset = (i % m_buffer_slots) * m_packet_size;
 				for(size_t connIdx=0; connIdx < m_rdma_addresses.size(); connIdx++){
-					bool signaled = (i == (m_iterations_per_thread - 1));
-					receiveOffset = offset * (connIdx+1) * 2;
+					receiveOffset = connIdx * m_packet_size * m_buffer_slots + offset;
 					remoteOffset = m_remOffsets[connIdx] + offset;
 					m_client->read(m_addr[connIdx], remoteOffset, m_local_memory->pointer(receiveOffset), m_packet_size, signaled);
 				}
@@ -178,8 +178,10 @@ void rdma::BandwidthPerfClientThread::run() {
 					size_t sendBudget = m_max_rdma_wr_per_thread - pendingMsgs; // calculate how many receives can be posted
 					if(sendBudget > totalBudget) sendBudget = totalBudget; // check if possible receives exeeds actual left totalBudget
 					for(size_t i=0; i<sendBudget; i++){
+						if(ackMsgCounter == 0) m_client->receiveWriteImm(m_addr[connIdx]); // just for ACK
+						ackMsgCounter = (ackMsgCounter+1 < ackMsgPackgin ? ackMsgCounter+1 : 0);
+
 						sendOffset = connOffset + ((totalBudget-i) % m_buffer_slots) * m_packet_size;
-						m_client->receive(m_addr[connIdx], nullptr, 0); // just for ACK
 						m_client->send(m_addr[connIdx], m_local_memory->pointer(sendOffset), m_packet_size, (i+1)==sendBudget);
 					}
 					totalBudgets[connIdx] -= sendBudget; // decrement totalBudget by amount of sent messages
@@ -188,7 +190,7 @@ void rdma::BandwidthPerfClientThread::run() {
 					// poll ACKs
 					do {
 						if(m_client->pollReceive(m_addr[connIdx], pendingMessages[connIdx]==m_max_rdma_wr_per_thread, &imm) <= 0) break; // break because no more ACKs
-						pendingMessages[connIdx]--; // decrement pending receives by received amount
+						pendingMessages[connIdx] -= imm; // decrement pending receives by received amount
 					} while(true);
 
 					if(totalBudgets[connIdx] == 0 && pendingMessages[connIdx] == 0){ // check if connection has finished
@@ -239,51 +241,33 @@ void rdma::BandwidthPerfServerThread::run() {
 		m_local_memory->set((int32_t)0, receiveBaseOffset);
 	}
 
-	size_t i = 0;
-	size_t sendCounter = 0, totalBudget = m_iterations_per_thread, budgetR = totalBudget, budgetS;
-	size_t sendOffset, receiveOffset, remoteOffset;
-	uint32_t remoteBaseOffsetIndex[m_max_rdma_wr_per_thread];
+	size_t ackMsgPackgin = m_max_rdma_wr_per_thread/2; if(ackMsgPackgin<1) ackMsgPackgin=1; // how many ACK should be packet into a single ACK message
+	size_t ackMsgCounter = 0, receiveOffset;
+	size_t totalBudget = m_iterations_per_thread, budgetR = totalBudget;
 	switch(BandwidthPerfTest::testOperation){
 		case WRITE_OPERATION:
 			if(m_write_mode == WRITE_MODE_IMMEDIATE){
-				// Calculate receive budget for even blocks
-				if(budgetR > m_max_rdma_wr_per_thread){ budgetR = m_max_rdma_wr_per_thread; }
-				totalBudget -= budgetR;
-				i += budgetR;
-				for(size_t j = 0; j < budgetR; j++){
+				totalBudget = m_iterations_per_thread;
+				budgetR = (totalBudget > m_max_rdma_wr_per_thread ? m_max_rdma_wr_per_thread : totalBudget); // how many receives have been posted
+				for(size_t i=0; i<budgetR; i++){ // intially post enough receives
 					m_server->receiveWriteImm(m_respond_conn_id);
 				}
+				totalBudget -= budgetR;
 
 				do {
-					// Calculate send budget for odd blocks
-					budgetS = totalBudget;
-					if(budgetS > m_max_rdma_wr_per_thread){ budgetS = m_max_rdma_wr_per_thread; }
-					totalBudget -= budgetS;
-					for(size_t j = 0; j < budgetR; j++){
-						m_server->pollReceive(m_respond_conn_id, true, &remoteBaseOffsetIndex[j]);
-					}
-
-					// Calculate receive budget for even blocks
-					budgetR = totalBudget; 
-					if(budgetR > m_max_rdma_wr_per_thread){ budgetR = m_max_rdma_wr_per_thread; }
-					totalBudget -= budgetR;
-
-					for(size_t j = 0; j < budgetR; j++){
+					if(m_server->pollReceive(m_respond_conn_id, true) <= 0) break;   // wait for one message to receive
+					budgetR--;
+					if(totalBudget > 0){
 						m_server->receiveWriteImm(m_respond_conn_id);
+						budgetR++;
+						totalBudget--;
 					}
-					for(size_t j = 0; j < budgetS; j++){
-						sendCounter = (sendCounter+1) % m_buffer_slots;
-						sendOffset = sendCounter * m_packet_size + m_memory_size_per_thread;
-						remoteOffset = remoteBaseOffsetIndex[j] * m_packet_size; 
-						m_server->writeImm(m_respond_conn_id, remoteOffset, m_local_memory->pointer(sendOffset), m_packet_size, (uint32_t)0, (j+1)==budgetS); // signaled: (j+1)==budget
+					ackMsgCounter++;
+					if(ackMsgCounter==ackMsgPackgin || (totalBudget==0 && budgetR==0)){ // if packing budget full or last message then ACK
+						m_server->writeImm(m_respond_conn_id, 0, nullptr, 0, (uint32_t)ackMsgCounter, true); // ACK each packet individuall
+						ackMsgCounter = 0;
 					}
-
-					i += 2 * m_max_rdma_wr_per_thread;
-				} while(i < m_iterations_per_thread);
-
-				for(size_t j = 0; j < budgetR; j++){ // final poll to sync up with client again
-					m_server->pollReceive(m_respond_conn_id, true, &remoteBaseOffsetIndex[j]);
-				}
+				} while(totalBudget > 0 || budgetR > 0);
 			}
 			break;
 
@@ -298,7 +282,7 @@ void rdma::BandwidthPerfServerThread::run() {
 				m_server->receive(m_respond_conn_id, m_local_memory->pointer(receiveOffset), m_packet_size);
 			}
 			totalBudget -= budgetR;
-			
+
 			do {
 				if(m_server->pollReceive(m_respond_conn_id, true) <= 0) break;   // wait for one message to receive
 				budgetR--;
@@ -308,7 +292,11 @@ void rdma::BandwidthPerfServerThread::run() {
 					budgetR++;
 					totalBudget--;
 				}
-				m_server->writeImm(m_respond_conn_id, 0, nullptr, 0, (uint32_t)1, true); // ACK each packet individuall TODO bunch
+				ackMsgCounter++;
+				if(ackMsgCounter==ackMsgPackgin || (totalBudget==0 && budgetR==0)){ // if packing budget full or last message then ACK
+					m_server->writeImm(m_respond_conn_id, 0, nullptr, 0, (uint32_t)ackMsgCounter, true); // ACK each packet individuall
+					ackMsgCounter = 0;
+				}
 			} while(totalBudget > 0 || budgetR > 0);
 			break;
 
@@ -332,7 +320,7 @@ rdma::BandwidthPerfTest::BandwidthPerfTest(int testOperations, bool is_server, s
 	this->thread_count = thread_count;
 	this->m_packet_size = packet_size;
 	this->m_buffer_slots = buffer_slots;
-	this->m_memory_size = thread_count * packet_size * buffer_slots * rdma_addresses.size() * 2; // 2x because for send & receive separat
+	this->m_memory_size = thread_count * packet_size * buffer_slots * rdma_addresses.size() * 2; // 2x because server needs for send/recv separat
 	this->m_iterations_per_thread = iterations_per_thread;
 	this->m_write_mode = (write_mode!=WRITE_MODE_AUTO ? write_mode : rdma::BandwidthPerfTest::DEFAULT_WRITE_MODE);
 	this->m_rdma_addresses = rdma_addresses;
@@ -616,7 +604,6 @@ std::string rdma::BandwidthPerfTest::getTestResults(std::string csvFileName, boo
 		// generate result string
 		std::ostringstream oss;
 		oss << rdma::CONSOLE_PRINT_NOTATION << rdma::CONSOLE_PRINT_PRECISION;
-		oss << " measurement for sending and writeImm is executed as alternating send/receive bursts with " << Config::RDMA_MAX_WR << " operations per burst" << std::endl;
 		oss << "transfered = " << rdma::PerfTest::convertByteSize(transferedBytes) << std::endl;
 		if(hasTestOperation(WRITE_OPERATION)){
 			oss << " - Write:         bandwidth = " << rdma::PerfTest::convertBandwidth(transferedBytes*tu/m_elapsedWriteMs); 
