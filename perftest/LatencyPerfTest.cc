@@ -115,7 +115,7 @@ void rdma::LatencyPerfClientThread::run() {
 								if(tmp == receiveRootOffsetIdx && tmp > 0) break;
 								if((++counter) % 100000000 == 0){ std::cout << "KILL ME, I'M FROZEN " << std::endl; }
 							}
-							int64_t time = rdma::PerfTest::stopTimer(start);
+							int64_t time = rdma::PerfTest::stopTimer(start) / 2; // half trip time for write
 							m_sumWriteMs += time;
 							if(m_minWriteMs > time) m_minWriteMs = time;
 							if(m_maxWriteMs < time) m_maxWriteMs = time;
@@ -138,7 +138,7 @@ void rdma::LatencyPerfClientThread::run() {
 							m_client->receiveWriteImm(m_addr[connIdx]);
 							m_client->writeImm(m_addr[connIdx], remoteOffset, (void*)arrSend, m_packet_size, receiveRootOffsetIdx, true);
 							m_client->pollReceive(m_addr[connIdx], true);
-							int64_t time = rdma::PerfTest::stopTimer(start);
+							int64_t time = rdma::PerfTest::stopTimer(start) / 2; // half trip time for write
 							m_sumWriteMs += time;
 							if(m_minWriteMs > time) m_minWriteMs = time;
 							if(m_maxWriteMs < time) m_maxWriteMs = time;
@@ -187,7 +187,7 @@ void rdma::LatencyPerfClientThread::run() {
 					m_client->send(m_addr[connIdx], (void*)arrSend, m_packet_size, true); // true=signaled
 					m_client->pollReceive(m_addr[connIdx], true); // true=poll
 					m_client->receive(m_addr[connIdx], (void*)arrRecv, m_packet_size);
-					int64_t time = rdma::PerfTest::stopTimer(start);
+					int64_t time = rdma::PerfTest::stopTimer(start) / 2; // half trip time for send
 					m_sumSendMs += time;
 					if(m_minSendMs > time) m_minSendMs = time;
 					if(m_maxSendMs < time) m_maxSendMs = time;
@@ -563,7 +563,7 @@ std::string rdma::LatencyPerfTest::getTestResults(std::string csvFileName, bool 
 		// generate result string
 		std::ostringstream oss;
 		oss << rdma::CONSOLE_PRINT_NOTATION << rdma::CONSOLE_PRINT_PRECISION;
-		oss << "Measured as 'round-trip time' latencies per operation:" << std::endl;
+		oss << "Measured as 'round-trip time' latency for read and 'half-trip time' latency for write and send:" << std::endl;
 		if(hasTestOperation(WRITE_OPERATION)){
 			oss << " - Write:           average = " << rdma::PerfTest::convertTime(avgWriteMs) << "    median = " << rdma::PerfTest::convertTime(medianWriteMs);
 			oss << "    range = " <<  rdma::PerfTest::convertTime(minWriteMs) << " - " << rdma::PerfTest::convertTime(maxWriteMs) << std::endl;
