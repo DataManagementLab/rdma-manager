@@ -88,9 +88,10 @@ void rdma::BandwidthPerfClientThread::run() {
 	lck.unlock();
 	m_ready = false;
 	
-	size_t offset, sendOffset, receiveOffset, remoteOffset, ackMsgCounter = 0;
+	size_t offset, sendOffset, receiveOffset, remoteOffset;
 	size_t ackMsgPackgin = m_max_rdma_wr_per_thread/2; if(ackMsgPackgin<1) ackMsgPackgin=1; // how many ACK should be packet into a single ACK message
 	size_t workingConnections = m_rdma_addresses.size();
+	std::vector<size_t> ackMsgCounters(workingConnections, 0);
 	std::vector<size_t> totalBudgets(workingConnections, m_iterations_per_thread);
 	std::vector<size_t> pendingMessages(workingConnections, 0); // each connection counds how many receive it expects
 	uint32_t imm;
@@ -116,6 +117,7 @@ void rdma::BandwidthPerfClientThread::run() {
 						for(size_t connIdx=0; connIdx < m_rdma_addresses.size(); connIdx++){
 							size_t totalBudget = totalBudgets[connIdx];
 							size_t pendingMsgs = pendingMessages[connIdx];
+							size_t ackMsgCounter = ackMsgCounters[connIdx];
 							
 							if(totalBudget == 0 && pendingMsgs == 0) continue; // skip this connection as it has already finished
 
@@ -125,7 +127,7 @@ void rdma::BandwidthPerfClientThread::run() {
 							if(sendBudget > totalBudget) sendBudget = totalBudget; // check if possible receives exeeds actual left totalBudget
 							for(size_t i=0; i<sendBudget; i++){
 								if(ackMsgCounter == 0) m_client->receiveWriteImm(m_addr[connIdx]); // just for ACK
-								ackMsgCounter = (ackMsgCounter+1 < ackMsgPackgin ? ackMsgCounter+1 : 0);
+								ackMsgCounters[connIdx] = (ackMsgCounter+1 < ackMsgPackgin ? ackMsgCounter+1 : 0);
 
 								offset = ((totalBudget-i) % m_buffer_slots) * m_packet_size;
 								remoteOffset = m_remOffsets[connIdx] + offset;
@@ -173,7 +175,8 @@ void rdma::BandwidthPerfClientThread::run() {
 				for(size_t connIdx=0; connIdx < m_rdma_addresses.size(); connIdx++){
 					size_t totalBudget = totalBudgets[connIdx];
 					size_t pendingMsgs = pendingMessages[connIdx];
-					
+					size_t ackMsgCounter = ackMsgCounters[connIdx];
+
 					if(totalBudget == 0 && pendingMsgs == 0) continue; // skip this connection as it has already finished
 
 					// send as many messages as possible
@@ -182,7 +185,7 @@ void rdma::BandwidthPerfClientThread::run() {
 					if(sendBudget > totalBudget) sendBudget = totalBudget; // check if possible receives exeeds actual left totalBudget
 					for(size_t i=0; i<sendBudget; i++){
 						if(ackMsgCounter == 0) m_client->receiveWriteImm(m_addr[connIdx]); // just for ACK
-						ackMsgCounter = (ackMsgCounter+1 < ackMsgPackgin ? ackMsgCounter+1 : 0);
+						ackMsgCounters[connIdx] = (ackMsgCounter+1 < ackMsgPackgin ? ackMsgCounter+1 : 0);
 
 						sendOffset = connOffset + ((totalBudget-i) % m_buffer_slots) * m_packet_size;
 						m_client->send(m_addr[connIdx], m_local_memory->pointer(sendOffset), m_packet_size, (i+1)==sendBudget);
