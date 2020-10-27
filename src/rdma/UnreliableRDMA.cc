@@ -156,7 +156,7 @@ void UnreliableRDMA::initQP(rdmaConnID& retRdmaConnID) {
 
 void UnreliableRDMA::connectQP(const rdmaConnID rdmaConnID) {
   // if QP is connected return
-  if (m_connected.find(rdmaConnID) != m_connected.end()) {
+  if (m_connected.find(rdmaConnID) != m_connected.end() && !m_connected[rdmaConnID]) {
     return;
   }
 
@@ -176,8 +176,11 @@ void UnreliableRDMA::connectQP(const rdmaConnID rdmaConnID) {
 }
 
 void UnreliableRDMA::disconnectQP(const rdmaConnID rdmaConnID){
-  if(rdmaConnID){} // TODO REMOVE
-  destroyQPs(); // TODO only destroy QP associated with rdmaConnID if possible
+  if (m_connected[rdmaConnID])
+  {
+    ibv_destroy_ah(m_rconns[rdmaConnID].ud.ah);
+    m_connected[rdmaConnID] = false;
+  }
 }
 
 void UnreliableRDMA::destroyQPs() {
