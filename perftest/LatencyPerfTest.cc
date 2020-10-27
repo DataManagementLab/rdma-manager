@@ -346,6 +346,7 @@ std::string rdma::LatencyPerfTest::getTestParameters(bool forCSV){
 	}
 	oss << ", memory_type=" << getMemoryName(m_local_gpu_index, m_actual_gpu_index) << (m_remote_gpu_index!=-404 ? "->"+getMemoryName(m_remote_gpu_index) : "");
 	oss << ", iterations=" << (m_iterations_per_thread*thread_count) << ", writemode=" << (m_write_mode==WRITE_MODE_NORMAL ? "Normal" : "Immediate");
+	if(!forCSV){ oss << ", clients=" << client_count << ", servers=" << m_rdma_addresses.size(); }
 	return oss.str();
 }
 std::string rdma::LatencyPerfTest::getTestParameters(){

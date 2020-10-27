@@ -9,7 +9,8 @@ mutex rdma::AtomicsLatencyPerfTest::waitLock;
 condition_variable rdma::AtomicsLatencyPerfTest::waitCv;
 bool rdma::AtomicsLatencyPerfTest::signaled;
 rdma::TestOperation rdma::AtomicsLatencyPerfTest::testOperation;
-int rdma::AtomicsLatencyPerfTest::thread_count;
+size_t rdma::AtomicsLatencyPerfTest::client_count;
+size_t rdma::AtomicsLatencyPerfTest::thread_count;
 
 
 rdma::AtomicsLatencyPerfClientThread::AtomicsLatencyPerfClientThread(BaseMemory *memory, std::vector<std::string>& rdma_addresses, std::string ownIpPort, std::string sequencerIpPort, int buffer_slots, size_t iterations_per_thread) {
@@ -100,7 +101,7 @@ void rdma::AtomicsLatencyPerfClientThread::run() {
 
 
 rdma::AtomicsLatencyPerfTest::AtomicsLatencyPerfTest(int testOperations, bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, std::string ownIpPort, std::string sequencerIpPort, int local_gpu_index, int remote_gpu_index, int client_count, int thread_count, int buffer_slots, uint64_t iterations_per_thread) : PerfTest(testOperations){
-	thread_count *= client_count;
+	if(is_server) thread_count *= client_count;
 	
 	this->m_is_server = is_server;
 	this->m_rdma_port = rdma_port;
@@ -109,6 +110,7 @@ rdma::AtomicsLatencyPerfTest::AtomicsLatencyPerfTest(int testOperations, bool is
 	this->m_local_gpu_index = local_gpu_index;
 	this->m_actual_gpu_index = -1;
 	this->m_remote_gpu_index = remote_gpu_index;
+	this->client_count = client_count;
 	this->thread_count = thread_count;
 	this->m_memory_size = thread_count * rdma::ATOMICS_SIZE * buffer_slots * rdma_addresses.size();
 	this->m_buffer_slots = buffer_slots;
@@ -131,7 +133,10 @@ std::string rdma::AtomicsLatencyPerfTest::getTestParameters(bool forCSV){
 	oss << ", memory=" << m_memory_size << " (2x " << thread_count << "x " << m_buffer_slots << "x ";
 	if(!m_is_server){ oss << m_rdma_addresses.size() << "x "; } oss << rdma::ATOMICS_SIZE << ")";
 	oss << ", memory_type=" << getMemoryName(m_local_gpu_index, m_actual_gpu_index) << (m_remote_gpu_index!=-404 ? "->"+getMemoryName(m_remote_gpu_index) : "");
-	if(!forCSV){ oss << ", iterations=" << (m_iterations_per_thread*thread_count); }
+	if(!forCSV){
+		oss << ", iterations=" << (m_iterations_per_thread*thread_count);
+		oss << ", clients=" << client_count << ", servers=" << m_rdma_addresses.size();
+	}
 	return oss.str();
 }
 std::string rdma::AtomicsLatencyPerfTest::getTestParameters(){
@@ -180,7 +185,7 @@ void rdma::AtomicsLatencyPerfTest::setupTest(){
 
 	} else {
 		// Client
-		for (int i = 0; i < thread_count; i++) {
+		for (size_t i = 0; i < thread_count; i++) {
 			AtomicsLatencyPerfClientThread* perfThread = new AtomicsLatencyPerfClientThread(m_memory, m_rdma_addresses, m_ownIpPort, m_sequencerIpPort, m_buffer_slots, m_iterations_per_thread);
 			m_client_threads.push_back(perfThread);
 		}

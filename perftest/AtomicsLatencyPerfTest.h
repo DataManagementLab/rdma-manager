@@ -56,7 +56,7 @@ public:
 	static condition_variable waitCv;
 	static bool signaled;
 	static TestOperation testOperation;
-	static int thread_count;
+	static size_t client_count, thread_count;
 
 private:
 	bool m_is_server;

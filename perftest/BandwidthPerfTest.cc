@@ -368,6 +368,7 @@ std::string rdma::BandwidthPerfTest::getTestParameters(bool forCSV){
 	}
 	oss << ", memory_type=" << getMemoryName(m_local_gpu_index, m_actual_gpu_index) << (m_remote_gpu_index!=-404 ? "->"+getMemoryName(m_remote_gpu_index) : "");
 	oss << ", iterations=" << (m_iterations_per_thread*thread_count) << ", writemode=" << (m_write_mode==WRITE_MODE_NORMAL ? "Normal" : "Immediate");
+	if(!forCSV){ oss << ", clients=" << client_count << ", servers=" << m_rdma_addresses.size(); }
 	return oss.str();
 }
 std::string rdma::BandwidthPerfTest::getTestParameters(){
@@ -527,7 +528,7 @@ std::string rdma::BandwidthPerfTest::getTestResults(std::string csvFileName, boo
 		*/
 
 		const long double tu = (long double)NANO_SEC; // 1sec (nano to seconds as time unit)
-		
+
 		uint64_t transferedBytes = thread_count * m_iterations_per_thread * m_packet_size * m_rdma_addresses.size();
 		int64_t maxWriteMs=-1, minWriteMs=std::numeric_limits<int64_t>::max();
 		int64_t maxReadMs=-1, minReadMs=std::numeric_limits<int64_t>::max();

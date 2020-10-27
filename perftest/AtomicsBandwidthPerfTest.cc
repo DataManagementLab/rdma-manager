@@ -127,7 +127,10 @@ std::string rdma::AtomicsBandwidthPerfTest::getTestParameters(bool forCSV){
 	oss << ", memory=" << m_memory_size << " (2x " << thread_count << "x " << m_buffer_slots << "x ";
 	if(!m_is_server){ oss << m_rdma_addresses.size() << "x "; } oss << rdma::ATOMICS_SIZE << ")";
 	oss << ", memory_type=" << getMemoryName(m_local_gpu_index, m_actual_gpu_index) << (m_remote_gpu_index!=-404 ? "->"+getMemoryName(m_remote_gpu_index) : "");
-	if(!forCSV){ oss << ", iterations=" << (m_iterations_per_thread*thread_count); }
+	if(!forCSV){
+		oss << ", iterations=" << (m_iterations_per_thread*thread_count);
+		oss << ", clients=" << client_count << ", servers=" << m_rdma_addresses.size();
+	}
 	return oss.str();
 }
 std::string rdma::AtomicsBandwidthPerfTest::getTestParameters(){
