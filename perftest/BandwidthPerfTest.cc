@@ -20,6 +20,7 @@ mutex rdma::BandwidthPerfTest::waitLock;
 condition_variable rdma::BandwidthPerfTest::waitCv;
 bool rdma::BandwidthPerfTest::signaled;
 rdma::TestOperation rdma::BandwidthPerfTest::testOperation;
+size_t rdma::BandwidthPerfTest::client_count;
 size_t rdma::BandwidthPerfTest::thread_count;
 
 rdma::BandwidthPerfClientThread::BandwidthPerfClientThread(BaseMemory *memory, std::vector<std::string>& rdma_addresses, std::string ownIpPort, std::string sequencerIpPort, size_t packet_size, int buffer_slots, size_t iterations_per_thread, size_t max_rdma_wr_per_thread, WriteMode write_mode) {
@@ -148,6 +149,7 @@ void rdma::BandwidthPerfClientThread::run() {
 					break;
 				default: throw invalid_argument("BandwidthPerfClientThread unknown write mode");
 			}
+			if(BandwidthPerfTest::client_count > 1) rdma::PerfTest::global_barrier_client(m_client, m_addr, false); // global end barrier if multiple nodes
 			m_elapsedWriteMs = rdma::PerfTest::stopTimer(start);
 			break;
 
@@ -162,6 +164,7 @@ void rdma::BandwidthPerfClientThread::run() {
 					m_client->read(m_addr[connIdx], remoteOffset, m_local_memory->pointer(receiveOffset), m_packet_size, signaled);
 				}
 			}
+			if(BandwidthPerfTest::client_count > 1) rdma::PerfTest::global_barrier_client(m_client, m_addr, false); // global end barrier if multiple nodes
 			m_elapsedReadMs = rdma::PerfTest::stopTimer(start);
 			break;
 
@@ -198,6 +201,7 @@ void rdma::BandwidthPerfClientThread::run() {
 					}
 				}
 			} while(workingConnections > 0);
+			if(BandwidthPerfTest::client_count > 1) rdma::PerfTest::global_barrier_client(m_client, m_addr, false); // global end barrier if multiple nodes
 			m_elapsedSendMs = rdma::PerfTest::stopTimer(start); // stop timer
 			break;
 		
@@ -263,15 +267,24 @@ void rdma::BandwidthPerfServerThread::run() {
 						totalBudget--;
 					}
 					ackMsgCounter++;
-					if(ackMsgCounter==ackMsgPackgin || (totalBudget==0 && budgetR==0)){ // if packing budget full or last message then ACK
+					bool lastMsg = (totalBudget==0 && budgetR==0);
+					if(ackMsgCounter==ackMsgPackgin || lastMsg){ // if packing budget full or last message then ACK
+
+						if(lastMsg && BandwidthPerfTest::client_count > 1) // only if last message and multiple client instances
+							PerfTest::global_barrier_server_prepare(m_server, m_respond_conn_id); // prepare final barrier if multiple nodes
+
 						m_server->writeImm(m_respond_conn_id, 0, nullptr, 0, (uint32_t)ackMsgCounter, true); // ACK each packet individuall
 						ackMsgCounter = 0;
 					}
 				} while(totalBudget > 0 || budgetR > 0);
-			}
+
+			} else if(BandwidthPerfTest::client_count > 1) 
+					PerfTest::global_barrier_server_prepare(m_server, m_respond_conn_id); // global end barrier if multiple nodes
 			break;
 
 		case READ_OPERATION:
+			if(BandwidthPerfTest::client_count > 1) 
+				PerfTest::global_barrier_server_prepare(m_server, m_respond_conn_id); // prepare final barrier if multiple nodes
 			break;
 
 		case SEND_RECEIVE_OPERATION:
@@ -293,7 +306,12 @@ void rdma::BandwidthPerfServerThread::run() {
 					totalBudget--;
 				}
 				ackMsgCounter++;
-				if(ackMsgCounter==ackMsgPackgin || (totalBudget==0 && budgetR==0)){ // if packing budget full or last message then ACK
+				bool lastMsg = (totalBudget==0 && budgetR==0);
+				if(ackMsgCounter==ackMsgPackgin || lastMsg){ // if packing budget full or last message then ACK
+
+					if(lastMsg && BandwidthPerfTest::client_count > 1) // only if last message and multiple client instances
+							PerfTest::global_barrier_server_prepare(m_server, m_respond_conn_id); // prepare final barrier if multiple nodes
+
 					m_server->writeImm(m_respond_conn_id, 0, nullptr, 0, (uint32_t)ackMsgCounter, true); // ACK each packet individuall
 					ackMsgCounter = 0;
 				}
@@ -308,7 +326,7 @@ void rdma::BandwidthPerfServerThread::run() {
 
 
 rdma::BandwidthPerfTest::BandwidthPerfTest(int testOperations, bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, std::string ownIpPort, std::string sequencerIpPort, int local_gpu_index, int remote_gpu_index, int client_count, int thread_count, uint64_t packet_size, int buffer_slots, uint64_t iterations_per_thread, WriteMode write_mode) : PerfTest(testOperations){
-	thread_count *= client_count;
+	if(is_server) thread_count *= client_count;
 
 	this->m_is_server = is_server;
 	this->m_rdma_port = rdma_port;
@@ -317,6 +335,7 @@ rdma::BandwidthPerfTest::BandwidthPerfTest(int testOperations, bool is_server, s
 	this->m_local_gpu_index = local_gpu_index;
 	this->m_actual_gpu_index = -1;
 	this->m_remote_gpu_index = remote_gpu_index;
+	this->client_count = client_count;
 	this->thread_count = thread_count;
 	this->m_packet_size = packet_size;
 	this->m_buffer_slots = buffer_slots;
@@ -377,9 +396,14 @@ void rdma::BandwidthPerfTest::runThreads(){
 	BandwidthPerfTest::waitCv.notify_all();
 	BandwidthPerfTest::signaled = true;
 	lck.unlock();
+
 	for (size_t i = 0; i < m_server_threads.size(); i++) {
 		m_server_threads[i]->join();
 	}
+
+	if(m_is_server && BandwidthPerfTest::client_count > 1)  // if is server and multiple client instances then sync with global end barrier
+		PerfTest::global_barrier_server(m_server, BandwidthPerfTest::thread_count, false); // finish global end barrier
+
 	for (size_t i = 0; i < m_client_threads.size(); i++) {
 		m_client_threads[i]->join();
 	}

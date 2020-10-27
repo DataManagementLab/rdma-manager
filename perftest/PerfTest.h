@@ -60,49 +60,52 @@ public:
     }
 
 
-    static inline void global_barrier_client(rdma::RDMAClient<ReliableRDMA> *client, const std::vector<NodeID> &connectionIDs){
-        // Didn't use fetchAndAdd because memory polling is on GPUs very slow
-        size_t msgSize = 1; //if(msgSize < rdma::Config::GPUDIRECT_MINIMUM_MSG_SIZE) msgSize =  rdma::Config::GPUDIRECT_MINIMUM_MSG_SIZE;
-        for(const size_t &nodeID : connectionIDs){
-            client->receive(nodeID, client->getBuffer(), msgSize);
-        }
-        usleep(rdma::Config::PERFORMANCE_TEST_SERVER_TIME_ADVANTAGE); // let server first post its barrier
-        for(const size_t &nodeID : connectionIDs){
-            do {
-                try {
-                    client->send(nodeID, client->getBuffer(), msgSize, true); // try sending (server might not be ready yet)
-                    break; // successfully sent, so break infinite loop
-                } catch (...){ // if sending fails then server wasn't ready yet so repeat after short pause
-                    usleep(rdma::Config::PERFORMANCE_TEST_SERVER_TIME_ADVANTAGE);
-                }
-            } while(true);
-        }
-        for(const size_t &nodeID : connectionIDs){
-            client->pollReceive(nodeID, true);
-        }
-        usleep(rdma::Config::PERFORMANCE_TEST_SERVER_TIME_ADVANTAGE); // give server an additional head start
-    };
+    static inline void global_barrier_client(rdma::RDMAClient<ReliableRDMA> *client, const std::vector<NodeID> &connectionIDs, bool waitTime=true){
+        size_t msgSize = 0; //if(msgSize < rdma::Config::GPUDIRECT_MINIMUM_MSG_SIZE) msgSize =  rdma::Config::GPUDIRECT_MINIMUM_MSG_SIZE;
 
-    static inline void global_barrier_server(rdma::RDMAServer<ReliableRDMA> *server, size_t expected_thread_count){
-        // Didn't use fetchAndAdd because memory polling is on GPUs very slow
+        for(const NodeID &conID : connectionIDs)
+            client->receive(conID, client->getBuffer(), msgSize);  // post receives for server to respond
+
+        if(waitTime) usleep(rdma::Config::PERFORMANCE_TEST_SERVER_TIME_ADVANTAGE);
+
+        std::vector<NodeID> leftConIDs = connectionIDs; // creates copy of vector
+        do {
+            for(size_t i=0; i < leftConIDs.size(); i++){
+                try {
+                    client->send(leftConIDs[i], client->getBuffer(), msgSize, true); // try sending to server
+                    leftConIDs.erase(leftConIDs.begin() + i); i--;  // if successfully sent then erase node id from vector
+                } catch (std::runtime_error &err){
+                    usleep(1000); // 1ns
+                } catch (...){}
+            }
+        } while(!leftConIDs.empty()); // iterate as long as not for all connection a message has been sent
+
+        for(const NodeID &conID : connectionIDs)
+            client->pollReceive(conID, true); // wait for and poll all the server ACKs
+    }
+
+    static inline void global_barrier_server(rdma::RDMAServer<ReliableRDMA> *server, size_t expected_thread_count, bool prepare=true){
         std::vector<size_t> clientIds = server->getConnectedConnIDs();
         std::set<size_t> alreadyConnectedIds;
-        size_t msgSize = 1; //if(msgSize < rdma::Config::GPUDIRECT_MINIMUM_MSG_SIZE) msgSize =  rdma::Config::GPUDIRECT_MINIMUM_MSG_SIZE;
+        size_t msgSize = 0; //if(msgSize < rdma::Config::GPUDIRECT_MINIMUM_MSG_SIZE) msgSize =  rdma::Config::GPUDIRECT_MINIMUM_MSG_SIZE;
 
         // wait until all clients are connected and post receive for each
-        do {
-            if(alreadyConnectedIds.size() < clientIds.size()){
-                for(const size_t &nodeID : clientIds){
-                    if(alreadyConnectedIds.find(nodeID) == alreadyConnectedIds.end()){
-                        alreadyConnectedIds.insert(nodeID);
-                        server->receive(nodeID, server->getBuffer(), msgSize);
+        if(prepare){
+            do {
+                if(alreadyConnectedIds.size() < clientIds.size()){
+                    for(const size_t &nodeID : clientIds){
+                        if(alreadyConnectedIds.find(nodeID) == alreadyConnectedIds.end()){
+                            alreadyConnectedIds.insert(nodeID);
+                            server->receive(nodeID, server->getBuffer(), msgSize);
+                        }
                     }
                 }
-            } else if(alreadyConnectedIds.size() < expected_thread_count) {
-                usleep(rdma::Config::PERFORMANCE_TEST_SERVER_TIME_ADVANTAGE / 2); // let server first post its barrier
-                clientIds = server->getConnectedConnIDs();
-            } else { break; }
-        } while(true);
+                if(alreadyConnectedIds.size() < expected_thread_count) {
+                    usleep(rdma::Config::PERFORMANCE_TEST_SERVER_TIME_ADVANTAGE / 2); // let server first post its barrier
+                    clientIds = server->getConnectedConnIDs();
+                } else { break; }
+            } while(true);
+        }
 
         // wait until all clients pinged and then pong back to all
         for(const size_t &nodeID : clientIds){
@@ -111,7 +114,13 @@ public:
         for(const size_t &nodeID : clientIds){
             server->send(nodeID, server->getBuffer(), msgSize, true);
         }
-    };
+    }
+
+
+    static inline void global_barrier_server_prepare(rdma::RDMAServer<ReliableRDMA> *server, NodeID nodeID){
+        size_t msgSize = 0; //if(msgSize < rdma::Config::GPUDIRECT_MINIMUM_MSG_SIZE) msgSize =  rdma::Config::GPUDIRECT_MINIMUM_MSG_SIZE;
+        server->receive(nodeID, server->getBuffer(), msgSize);
+    }
 
 
     static std::string getMemoryName(int input_gpu_index, int actual_gpu_index=-1){

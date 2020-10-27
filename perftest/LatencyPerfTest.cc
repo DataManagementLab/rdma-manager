@@ -304,7 +304,7 @@ void rdma::LatencyPerfServerThread::run() {
 
 
 rdma::LatencyPerfTest::LatencyPerfTest(int testOperations, bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, std::string ownIpPort, std::string sequencerIpPort, int local_gpu_index, int remote_gpu_index, int client_count, int thread_count, uint64_t packet_size, int buffer_slots, uint64_t iterations_per_thread, WriteMode write_mode) : PerfTest(testOperations){
-	thread_count *= client_count;
+	if(is_server) thread_count *= client_count;
 	
 	this->m_is_server = is_server;
 	this->m_rdma_port = rdma_port;

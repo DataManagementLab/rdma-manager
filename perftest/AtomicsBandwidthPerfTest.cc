@@ -12,7 +12,8 @@ mutex rdma::AtomicsBandwidthPerfTest::waitLock;
 condition_variable rdma::AtomicsBandwidthPerfTest::waitCv;
 bool rdma::AtomicsBandwidthPerfTest::signaled;
 rdma::TestOperation rdma::AtomicsBandwidthPerfTest::testOperation;
-int rdma::AtomicsBandwidthPerfTest::thread_count;
+size_t rdma::AtomicsBandwidthPerfTest::client_count;
+size_t rdma::AtomicsBandwidthPerfTest::thread_count;
 
 rdma::AtomicsBandwidthPerfClientThread::AtomicsBandwidthPerfClientThread(BaseMemory *memory, std::vector<std::string>& rdma_addresses, std::string ownIpPort, std::string sequencerIpPort, int buffer_slots, size_t iterations_per_thread) {
 	this->m_client = new RDMAClient<ReliableRDMA>(memory, "AtomicsBandwidthPerfTestClient", ownIpPort, sequencerIpPort);
@@ -72,6 +73,7 @@ void rdma::AtomicsBandwidthPerfClientThread::run() {
 					m_client->fetchAndAdd(m_addr[connIdx], m_remOffsets[connIdx] + offset, m_local_memory->pointer(offset), 1, rdma::ATOMICS_SIZE, signaled); // true=signaled
 				}
 			}
+			if(AtomicsBandwidthPerfTest::client_count > 1) rdma::PerfTest::global_barrier_client(m_client, m_addr, false); // global end barrier if multiple nodes
 			m_elapsedFetchAddMs = rdma::PerfTest::stopTimer(start);
 			break;
 		case COMPARE_SWAP_OPERATION: // Compare & Swap
@@ -82,6 +84,7 @@ void rdma::AtomicsBandwidthPerfClientThread::run() {
 					m_client->compareAndSwap(m_addr[connIdx], m_remOffsets[connIdx] + offset, m_local_memory->pointer(offset), 2, 3, rdma::ATOMICS_SIZE, signaled); // true=signaled
 				}
 			}
+			if(AtomicsBandwidthPerfTest::client_count > 1) rdma::PerfTest::global_barrier_client(m_client, m_addr, false); // global end barrier if multiple nodes
 			m_elapsedCompareSwapMs = rdma::PerfTest::stopTimer(start);
 			break;
 		default: throw invalid_argument("BandwidthPerfClientThread unknown test mode");
@@ -92,7 +95,7 @@ void rdma::AtomicsBandwidthPerfClientThread::run() {
 
 
 rdma::AtomicsBandwidthPerfTest::AtomicsBandwidthPerfTest(int testOperations, bool is_server, std::vector<std::string> rdma_addresses, int rdma_port, std::string ownIpPort, std::string sequencerIpPort, int local_gpu_index, int remote_gpu_index, int client_count, int thread_count, int buffer_slots, uint64_t iterations_per_thread) : PerfTest(testOperations){
-	thread_count *= client_count;
+	if(is_server) thread_count *= client_count;
 	
 	this->m_is_server = is_server;
 	this->m_rdma_port = rdma_port;
@@ -101,6 +104,7 @@ rdma::AtomicsBandwidthPerfTest::AtomicsBandwidthPerfTest(int testOperations, boo
 	this->m_local_gpu_index = local_gpu_index;
 	this->m_actual_gpu_index = -1;
 	this->m_remote_gpu_index = remote_gpu_index;
+	this->client_count = client_count;
 	this->thread_count = thread_count;
 	this->m_memory_size = thread_count * rdma::ATOMICS_SIZE * buffer_slots * rdma_addresses.size();
 	this->m_buffer_slots = buffer_slots;
@@ -135,6 +139,7 @@ void rdma::AtomicsBandwidthPerfTest::makeThreadsReady(TestOperation testOperatio
 	AtomicsBandwidthPerfTest::signaled = false;
 	if(m_is_server){
 		rdma::PerfTest::global_barrier_server(m_server, (size_t)thread_count);
+
 	} else {
 		for(AtomicsBandwidthPerfClientThread* perfThread : m_client_threads){ perfThread->start(); }
 		for(AtomicsBandwidthPerfClientThread* perfThread : m_client_threads){ while(!perfThread->ready()) usleep(Config::RDMA_SLEEP_INTERVAL); }
@@ -147,6 +152,10 @@ void rdma::AtomicsBandwidthPerfTest::runThreads(){
 	AtomicsBandwidthPerfTest::waitCv.notify_all();
 	AtomicsBandwidthPerfTest::signaled = true;
 	lck.unlock();
+
+	if(m_is_server && client_count > 1)  // if is server and multiple client instances then sync with global end barrier
+		PerfTest::global_barrier_server(m_server, thread_count, true); // finish global end barrier
+
 	for (size_t i = 0; i < m_client_threads.size(); i++) {
 		m_client_threads[i]->join();
 	}
@@ -174,7 +183,7 @@ void rdma::AtomicsBandwidthPerfTest::setupTest(){
 
 	} else {
 		// Client
-		for (int i = 0; i < thread_count; i++) {
+		for (size_t i = 0; i < thread_count; i++) {
 			AtomicsBandwidthPerfClientThread* perfThread = new AtomicsBandwidthPerfClientThread(m_memory, m_rdma_addresses, m_ownIpPort, m_sequencerIpPort, m_buffer_slots, m_iterations_per_thread);
 			m_client_threads.push_back(perfThread);
 		}
