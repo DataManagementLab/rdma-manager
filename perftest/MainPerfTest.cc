@@ -47,6 +47,7 @@ DEFINE_int32(port, -1, "RDMA port that is used for addresses which have no port 
 DEFINE_string(writemode, "auto", "Which RDMA write mode should be used. Possible values are 'immediate' where remote receives and completion entry after a write, 'normal' where remote possibly has to pull the memory constantly to detect changes, 'auto' which uses preferred (ignored by atomics tests | multiples separated by comma without space)");
 DEFINE_bool(ignoreerrors, false, "If an error occurs test will be skiped and execution continues");
 DEFINE_string(config, "./bin/conf/RDMA.conf", "Path to the config file");
+DEFINE_int32(numa, -1, "NUMA region on which the IB device sits. -1 will use the value from the config file.");
 
 enum TEST { BANDWIDTH_TEST=1, LATENCY_TEST=2, OPERATIONS_COUNT_TEST=3, ATOMICS_BANDWIDTH_TEST=4, ATOMICS_LATENCY_TEST=5, ATOMICS_OPERATIONS_COUNT_TEST=6 };
 extern const uint64_t MINIMUM_PACKET_SIZE = 4; // >=4 for latency to transfer remote offset
@@ -221,11 +222,15 @@ int main(int argc, char *argv[]){
     gflags::ParseCommandLineFlags(&argc, &argv, true);
     std::cout << "Arguments parsed" << std::endl << "Loading config ..." << std::endl;
     rdma::Config *config = new rdma::Config(FLAGS_config, false);
+    if(FLAGS_numa >= 0) rdma::Config::RDMA_NUMAREGION = FLAGS_numa;
     if(FLAGS_seqaddr.empty()) FLAGS_seqaddr=rdma::Config::SEQUENCER_IP;
     if(FLAGS_seqport<=0) FLAGS_seqport=rdma::Config::SEQUENCER_PORT;
     if(FLAGS_ownaddr.empty()) FLAGS_ownaddr=rdma::Config::RDMA_INTERFACE;
-        if(auto find = FLAGS_ownaddr.find(":")) if(find != std::string::npos) FLAGS_ownaddr=FLAGS_ownaddr.substr(0, find);
-        if(!rdma::Network::isValidIP(FLAGS_ownaddr)) FLAGS_ownaddr=rdma::Config::getIP(FLAGS_ownaddr);
+        { auto find = FLAGS_ownaddr.find(":"); if(find != std::string::npos) FLAGS_ownaddr=FLAGS_ownaddr.substr(0, find); }
+        if(!rdma::Network::isValidIP(FLAGS_ownaddr)){
+            rdma::Config::RDMA_INTERFACE = FLAGS_ownaddr;
+            FLAGS_ownaddr=rdma::Config::getIP(FLAGS_ownaddr);
+        }
     if(FLAGS_addr.empty()) FLAGS_addr=rdma::Config::RDMA_SERVER_ADDRESSES;
     if(FLAGS_port<=0) FLAGS_port=rdma::Config::RDMA_PORT;
     std::cout << "Config loaded" << std::endl;
