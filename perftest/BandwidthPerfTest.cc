@@ -103,7 +103,7 @@ void rdma::BandwidthPerfClientThread::run() {
 				case WRITE_MODE_NORMAL:
 					// one sided - server does nothing
 					for(size_t i = 0; i < m_iterations_per_thread; i++){
-						bool signaled = ( ((i+1) % m_max_rdma_wr_per_thread) == 0 || (i+1)==m_iterations_per_thread );
+						bool signaled = ( (i+1)==m_iterations_per_thread );
 						size_t offset = (i % m_buffer_slots) * m_packet_size;
 						for(size_t connIdx=0; connIdx < m_rdma_addresses.size(); connIdx++){
 							size_t sendOffset = connIdx * m_packet_size * m_buffer_slots + offset;
@@ -158,7 +158,7 @@ void rdma::BandwidthPerfClientThread::run() {
 		case READ_OPERATION: // Read
 			// one sided - server does nothing
 			for(size_t i = 0; i < m_iterations_per_thread; i++){
-				bool signaled = ( ((i+1) % m_max_rdma_wr_per_thread) == 0 || (i+1)==m_iterations_per_thread );
+				bool signaled = ( (i+1)==m_iterations_per_thread );
 				offset = (i % m_buffer_slots) * m_packet_size;
 				for(size_t connIdx=0; connIdx < m_rdma_addresses.size(); connIdx++){
 					receiveOffset = connIdx * m_packet_size * m_buffer_slots + offset;
