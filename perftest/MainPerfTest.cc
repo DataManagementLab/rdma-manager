@@ -297,9 +297,10 @@ int main(int argc, char *argv[]){
     std::vector<std::string> writeModeNames = rdma::StringHelper::split(FLAGS_writemode);
     std::vector<std::string> addresses = rdma::StringHelper::split(FLAGS_addr);
 	for (auto &addr : addresses){
-        std::string ip = rdma::Network::getAddressOfConnection(addr);
+        bool hasPort = (addr.find(":") != std::string::npos);
+        std::string ip = (hasPort ? rdma::Network::getAddressOfConnection(addr) : addr);
         if(!rdma::Network::isValidIP(ip)) ip=rdma::Config::getIP(ip);
-        addr = ip + ":" + to_string(addr.find(":") == std::string::npos ? FLAGS_port : rdma::Network::getPortOfConnection(addr));
+        addr = ip + ":" + to_string(hasPort ? rdma::Network::getPortOfConnection(addr) : FLAGS_port);
 	}
 
 
