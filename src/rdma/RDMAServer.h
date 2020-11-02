@@ -262,12 +262,11 @@ class RDMAServer : public ProtoServer, public RDMAClient<RDMA_API_T> {
             "RDMAServer: initializing queue pair - " + to_string(nodeID));
         RDMA_API_T::initQPWithSuppliedID(nodeID);
       } else {
-        if constexpr (std::is_same_v<RDMA_API_T, ReliableRDMA>) {
-          
-        Logging::debug(__FILE__, __LINE__,
-                      "RDMAServer: initializing queue pair with srq id: " +
-                          to_string(m_currentSRQ) + " - " + to_string(nodeID));
-        RDMA_API_T::initQPForSRQWithSuppliedID(m_currentSRQ, nodeID);
+        if (std::is_same<RDMA_API_T, ReliableRDMA>::value) {    
+          Logging::debug(__FILE__, __LINE__,
+                        "RDMAServer: initializing queue pair with srq id: " +
+                            to_string(m_currentSRQ) + " - " + to_string(nodeID));
+          reinterpret_cast<rdma::ReliableRDMA*>(this)->initQPForSRQWithSuppliedID(m_currentSRQ, nodeID);
 
         }
       }
