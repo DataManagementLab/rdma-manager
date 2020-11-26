@@ -28,8 +28,8 @@ int Config::HELLO_PORT = 4001;
 
 
 //RDMA
-size_t Config::RDMA_MEMSIZE = 1024ul * 1024 * 1024 * 5;  //1GB
-uint32_t Config::RDMA_NUMAREGION = 0;
+size_t Config::RDMA_MEMSIZE = 1024ul * 1024 * 1024 * 8;  //1GB
+uint32_t Config::RDMA_NUMAREGION = 1;
 std::string Config::RDMA_DEVICE_FILE_PATH;
 uint32_t Config::RDMA_IBPORT = 1;
 std::string Config::RDMA_SERVER_ADDRESSES = "172.18.94.20"; // ip node02 RDMA_INTERFACEs
@@ -38,10 +38,10 @@ uint32_t Config::RDMA_MAX_WR = 4096;
 
 uint32_t Config::RDMA_UD_MTU = 4096;
 
-std::string Config::SEQUENCER_IP = "192.168.94.22"; //node02
+std::string Config::SEQUENCER_IP = "192.168.94.21"; //node02
 uint16_t Config::SEQUENCER_PORT = 5600;
 
-std::string Config::RDMA_INTERFACE = "ib0";
+std::string Config::RDMA_INTERFACE = "ib1";
 
 uint32_t Config::MLX5_SINGLE_THREADED = 1;
 
