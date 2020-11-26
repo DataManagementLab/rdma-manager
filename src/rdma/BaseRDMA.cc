@@ -125,7 +125,9 @@ void BaseRDMA::createBuffer() {
   m_res.buffer = malloc(m_memSize);
 #endif
 #ifdef LINUX
-   numa_tonode_memory(m_res.buffer, m_memSize, Config::RDMA_NUMAREGION);
+   unsigned long nodemask = 1 << (Config::RDMA_NUMAREGION);
+   // numa_tonode_memory(m_res.buffer, m_memSize, Config::RDMA_NUMAREGION);
+   mbind(m_res.buffer, m_memSize, MPOL_BIND,&nodemask,64,MPOL_MF_MOVE);
 #endif
   memset(m_res.buffer, 0, m_memSize);
   if (m_res.buffer == 0) {
