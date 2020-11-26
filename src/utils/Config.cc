@@ -41,7 +41,7 @@ uint32_t Config::RDMA_UD_MTU = 4096;
 std::string Config::SEQUENCER_IP = "192.168.94.22"; //node02
 uint16_t Config::SEQUENCER_PORT = 5600;
 
-std::string Config::RDMA_INTERFACE = "ib1";
+std::string Config::RDMA_INTERFACE = "ib0";
 
 uint32_t Config::MLX5_SINGLE_THREADED = 1;
 
