@@ -132,6 +132,8 @@ void ReliableRDMA::connectQP(const rdmaConnID rdmaConnID) {
 //------------------------------------------------------------------------------------//
 
 void ReliableRDMA::disconnectQP(const rdmaConnID rdmaConnID){
+
+  std::unique_lock<std::mutex> lck(m_qpLock);
   // check if not already disconnected
   if(m_connected.find(rdmaConnID) == m_connected.end() || !m_connected[rdmaConnID]){
     return;
@@ -152,10 +154,16 @@ void ReliableRDMA::disconnectQP(const rdmaConnID rdmaConnID){
 //------------------------------------------------------------------------------------//
 
 void ReliableRDMA::destroyQPs() {
+  std::unique_lock<std::mutex> lck(m_qpLock);
   for (auto &qp : m_qps) {
     if (qp.qp != nullptr) {
-      if (ibv_destroy_qp(qp.qp) != 0) {
-        throw runtime_error("Error, ibv_destroy_qp() failed while destroying QPs");
+      auto err = ibv_destroy_qp(qp.qp);
+        if (err == EBUSY) {
+          Logging::info(
+            "Could not destroy send queue in destroyCQ(): One or more Work "
+            "Queues is still associated with the CQ");
+      } else if (err != 0) {
+          throw runtime_error("Error, ibv_destroy_qp() failed while destroying QPs. errno: " + to_string(err));
       }
       qp.qp = nullptr;
 

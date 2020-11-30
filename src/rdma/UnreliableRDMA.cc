@@ -176,6 +176,8 @@ void UnreliableRDMA::connectQP(const rdmaConnID rdmaConnID) {
 }
 
 void UnreliableRDMA::disconnectQP(const rdmaConnID rdmaConnID){
+  std::unique_lock<std::mutex> lck(m_qpLock);
+
   if (m_connected[rdmaConnID])
   {
     ibv_destroy_ah(m_rconns[rdmaConnID].ud.ah);
@@ -184,6 +186,8 @@ void UnreliableRDMA::disconnectQP(const rdmaConnID rdmaConnID){
 }
 
 void UnreliableRDMA::destroyQPs() {
+  std::unique_lock<std::mutex> lck(m_qpLock);
+
   if (m_udqp.qp != nullptr) {
     if (ibv_destroy_qp(m_udqp.qp) != 0) {
       throw runtime_error("Error, ibv_destroy_qp() failed while destroying QPs");

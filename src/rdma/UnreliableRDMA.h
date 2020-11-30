@@ -102,7 +102,8 @@ class UnreliableRDMA : public BaseRDMA {
   std::vector<rdma_mcast_conn_t> m_udpMcastConns;
   std::vector<size_t> m_sendMCastCount;
 
-  mutex m_cqCreateLock;
+  std::mutex m_cqCreateLock;
+  std::mutex m_qpLock;
 
 };
 

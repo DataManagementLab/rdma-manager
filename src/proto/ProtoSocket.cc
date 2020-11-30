@@ -111,7 +111,7 @@ bool ProtoSocket::receive(Any* msg) {
     if (e.num() != ETERM) {
       Logging::fatal(__FILE__, __LINE__, e.what());
     } else if (m_isOpen) {
-      Logging::info("ZMQ Context has been closed, closing socket...");
+      // Logging::info("ZMQ Context has been closed, closing socket...");
       this->close();
     }
   }

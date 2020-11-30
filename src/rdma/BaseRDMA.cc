@@ -70,7 +70,11 @@ void BaseRDMA::createCQ(ibv_cq *&send_cq, ibv_cq *&rcv_cq) {
 
 void BaseRDMA::destroyCQ(ibv_cq *&send_cq, ibv_cq *&rcv_cq) {
   auto err = ibv_destroy_cq(send_cq);
-  if (err != 0) {
+  if (err == EBUSY) {
+    Logging::info(
+        "Could not destroy send queue in destroyCQ(): One or more Work "
+        "Queues is still associated with the CQ");
+  } else if (err != 0) {
     throw runtime_error("Cannot delete send CQ. errno: " + to_string(err));
   }
 

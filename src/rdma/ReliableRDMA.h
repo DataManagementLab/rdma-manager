@@ -357,6 +357,7 @@ class ReliableRDMA : public BaseRDMA {
   size_t m_srqCounter = 0;
   map<size_t, vector<rdmaConnID>> m_connectedQPs;
 
+  std::mutex m_qpLock;
 
 };
 
