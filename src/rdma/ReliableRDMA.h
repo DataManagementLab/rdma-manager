@@ -11,6 +11,11 @@
 #include <atomic>
 #include "BaseRDMA.h"
 
+// RDMA Defines
+// Selective Signaling
+constexpr std::size_t WS_SERVER = 2048;  // Outstanding responses by a server
+constexpr std::size_t WS_SERVER_ = 2047;
+
 namespace rdma {
 
 struct sharedrq_t {
@@ -78,6 +83,63 @@ class ReliableRDMA : public BaseRDMA {
   int pollReceiveSRQ(size_t srq_id, rdmaConnID& retrdmaConnID, size_t& retMemoryIdx, uint32_t *imm, std::atomic<bool>& doPoll);
 
   void createSharedReceiveQueue(size_t& ret_srq_id);
+
+   // return wr_id if we in loop
+   size_t pollCQBlocking(const rdmaConnID rdmaConnID) {
+      struct rdma::ib_qp_t localQP = m_qps[rdmaConnID];
+
+      struct ibv_wc wc;
+
+      int ne;
+
+      do {
+         wc.status = IBV_WC_SUCCESS;
+         ne = ibv_poll_cq(localQP.send_cq, 1, &wc);
+         if (wc.status != IBV_WC_SUCCESS) {
+            throw runtime_error("RDMA completion event in CQ with error! " + to_string(wc.status));
+         }
+      } while (ne == 0);
+
+      if (ne < 0) {
+         throw runtime_error("RDMA polling from CQ failed! for node id " + std::to_string(rdmaConnID) );
+      }
+      return wc.wr_id;
+   }
+
+   bool OptimizedWrite(const rdmaConnID rdmaConnID, size_t offset, const void* memAddr, size_t size, size_t wrId, bool signaled) {
+
+      signaled |= (m_countWR[rdmaConnID] & WS_SERVER_) == 0;
+
+      struct rdma::ib_qp_t localQP = m_qps[rdmaConnID];
+      struct rdma::ib_conn_t remoteConn = m_rconns[rdmaConnID];
+
+      struct ibv_send_wr sr;
+      struct ibv_sge sge;
+      // memset(&sge, 0, sizeof(sge));
+      sge.addr = (uintptr_t)memAddr;
+      sge.lkey = m_res.mr->lkey;
+      sge.length = size;
+      // memset(&sr, 0, sizeof(sr));
+      sr.sg_list = &sge;
+      sr.num_sge = 1;
+      sr.opcode = IBV_WR_RDMA_WRITE;
+      sr.next = nullptr;
+      sr.send_flags = ((signaled) ? IBV_SEND_SIGNALED : 0) | (size < 220 ? IBV_SEND_INLINE : 0);
+      sr.wr.rdma.remote_addr = remoteConn.buffer + offset;
+      sr.wr.rdma.rkey = remoteConn.rc.rkey;
+      sr.wr_id = wrId;
+
+      struct ibv_send_wr* bad_wr = nullptr;
+      if ((errno = ibv_post_send(localQP.qp, &sr, &bad_wr))) {
+         throw runtime_error("RDMA OP not successful! error: " + to_string(errno));
+      }
+
+      m_countWR[rdmaConnID]++;
+      if ((m_countWR[rdmaConnID] & WS_SERVER_) == WS_SERVER_) {
+         pollCQBlocking(rdmaConnID);
+      }
+      return true;
+   }
 
  protected:
   // RDMA operations
