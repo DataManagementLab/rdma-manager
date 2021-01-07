@@ -36,7 +36,7 @@ bool ProtoServer::startServer() {
       Logging::error(__FILE__, __LINE__, ss.str());
       return false;
     }
-    ss << m_name << " starting done. port: " + to_string(m_port) + " \n";
+    ss << m_name << " starting done. ip: " + m_ip + " port: " + to_string(m_port) + " \n";
     Logging::debug(__FILE__, __LINE__, ss.str());
     usleep(Config::RDMA_SLEEP_INTERVAL);
   }
@@ -75,10 +75,11 @@ void ProtoServer::run() {
 bool ProtoServer::isRunning() { return m_running; }
 
 void ProtoServer::stopServer() {
+
   stringstream ss;
 
   if (m_running) {
-    //m_running = false;
+
     // m_pSocket->close();
     stop();
     m_pSocket->closeContext();

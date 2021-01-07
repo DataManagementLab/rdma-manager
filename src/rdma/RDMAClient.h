@@ -88,18 +88,18 @@ class RDMAClient : public RDMA_API_T, public ProtoClient {
   }
   
   ~RDMAClient() {
-    RDMAConnDisconnect disconnMsg;
-    disconnMsg.set_nodeid(m_ownNodeID);
-    for(std::pair<std::string, NodeID> entry : m_connections){
-      if(entry.second == m_ownNodeID){ continue; } 
-      //if(ProtoClient::hasConnection(entry.first)){
-        Any sendAny;
-        sendAny.PackFrom(disconnMsg);
-        ProtoClient::sendProtoMsg(entry.first, &sendAny);
-      /*} else {
-        std::cout << "CONNECTION ALREADY CLOSED WITH " << entry.first << std::endl; // TODO REMOVE
-      }*/
-    }
+    // RDMAConnDisconnect disconnMsg;
+    // disconnMsg.set_nodeid(m_ownNodeID);
+    // for(std::pair<std::string, NodeID> entry : m_connections){
+    //   if(entry.second == m_ownNodeID){ continue; } 
+    //   //if(ProtoClient::hasConnection(entry.first)){
+    //     Any sendAny;
+    //     sendAny.PackFrom(disconnMsg);
+    //     ProtoClient::sendProtoMsg(entry.first, &sendAny);
+    //   /*} else {
+    //     std::cout << "CONNECTION ALREADY CLOSED WITH " << entry.first << std::endl; // TODO REMOVE
+    //   }*/
+    // }
   }
 
   // memory management

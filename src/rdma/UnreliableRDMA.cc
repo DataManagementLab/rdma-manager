@@ -155,6 +155,7 @@ void UnreliableRDMA::initQP(rdmaConnID& retRdmaConnID) {
 }
 
 void UnreliableRDMA::connectQP(const rdmaConnID rdmaConnID) {
+  std::unique_lock<std::mutex> lck(m_qpLock);
   // if QP is connected return
   if (m_connected.find(rdmaConnID) != m_connected.end() && !m_connected[rdmaConnID]) {
     return;
@@ -178,7 +179,7 @@ void UnreliableRDMA::connectQP(const rdmaConnID rdmaConnID) {
 void UnreliableRDMA::disconnectQP(const rdmaConnID rdmaConnID){
   std::unique_lock<std::mutex> lck(m_qpLock);
 
-  if (m_connected[rdmaConnID])
+  if (m_connected.find(rdmaConnID) != m_connected.end() && m_connected[rdmaConnID])
   {
     ibv_destroy_ah(m_rconns[rdmaConnID].ud.ah);
     m_connected[rdmaConnID] = false;
