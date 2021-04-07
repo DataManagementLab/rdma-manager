@@ -122,7 +122,7 @@ class ReliableRDMA : public BaseRDMA {
     sr.num_sge = 1;
     sr.opcode = IBV_WR_RDMA_WRITE;
     sr.next = nullptr;
-    sr.send_flags = (IBV_SEND_SIGNALED | (size < Config::MAX_RC_INLINE_SEND ? IBV_SEND_INLINE : 0);
+    sr.send_flags = (IBV_SEND_SIGNALED | (size < Config::MAX_RC_INLINE_SEND ? IBV_SEND_INLINE : 0));
     sr.wr.rdma.remote_addr = remoteConn.buffer + offset;
     sr.wr.rdma.rkey = remoteConn.rc.rkey;
     sr.wr_id = wrId;
