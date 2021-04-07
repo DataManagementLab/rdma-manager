@@ -94,7 +94,11 @@ void rdma::RPCPerfThread::poll()  {
 
         while(ft->ret == -1){
             //std::cout << "Waiting for receive" << i << std::endl;
+#ifdef __x86_64__
             __asm__("pause");
+#else
+            usleep(0);
+#endif
         }
         //ft->ret = -1;
 
