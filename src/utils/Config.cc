@@ -164,8 +164,13 @@ string Config::getIP(std::string &interface) {
   /* I want an IP address attached to interface */
   strncpy(ifr.ifr_name, interface.c_str(), IFNAMSIZ-1);
 
-  ioctl(fd, SIOCGIFADDR, &ifr);
+  int status = ioctl(fd, SIOCGIFADDR, &ifr);
   close(fd);
+
+  if (status != 0) {
+    Logging::error(__FILE__,__LINE__,"Failed to lookup IP address of interface '" + interface + "'");
+    return "";
+  }
 
   return inet_ntoa(((struct sockaddr_in *)&ifr.ifr_addr)->sin_addr);
 }

@@ -83,7 +83,11 @@ void BaseRDMA::createBuffer() {
     ifstream numa_node_file;
     numa_node_file.open(std::string(dev_list[i]->ibdev_path)+"/device/numa_node");
     int numa_node = -1;
-    numa_node_file >> numa_node;
+    if (numa_node_file) {
+      numa_node_file >> numa_node;
+    } else {
+      numa_node = 0;
+    }
     if (numa_node == m_numaNode)
     {
       ib_dev = dev_list[i];
@@ -91,25 +95,36 @@ void BaseRDMA::createBuffer() {
       break;
     }
   }
-  Config::RDMA_DEVICE_FILE_PATH = ib_dev->ibdev_path;
-  ibv_free_device_list(dev_list);
   
   if (!found)
   {
+    ibv_free_device_list(dev_list);
     throw runtime_error("Did not find a device connected to specified numa node: " + std::to_string(m_numaNode) + " (Sat in Config::RDMA_NUMAREGION or constructor)");
   }
 
+  Logging::info("IB-Device-Path: " + std::string(ib_dev->ibdev_path));
+
+  Config::RDMA_DEVICE_FILE_PATH = ib_dev->ibdev_path;
   if (!Filehelper::isDirectory(Config::RDMA_DEVICE_FILE_PATH + "/device/net/" + Config::RDMA_INTERFACE))
   {
     Logging::error(__FILE__, __LINE__, "rdma::Config::RDMA_INTERFACE (" + Config::RDMA_INTERFACE + ") does not match chosen RDMA device! I.e. interface not found under: " + Config::RDMA_DEVICE_FILE_PATH + "/device/net/");
   }
-// std::cout << ib_dev->ibdev_path << std::endl;
-// std::cout << ib_dev->dev_name << std::endl;
-// std::cout << ib_dev->name << std::endl;
-// std::cout << ib_dev->dev_path << std::endl;
+  
+  std::ostringstream out;
+  out << "{"
+      << " ibdev_path: \"" << ib_dev->ibdev_path << "\","
+      << " dev_name: \"" << ib_dev->dev_name << "\","
+      << " name: \"" << ib_dev->name << "\","
+      << " dev_path: \"" << ib_dev->dev_path << "\""
+      << " }";
+  Logging::debug(__FILE__,__LINE__,out.str());
 
   // open device
-  if (!(m_res.ib_ctx = ibv_open_device(ib_dev))) {
+  m_res.ib_ctx = ibv_open_device(ib_dev);
+  // Free the device list
+  ibv_free_device_list(dev_list);
+
+  if (!m_res.ib_ctx) {
     throw runtime_error("Open device failed!");
   }
 

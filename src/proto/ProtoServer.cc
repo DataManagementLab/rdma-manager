@@ -31,11 +31,11 @@ bool ProtoServer::startServer() {
   stringstream ss;
   while (!m_running) {
     if (killed()) {
-      ss << m_name << " starting failed  \n";
+      ss << m_name << " starting failed";
       Logging::error(__FILE__, __LINE__, ss.str());
       return false;
     }
-    ss << m_name << " starting done. port: " + to_string(m_port) + " \n";
+    ss << m_name << " starting done. port: " + to_string(m_port);
     Logging::debug(__FILE__, __LINE__, ss.str());
     usleep(Config::RDMA_SLEEP_INTERVAL);
   }

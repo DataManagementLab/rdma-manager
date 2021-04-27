@@ -538,7 +538,9 @@ void ReliableRDMA::modifyQPToRTR(struct ibv_qp *qp, uint32_t remote_qpn,
     attr.ah_attr.grh.traffic_class = 0;
   }
 
-  if ((errno = ibv_modify_qp(qp, &attr, flags)) > 0) {
+  int status;
+  status = ibv_modify_qp(qp, &attr, flags);
+  if (status != 0) {
     throw runtime_error("Failed modifyQPToRTR!");
   }
 }

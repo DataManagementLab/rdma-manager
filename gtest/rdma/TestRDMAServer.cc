@@ -4,7 +4,26 @@
 #include <numa.h>
 #include <numaif.h>
 
+std::string current_path() {
+  static const char* SELF = "/proc/self/exe";
+  char* buffer = new char[1024];
+  ssize_t len = readlink(SELF, buffer, 1024);
+  if (len < 0) {
+    delete[] buffer;
+    throw runtime_error("Could not read current executable path (errno: " + std::to_string(errno) + ")");
+  }
+  std::string out(buffer, len);
+  delete[] buffer;
+  return out;
+}
+
 void TestRDMAServer::SetUp() {
+  // Load the config file
+  std::string exe = current_path();
+  Logging::debug(__FILE__,__LINE__,"Test executable: '" + exe + "'");
+  Config cfg(exe);
+
+  // Set-Up connection
   Config::RDMA_MEMSIZE = 1024 * 1024;
   Config::SEQUENCER_IP = rdma::Config::getIP(rdma::Config::RDMA_INTERFACE);
 
@@ -12,6 +31,8 @@ void TestRDMAServer::SetUp() {
 
   m_rdmaServer = std::make_unique<RDMAServer<ReliableRDMA>>();
   m_rdmaServer->startServer();
+  Logging::debug(__FILE__,__LINE__, "Config::RDMA_INTERFACE=" + Config::RDMA_INTERFACE);
+  Logging::debug(__FILE__,__LINE__, "Config::RDMA_PORT=" + Config::RDMA_PORT);
   m_connection = Config::getIP(Config::RDMA_INTERFACE) + ":" + to_string(Config::RDMA_PORT);
   m_rdmaClient = std::make_unique<RDMAClient<ReliableRDMA>>();
 

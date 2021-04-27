@@ -31,7 +31,7 @@ class Logging {
 
   static void error(string filename, int line, string msg) {
     if (Config::LOGGING_LEVEL <= 4)
-      log("[ERROR]: ", filename, line, msg);
+      log("\e[91m[ERROR]:\e[39m ", filename, line, msg);
   }
 
   static void errorNo(string filename, int line, char* errorMsg, int errNo) {
@@ -48,16 +48,17 @@ class Logging {
 
   static void info(string msg) {
     if (Config::LOGGING_LEVEL <= 2)
-      log("[INFO]:  ", msg);
+      log("\e[94m[INFO]:\e[39m  ", msg);
   }
 
   static void warn(string msg) {
     if (Config::LOGGING_LEVEL <= 3)
-      log("[WARN]:  ", msg);
+      log("\e[93m[WARN]:\e[39m  ", msg);
   }
  private:
   static void log(string type, string filename, int line, string msg) {
-    cerr << type << filename << " at " << line << " (" << msg << ")" << endl;
+    cerr << type << msg << endl
+         << " at \e[2m" << filename << ":" << line << "\e[0m" << endl;
   }
 
   static void log(string type, string msg) {
