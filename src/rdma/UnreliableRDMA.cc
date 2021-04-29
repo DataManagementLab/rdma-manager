@@ -69,6 +69,10 @@ void UnreliableRDMA::initQPWithSuppliedID(const rdmaConnID rdmaConnID) {
   // create local connection data
   union ibv_gid my_gid;
   memset(&my_gid, 0, sizeof my_gid);
+  // context, port_num, index, gid
+  if (m_gidIdx != -1 && m_gidIdx <= m_res.port_attr.gid_tbl_len)
+    ibv_query_gid(m_res.ib_ctx, m_ibPort, m_gidIdx, &my_gid);
+
   qpConn->buffer = (uintptr_t)m_res.buffer;
   qpConn->qp_num = m_udqp.qp->qp_num;
   qpConn->lid = m_res.port_attr.lid;
@@ -116,6 +120,10 @@ void UnreliableRDMA::initQPWithSuppliedID(ib_qp_t** qpp, ib_conn_t** localcon) {
     // create local connection data
     union ibv_gid my_gid;
     memset(&my_gid, 0, sizeof my_gid);
+    // context, port_num, index, gid
+    if (m_gidIdx != -1 && m_gidIdx <= m_res.port_attr.gid_tbl_len)
+        ibv_query_gid(m_res.ib_ctx, m_ibPort, m_gidIdx, &my_gid);
+
     qpConn->buffer = (uintptr_t)m_res.buffer;
     qpConn->qp_num = m_udqp.qp->qp_num;
     qpConn->lid = m_res.port_attr.lid;

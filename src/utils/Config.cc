@@ -32,6 +32,7 @@ size_t Config::RDMA_MEMSIZE = 1024ul * 1024 * 1024 * 5;  //1GB
 uint32_t Config::RDMA_NUMAREGION = 1;
 std::string Config::RDMA_DEVICE_FILE_PATH;
 uint32_t Config::RDMA_IBPORT = 1;
+uint32_t Config::RDMA_GID_INDEX = -1;
 uint32_t Config::RDMA_PORT = 5200;
 uint32_t Config::RDMA_MAX_WR = 4096;
 
@@ -145,6 +146,8 @@ void Config::set(string key, string value) {
     Config::RDMA_NUMAREGION = stoi(value);
   } else if (key.compare("RDMA_IBPORT") == 0) {
     Config::RDMA_IBPORT = stoi(value);
+  } else if (key.compare("RDMA_GID_INDEX") == 0) {
+    Config::RDMA_GID_INDEX = stoi(value);
   }else if (key.compare("LOGGING_LEVEL") == 0) {
     Config::LOGGING_LEVEL = stoi(value);
   }else if (key.compare("MLX5_SINGLE_THREADED") == 0) {
