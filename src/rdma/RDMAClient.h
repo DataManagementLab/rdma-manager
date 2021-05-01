@@ -126,7 +126,7 @@ class RDMAClient : public RDMA_API_T, public ProtoClient {
           GetNodeIDForIpPortResponse connResponse;
           rcvAny.UnpackTo(&connResponse);
 
-          size_t retries = 50;
+          size_t retries = rdma::Config::RDMA_GET_NODE_ID_RETRIES;
           size_t i = 0;
           while (i < retries && connResponse.return_() != MessageErrors::NO_ERROR)
           {

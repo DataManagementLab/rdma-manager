@@ -75,6 +75,7 @@ class Config
     const static uint32_t RDMA_MAX_SGE = 1;
     const static size_t RDMA_UD_OFFSET = 40;
     const static int RDMA_SLEEP_INTERVAL = 100 * 1000;
+    static uint32_t RDMA_GET_NODE_ID_RETRIES;
     
     static uint32_t RDMA_UD_MTU;
 
