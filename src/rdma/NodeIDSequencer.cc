@@ -40,7 +40,9 @@ void NodeIDSequencer::handle(Any *anyReq, Any *anyResp)
       m_ipPortToNodeIDMapping[IP] = newNodeID;
     }
 
-    // std::cout << "newNodeID: " << newNodeID << " type: " << nodeType << " IP: " << IP << " name: " << name << std::endl;
+    std::ostringstream log;
+    log << "Registered new NodeID: " << newNodeID << "(type: " << nodeType << ", IP: " << IP << ", name: \"" << name << "\")";
+    Logging::debug(__FILE__,__LINE__,log.str());
 
     connResp.set_nodeid(newNodeID);
     connResp.set_return_(MessageErrors::NO_ERROR);
