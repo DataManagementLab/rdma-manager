@@ -96,7 +96,7 @@ void BaseRDMA::createBuffer() {
   
   if (!found)
   {
-    throw runtime_error("Did not find a device connected to specified numa node: " + std::to_string(m_numaNode) + " (Set in Config::RDMA_NUMAREGION or constructor)");
+    throw runtime_error("Did not find a device connected to specified numa node: " + std::to_string(m_numaNode) + " (Sat in Config::RDMA_NUMAREGION or constructor)");
   }
 
   if (!Filehelper::isDirectory(Config::RDMA_DEVICE_FILE_PATH + "/device/net/" + Config::RDMA_INTERFACE))
