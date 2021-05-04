@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 2.19)
 
 project(rdma)
 
@@ -67,10 +67,11 @@ endif()
 # setup CUDA support (if enabled)
 if (CUDA_ENABLED)
     enable_language(CUDA)
-    find_package(CUDA 10.1 REQUIRED)
+    find_package(CUDA 11.3 REQUIRED)
     # set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -lcudart")
     # set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -lcudart")
     add_definitions(-DCUDA_ENABLED)
+    set(CMAKE_CUDA_STANDARD 17)
     MESSAGE(STATUS " CUDA SUPPORT:    ENABLED")
 else()
     MESSAGE(STATUS " CUDA SUPPORT:    DISABLED")
@@ -81,7 +82,7 @@ MESSAGE( STATUS "CMAKE_CXX_FLAGS: " ${CMAKE_CXX_FLAGS} )
 
 add_subdirectory(src)
 add_subdirectory(gtest)
-add_subdirectory(perftest_old)
+# add_subdirectory(perftest_old)
 add_subdirectory(perftest)
 
 unset(CUDA_SUPPORTED CACHE)

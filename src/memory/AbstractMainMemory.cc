@@ -51,6 +51,8 @@ void AbstractMainMemory::copyTo(void *destination, size_t destOffset, size_t src
                 "AbstractMainMemory::copyTo could not copy data from MAIN TO GPU\n");
             return;
         }
+    #else
+    (void)memtype;
     #endif
     memcpy(destination, source, num);
     
@@ -74,6 +76,8 @@ void AbstractMainMemory::copyFrom(const void *source, size_t srcOffset, size_t d
                 "AbstractMainMemory::copyFrom could not copy data from GPU TO MAIN\n");
             return;
         }
+    #else
+    (void)memtype;
     #endif
     memcpy(destination, source, num);
 }
