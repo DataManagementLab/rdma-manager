@@ -5,11 +5,23 @@ API for easy RDMA/GPUDirect programming based on the InfiniBand Verbs (IBV) of N
 ## Environment Variables
 The following environment variables must be set (Linux: add to '.bashrc' file):
 ```
-export CUDACXX="/usr/local/cuda-10.1/bin/nvcc"
-export CPATH=/usr/local/cuda-10.1/include:$CPATH
-export LD_LIBRARY_PATH=/usr/local/cuda-10.1/targets/x86_64-linux/lib/stubs/lib:$LD_LIBRARY_PATH
-export PATH=/usr/local/cuda-10.1/bin:$PATH
+export CUDACXX="/usr/local/cuda-11.3/bin/nvcc"
+export CPATH=/usr/local/cuda-11.3/include:$CPATH
+export LD_LIBRARY_PATH=/usr/local/cuda-11.3/targets/x86_64-linux/lib/:$LD_LIBRARY_PATH
+export PATH=/usr/local/cuda-11.3/bin:$PATH
 ```
+
+## Dependencies
+RDMA capable NIC (tested with ConnectX-5)  
+Mellanox OFED (tested with 5.1)  
+Protobuf (tested with 3.10.1)  
+ZeroMQ (tested with 4.2.5-1)  
+GNU Make (tested with 4.1)  
+CMake (tested with 3.10)  
+
+For CUDA support:  
+CMake minimum version 3.19  
+CUDA minimum version 11  
 
 ## Build (with and without CUDA)
 1. Clone this repository (GPUDirect is currently only supported in 'gpudirect' branch)
