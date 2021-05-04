@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.19)
+cmake_minimum_required(VERSION 3.9)
 
 project(rdma)
 
@@ -66,6 +66,7 @@ endif()
 
 # setup CUDA support (if enabled)
 if (CUDA_ENABLED)
+    cmake_minimum_required(VERSION 3.19)
     enable_language(CUDA)
     find_package(CUDA 11.3 REQUIRED)
     # set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -lcudart")
