@@ -25,7 +25,7 @@ BaseRDMA::BaseRDMA(size_t mem_size) : BaseRDMA(mem_size, (int)Config::RDMA_NUMAR
 BaseRDMA::BaseRDMA(size_t mem_size, int numaNode) : m_numaNode(numaNode) {
   m_memSize = mem_size;
   m_ibPort = Config::RDMA_IBPORT;
-  m_gidIdx = Config::RDMA_GID_INDEX;
+  m_gidIdx = -1;
   m_rdmaMem.push_back(rdma_mem_t(m_memSize, true, 0));
 
   openIbDevice();
