@@ -147,6 +147,7 @@ class BaseRDMA {
  protected:
   virtual void destroyQPs() = 0;
 
+  void openIbDevice();
   // memory management
   void createBuffer();
 
