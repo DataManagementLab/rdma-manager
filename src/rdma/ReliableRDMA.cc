@@ -64,6 +64,9 @@ void ReliableRDMA::initQPWithSuppliedID(const rdmaConnID rdmaConnID) {
   struct ib_conn_t localConn;
   union ibv_gid my_gid;
   memset(&my_gid, 0, sizeof my_gid);
+  // context, port_num, index, gid
+  if (m_gidIdx != -1 && m_gidIdx <= m_res.port_attr.gid_tbl_len)
+    ibv_query_gid(m_res.ib_ctx, m_ibPort, m_gidIdx, &my_gid);
 
   localConn.buffer = (uint64_t)m_res.buffer;
   localConn.rc.rkey = m_res.mr->rkey;
@@ -93,6 +96,9 @@ void ReliableRDMA::initQPWithSuppliedID(struct ib_qp_t** qp ,struct ib_conn_t **
     //struct ib_conn_t localConn;
     union ibv_gid my_gid;
     memset(&my_gid, 0, sizeof my_gid);
+    // context, port_num, index, gid
+    if (m_gidIdx != -1 && m_gidIdx <= m_res.port_attr.gid_tbl_len)
+        ibv_query_gid(m_res.ib_ctx, m_ibPort, m_gidIdx, &my_gid);
 
     (*localConn)->buffer = (uint64_t)m_res.buffer;
     (*localConn)->rc.rkey = m_res.mr->rkey;
@@ -878,6 +884,9 @@ void ReliableRDMA::initQPForSRQWithSuppliedID(size_t srq_id,
   struct ib_conn_t localConn;
   union ibv_gid my_gid;
   memset(&my_gid, 0, sizeof my_gid);
+  // context, port_num, index, gid
+  if (m_gidIdx != -1 && m_gidIdx <= m_res.port_attr.gid_tbl_len)
+    ibv_query_gid(m_res.ib_ctx, m_ibPort, m_gidIdx, &my_gid);
 
   localConn.buffer = (uint64_t)m_res.buffer;
   localConn.rc.rkey = m_res.mr->rkey;
