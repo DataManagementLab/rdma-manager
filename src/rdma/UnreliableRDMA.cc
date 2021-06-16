@@ -167,6 +167,14 @@ void UnreliableRDMA::connectQP(const rdmaConnID rdmaConnID) {
   ah_attr.sl = 0;
   ah_attr.src_path_bits = 0;
   ah_attr.port_num = m_ibPort;
+  if (-1 != m_gidIdx) {
+    ah_attr.is_global = 1;
+    memcpy(&ah_attr.grh.dgid, m_rconns[rdmaConnID].gid, 16);
+    ah_attr.grh.flow_label = 0;
+    ah_attr.grh.hop_limit = 1;
+    ah_attr.grh.sgid_index = m_gidIdx;
+    ah_attr.grh.traffic_class = 0;
+  }
   struct ibv_ah* ah = ibv_create_ah(m_res.pd, &ah_attr);
   m_rconns[rdmaConnID].ud.ah = ah;
 
