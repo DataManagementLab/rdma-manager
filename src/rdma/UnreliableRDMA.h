@@ -39,7 +39,7 @@ class UnreliableRDMA : public BaseRDMA {
   ~UnreliableRDMA();
 
   void initQPWithSuppliedID(const rdmaConnID suppliedID) override;
-  void initQPWithSuppliedID( ib_qp_t **, ib_conn_t **);
+  void initQPWithSuppliedID( ib_qp_t **, ib_conn_t **) override;
   void initQP(rdmaConnID &retRdmaConnID) override;
   void connectQP(const rdmaConnID rdmaConnID) override;
 

@@ -31,7 +31,7 @@ class ReliableRDMA : public BaseRDMA {
   ~ReliableRDMA();
 
   void initQPWithSuppliedID(const rdmaConnID suppliedID) override;
-  void initQPWithSuppliedID( struct ib_qp_t** qp ,struct ib_conn_t ** localConn) ;
+  void initQPWithSuppliedID( struct ib_qp_t** qp ,struct ib_conn_t ** localConn) override;
 
   void initQP(rdmaConnID& retRdmaConnID) override;
   void connectQP(const rdmaConnID rdmaConnID) override;
