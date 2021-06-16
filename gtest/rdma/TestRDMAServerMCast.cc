@@ -37,7 +37,7 @@ TEST_F(TestRDMAServerMCast,testSendReceive) {
 }
 
 TEST_F(TestRDMAServerMCast, testMultipleConcurrentMulticast) {
-  string interface = "ib1";
+  string interface = rdma::Config::RDMA_INTERFACE == "ib1" ? "ib0" : "ib1"; // Choose 
   string mCastAddr2 = Config::getIP(interface);
   NodeID serverMCastID2;
   NodeID clientMCastID2;
