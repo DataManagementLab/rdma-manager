@@ -28,7 +28,7 @@ int Config::HELLO_PORT = 4001;
 
 
 //RDMA
-size_t Config::RDMA_MEMSIZE = 1024ul * 1024 * 1024 * 5;  //1GB
+size_t Config::RDMA_MEMSIZE = 1024ul * 1024 * 1024 * 5;  //5GB
 uint32_t Config::RDMA_NUMAREGION = 1;
 std::string Config::RDMA_DEVICE_FILE_PATH;
 uint32_t Config::RDMA_IBPORT = 1;
@@ -40,6 +40,7 @@ uint32_t Config::RDMA_UD_MTU = 4096;
 std::string Config::SEQUENCER_IP = "192.168.94.21"; //node02
 uint32_t Config::SEQUENCER_PORT = 5600;
 
+std::string Config::RDMA_DEV_NAME = ""; // e.g: mlx5_0, see also the names from ibv_devices or ibv_devinfo. If left empty the device will be selected based on numa region (RDMA_NUMAREGION).
 std::string Config::RDMA_INTERFACE = "ib1";
 
 uint32_t Config::MLX5_SINGLE_THREADED = 1;
@@ -151,6 +152,8 @@ void Config::set(string key, string value) {
     Config::MLX5_SINGLE_THREADED = stoi(value);
   }else if (key.compare("RDMA_INTERFACE") == 0) {
     Config::RDMA_INTERFACE = value;
+  }else if (key.compare("RDMA_DEV_NAME") == 0) {
+    Config::RDMA_DEV_NAME = value;
   }
 }
 

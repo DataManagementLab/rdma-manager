@@ -84,6 +84,7 @@ class Config
     static uint32_t SEQUENCER_PORT;
 
     static std::string RDMA_INTERFACE;
+    static std::string RDMA_DEV_NAME;
 
     const static uint32_t MAX_RC_INLINE_SEND = 220;
     const static uint32_t MAX_UD_INLINE_SEND = 188;

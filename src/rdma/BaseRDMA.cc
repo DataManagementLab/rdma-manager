@@ -28,6 +28,7 @@ BaseRDMA::BaseRDMA(size_t mem_size, int numaNode) : m_numaNode(numaNode) {
   m_gidIdx = -1;
   m_rdmaMem.push_back(rdma_mem_t(m_memSize, true, 0));
 
+  openIbDevice();
   createBuffer();
 }
 
@@ -63,9 +64,7 @@ BaseRDMA::~BaseRDMA() {
   }
 }
 
-//------------------------------------------------------------------------------------//
-void BaseRDMA::createBuffer() {
-  // Logging::debug(__FILE__, __LINE__, "Create memory region");
+void BaseRDMA::openIbDevice() {
 
   struct ibv_device **dev_list = nullptr;
   struct ibv_device *ib_dev = nullptr;
@@ -77,39 +76,73 @@ void BaseRDMA::createBuffer() {
   }
 
   bool found = false;
-  //Choose rdma device on the correct numa node
-  for (int i = 0; i < num_devices; i++)
-  {
-    ifstream numa_node_file;
-    numa_node_file.open(std::string(dev_list[i]->ibdev_path)+"/device/numa_node");
-    int numa_node = -1;
-    numa_node_file >> numa_node;
-    if (numa_node == m_numaNode)
+  if (Config::RDMA_DEV_NAME.size() > 0) {
+    for (int i = 0; i < num_devices; i++)
     {
-      ib_dev = dev_list[i];
-      found = true;
-      break;
+      // Choose rdma device based on the correct name
+      if(Config::RDMA_DEV_NAME == std::string(dev_list[i]->name)) {
+        ifstream numa_node_file;
+        numa_node_file.open(std::string(dev_list[i]->ibdev_path) + "/device/numa_node");
+        int numa_node = -1;
+        if (numa_node_file) {
+          numa_node_file >> numa_node;
+        }
+        if (numa_node != -1 && numa_node != m_numaNode) {
+          Logging::warn("Device was selected even though numa_node is not the right one (device has numa_node " + std::to_string(numa_node) + ", you selected " + std::to_string(m_numaNode) + ")");
+        }
+        ib_dev = dev_list[i];
+        found = true;
+        break;
+      }
     }
   }
-  Config::RDMA_DEVICE_FILE_PATH = ib_dev->ibdev_path;
-  ibv_free_device_list(dev_list);
-  
+  if (!found) {
+    // Choose rdma device based on the correct numa node
+    for (int i = 0; i < num_devices; i++)
+    {
+      ifstream numa_node_file;
+      numa_node_file.open(std::string(dev_list[i]->ibdev_path) + "/device/numa_node");
+      int numa_node = -1;
+      if (numa_node_file) {
+        numa_node_file >> numa_node;
+      }
+      if (numa_node != -1 && numa_node == m_numaNode)
+      {
+        ib_dev = dev_list[i];
+        found = true;
+        break;
+      }
+    }
+  }
   if (!found)
   {
-    throw runtime_error("Did not find a device connected to specified numa node: " + std::to_string(m_numaNode) + " (Sat in Config::RDMA_NUMAREGION or constructor)");
+    ibv_free_device_list(dev_list);
+    throw runtime_error("Did not find a device connected to specified numa node or by name: " + std::to_string(m_numaNode) + "/'" + Config::RDMA_DEV_NAME + "' (Set in Config::RDMA_NUMAREGION/RDMA_DEV_NAME or constructor)");
   }
+
+  Config::RDMA_DEVICE_FILE_PATH = ib_dev->ibdev_path;
 
   if (!Filehelper::isDirectory(Config::RDMA_DEVICE_FILE_PATH + "/device/net/" + Config::RDMA_INTERFACE))
   {
     Logging::error(__FILE__, __LINE__, "rdma::Config::RDMA_INTERFACE (" + Config::RDMA_INTERFACE + ") does not match chosen RDMA device! I.e. interface not found under: " + Config::RDMA_DEVICE_FILE_PATH + "/device/net/");
   }
-// std::cout << ib_dev->ibdev_path << std::endl;
-// std::cout << ib_dev->dev_name << std::endl;
-// std::cout << ib_dev->name << std::endl;
-// std::cout << ib_dev->dev_path << std::endl;
+
+  std::ostringstream out;
+  out << "{"
+      << " ibdev_path: \"" << ib_dev->ibdev_path << "\","
+      << " dev_name: \"" << ib_dev->dev_name << "\","
+      << " name: \"" << ib_dev->name << "\","
+      << " dev_path: \"" << ib_dev->dev_path << "\""
+      << " }";
+  Logging::debug(__FILE__,__LINE__,out.str());
 
   // open device
-  if (!(m_res.ib_ctx = ibv_open_device(ib_dev))) {
+  m_res.ib_ctx = ibv_open_device(ib_dev);
+
+  // after ibv_open_device we are allowed to free the device_list
+  ibv_free_device_list(dev_list);
+
+  if (!m_res.ib_ctx) {
     throw runtime_error("Open device failed!");
   }
 
@@ -117,6 +150,14 @@ void BaseRDMA::createBuffer() {
   if ((errno = ibv_query_port(m_res.ib_ctx, m_ibPort, &m_res.port_attr)) != 0) {
     throw runtime_error("Query port failed");
   }
+
+}
+
+//------------------------------------------------------------------------------------//
+void BaseRDMA::createBuffer() {
+  // Logging::debug(__FILE__, __LINE__, "Create memory region");
+  if (!m_res.ib_ctx)
+    openIbDevice();
 
 // allocate memory
 #ifdef HUGEPAGE
