@@ -40,7 +40,7 @@ uint32_t Config::RDMA_UD_MTU = 4096;
 std::string Config::SEQUENCER_IP = "192.168.94.21"; //node02
 uint32_t Config::SEQUENCER_PORT = 5600;
 
-std::string Config::RDMA_DEV_NAME = ""; // e.g: mlx5_0, see also the names from ibv_devices or ibv_devinfo
+std::string Config::RDMA_DEV_NAME = ""; // e.g: mlx5_0, see also the names from ibv_devices or ibv_devinfo. If left empty the device will be selected based on numa region (RDMA_NUMAREGION).
 std::string Config::RDMA_INTERFACE = "ib1";
 
 uint32_t Config::MLX5_SINGLE_THREADED = 1;
