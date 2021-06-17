@@ -71,10 +71,10 @@ static std::vector<std::vector<int>> get_cpu_numa_map(int &num_cpus, int &num_no
        printf("%d physical cores total.\n", nphycpus_);
     int node_count = numa_max_node() + 1;
     for (int i = 0; i < node_count; ++i) {
-        long fr;
-        unsigned long sz = numa_node_size(i, &fr);
+        long long fr;
+        unsigned long long sz = numa_node_size64(i, &fr);
         if (print_stats)
-            printf("Node %d: %13lu Available %13ld Free\n", i, sz, fr);
+            printf("Node %d: %13llu Available %13lld Free\n", i, sz, fr);
     }
     print_stats = true;
     std::vector<std::vector<int>> cpu_map;
@@ -96,9 +96,9 @@ static int get_numa_node_from_ptr(void *ptr) {
         std::cout << "WARNING: get_mempolicy failed" << std::endl;
     return numa_node;
 };
-static long numa_node_free_mem(int node) {
-    long _free = 0;
-    numa_node_size(node, &_free);
+static long long numa_node_free_mem(int node) {
+    long long _free = 0;
+    numa_node_size64(node, &_free);
     return _free;
 };
 
