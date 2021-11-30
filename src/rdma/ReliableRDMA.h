@@ -247,8 +247,14 @@ class ReliableRDMA : public BaseRDMA {
   
   void receive(const rdmaConnID rdmaConnID, const void* memAddr,
                size_t size) override;
+
+
+  void receive(const rdmaConnID rdmaConnID, const void* memAddr,
+               size_t size, uint64_t wr_id);
   
   int pollReceive(const rdmaConnID rdmaConnID, bool doPoll = true,uint32_t* = nullptr) override;
+  
+  int pollReceive(const rdmaConnID rdmaConnID, bool doPoll, uint64_t &wr_id, uint32_t* imm);
 
   void pollReceiveBatch(size_t srq_id, size_t& num_completed, bool& doPoll);
   void pollSend(const rdmaConnID rdmaConnID, bool doPoll, uint32_t *imm = nullptr) override;
@@ -314,7 +320,7 @@ class ReliableRDMA : public BaseRDMA {
 
     struct ibv_send_wr* bad_wr = nullptr;
     if ((errno = ibv_post_send(localQP.qp, &sr, &bad_wr))) {
-      throw runtime_error("RDMA OP not successful! error: " + to_string(errno));
+      throw runtime_error("RDMA OP (" + to_string(verb) + ") not successful! error: " + to_string(errno));
     }
 
     if (signaled && wait) {
@@ -324,8 +330,8 @@ class ReliableRDMA : public BaseRDMA {
         wc.status = IBV_WC_SUCCESS;
         ne = ibv_poll_cq(localQP.send_cq, 1, &wc);
         if (wc.status != IBV_WC_SUCCESS) {
-          throw runtime_error("RDMA completion event in CQ with error in remoteAccess()! " +
-                             to_string(wc.status));
+          throw runtime_error("RDMA completion event (wr_id: "+to_string(wc.wr_id)+") for OP (" + to_string(wc.opcode) + ") in CQ (RDMA id: "+to_string(rdmaConnID)+") with error in remoteAccess()! " +
+                            ibv_wc_status_str(wc.status));
         }
 
 #ifdef BACKOFF

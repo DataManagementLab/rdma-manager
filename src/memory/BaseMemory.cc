@@ -218,8 +218,19 @@ rdma_mem_t BaseMemory::internalAlloc(size_t size){
             return memResUsed;
         }
     }
+    listIter = m_rdmaMem.begin();
+    size_t total_free = 0;
+    size_t num_fragments_free = 0;
+    for (; listIter != m_rdmaMem.end(); ++listIter) {
+        rdma_mem_t memRes = *listIter;
+        if (memRes.free)
+        {
+            num_fragments_free++;
+            total_free += memRes.size;
+        }
+    }
     lock.unlock();
-    Logging::warn("BaseMemory out of local memory");
+    Logging::warn("BaseMemory out of local memory, requested: " + to_string(size) + " total free: " + to_string(total_free)+ " in " + to_string(num_fragments_free) +" fragment(s).");
     return rdma_mem_t();  // nullptr
 }
 
@@ -256,7 +267,7 @@ void* BaseMemory::alloc(size_t size){
     if (!memRes.isnull) {
         return (void *)((char *)buffer + memRes.offset);
     }
-    throw runtime_error("Could not allocate local rdma memory");
+    throw runtime_error(std::string("Could not allocate local rdma memory, requested size: %lu", size));
 }
 
 void BaseMemory::free(const void* ptr){

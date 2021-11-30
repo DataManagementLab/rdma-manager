@@ -384,7 +384,7 @@ void ReliableRDMA::sendImpl(const rdmaConnID rdmaConnID, const void *memAddr, si
       ne = ibv_poll_cq(localQP.send_cq, 1, &wc);
 
       if (wc.status != IBV_WC_SUCCESS) {
-        throw runtime_error("RDMA completion event in CQ with error! " +
+        throw runtime_error("RDMA completion event for OP ("+to_string(wc.opcode)+") in CQ with error in sendImpl()! status: " +
                             to_string(wc.status) +
                             " errno: " + std::string(std::strerror(errno)));
       }
@@ -430,7 +430,37 @@ void ReliableRDMA::receive(const rdmaConnID rdmaConnID, const void *memAddr,
 
 //------------------------------------------------------------------------------------//
 
-int ReliableRDMA::pollReceive(const rdmaConnID rdmaConnID, bool doPoll,uint32_t* imm) {
+void ReliableRDMA::receive(const rdmaConnID rdmaConnID, const void *memAddr, size_t size, uint64_t wr_id) {
+  DebugCode(if(memAddr != nullptr && size > 0 && 
+      (memAddr < m_buffer->pointer() || memAddr > (char *)m_buffer->pointer() + m_buffer->ib_mr()->length)) {
+    Logging::error(__FILE__, __LINE__,
+                   "Passed memAddr falls out of buffer addr space");
+  })
+
+  struct ib_qp_t localQP = m_qps[rdmaConnID];
+  struct ibv_sge sge;
+  struct ibv_recv_wr wr;
+  struct ibv_recv_wr *bad_wr;
+
+  memset(&sge, 0, sizeof(sge));
+  sge.addr = (uintptr_t)memAddr;
+  sge.length = size;
+  sge.lkey = m_buffer->ib_mr()->lkey;
+
+  memset(&wr, 0, sizeof(wr));
+  wr.wr_id = wr_id;
+  wr.sg_list = &sge;
+  wr.num_sge = 1;
+
+  if ((errno = ibv_post_recv(localQP.qp, &wr, &bad_wr))) {
+    throw runtime_error("RECV has not been posted successfully in receive()! errno: " +
+                        std::string(std::strerror(errno)));
+  }
+}
+
+//------------------------------------------------------------------------------------//
+
+int ReliableRDMA::pollReceive(const rdmaConnID rdmaConnID, bool doPoll, uint32_t* imm) {
   int ne;
   struct ibv_wc wc;
 
@@ -451,6 +481,37 @@ int ReliableRDMA::pollReceive(const rdmaConnID rdmaConnID, bool doPoll,uint32_t*
   }
   if(imm !=nullptr && ne > 0){
     *imm = wc.imm_data;
+  }
+
+  return ne;
+}
+
+
+//------------------------------------------------------------------------------------//
+
+int ReliableRDMA::pollReceive(const rdmaConnID rdmaConnID, bool doPoll, uint64_t &wr_id, uint32_t* imm) {
+  int ne;
+  struct ibv_wc wc;
+
+  struct ib_qp_t localQP = m_qps[rdmaConnID];
+
+  do {
+    wc.status = IBV_WC_SUCCESS;
+    ne = ibv_poll_cq(localQP.recv_cq, 1, &wc);
+
+    if (wc.status != IBV_WC_SUCCESS) {
+      throw runtime_error("RDMA completion event in CQ with error in pollReceive()! " +
+                          to_string(wc.status));
+    }
+  } while (ne == 0 && doPoll);
+
+  if (ne < 0) {
+    throw runtime_error("RDMA polling from CQ failed!");
+  }
+  if (ne > 0){
+    wr_id = wc.wr_id;
+    if (wc.wc_flags & IBV_WC_WITH_IMM && imm !=nullptr)
+        *imm = wc.imm_data;
   }
 
   return ne;
