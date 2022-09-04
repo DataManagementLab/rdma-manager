@@ -27,7 +27,7 @@ CUDA minimum version 11
 1. Clone this repository (GPUDirect is currently only supported in 'gpudirect' branch)
 2. Go into cloned repository
 3. Define build options in 'CMakeLists.txt' file
-4. Execute: mkdir build && cd build
+4. Execute: mkdir -p build && cd build
 5. Execute: cmake ..
 6. Execute: make -j
 

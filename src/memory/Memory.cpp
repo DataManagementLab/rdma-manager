@@ -22,7 +22,7 @@ using namespace rdma;
 
 
 // CHILD memory
-Memory::Memory(Memory* parent, size_t offset, size_t memSize) : parent(parent), mainMem(parent->mainMem), huge(parent->huge){
+Memory::Memory(Memory* parent, size_t offset, size_t memSize) : mainMem(parent->mainMem), parent(parent), huge(parent->huge){
     this->buffer = (void*)((size_t)parent->buffer + offset);
     this->memSize = memSize;
     this->numaNode = parent->numaNode;
@@ -37,7 +37,7 @@ Memory::Memory(Memory* parent, size_t offset, size_t memSize) : parent(parent), 
 Memory::Memory(size_t memSize) : Memory(memSize, (bool)HUGEPAGE){}
 Memory::Memory(size_t memSize, bool huge) : Memory(memSize, huge, -1){}
 Memory::Memory(size_t memSize, bool huge, int numaNode) : Memory(true, memSize, huge, numaNode, Config::RDMA_IBPORT){}
-Memory::Memory(bool registerIbv, size_t memSize, bool huge, int numaNode, int ibPort) : mainMem(true), parent(nullptr), m_ibv(registerIbv), ib_port(ibPort), memSize(memSize), huge(huge), numaNode(numaNode) {
+Memory::Memory(bool registerIbv, size_t memSize, bool huge, int numaNode, int ibPort) : memSize(memSize), mainMem(true), numaNode(numaNode), parent(nullptr), huge(huge), m_ibv(registerIbv), ib_port(ibPort) {
     this->m_rdmaMem.push_back(rdma_mem_t(memSize, true, 0));
 
     if(registerIbv) this->preInit();
@@ -71,7 +71,7 @@ Memory::Memory(size_t memSize, MEMORY_TYPE memoryType) : Memory(memSize, (int) m
 Memory::Memory(size_t memSize, int deviceIndex) : Memory(memSize, deviceIndex, -1){}
 Memory::Memory(size_t memSize, MEMORY_TYPE memoryType, int ibNuma) : Memory(true, memSize, (int)memoryType, ibNuma){}
 Memory::Memory(size_t memSize, int deviceIndex, int ibNuma) : Memory(true, memSize, deviceIndex, ibNuma){}
-Memory::Memory(bool registerIbv, size_t memSize, int deviceIndex, int ibNuma) : mainMem(false), huge(false), deviceIndex(deviceIndex), parent(nullptr) {
+Memory::Memory(bool registerIbv, size_t memSize, int deviceIndex, int ibNuma) : mainMem(false), parent(nullptr), huge(false), deviceIndex(deviceIndex) {
     if(this->deviceIndex < -2) throw std::invalid_argument("Memory::Memory GPU device index cannot be smaller than -2. See documentation");
     if(this->deviceIndex == -2) this->deviceIndex = GpuNumaUtils::get_cuda_device_index_by_numa();
 
