@@ -19,6 +19,7 @@
 install_manifest.txt
 CMakeFiles/
 
+
 # Compiled Dynamic libraries
 *.so
 *.so.*
@@ -43,6 +44,7 @@ CMakeFiles/
 # vscode
 .vscode/
 build/
+bin/
 .idea
 cmake-build-debug
 cmake-build-debug-remote-host-dm

@@ -49,6 +49,9 @@ uint32_t Config::MLX5_SINGLE_THREADED = 1;
 //THREADING
 vector<vector<int>> Config::NUMA_THREAD_CPUS = {{0,1,2,3,4,5,6,7,8,9,10,11,12,13}, {14,15,16,17,18,19,20,21,22,23,24,25,26,27}}; //DM-cluster cpus
 
+// GPUS (use 'nvidia-smi topo -m')
+std::vector<std::vector<int>> Config::GPUS_TO_CPU_AFFINITY = {{0,1,2,3,4,5,6,7,8,9,10,11,12,13}, {14,15,16,17,18,19,20,21,22,23,24,25,26,27}}; // GPU index to CPU affinity
+
 //LOGGING
 int Config::LOGGING_LEVEL = 1;
 
