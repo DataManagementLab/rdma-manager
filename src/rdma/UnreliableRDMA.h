@@ -34,21 +34,39 @@ struct rdma_mcast_conn_t {
 
 class UnreliableRDMA : public BaseRDMA {
  public:
-  UnreliableRDMA(size_t mem_size = Config::RDMA_MEMSIZE);
+
+  UnreliableRDMA(size_t mem_size=Config::RDMA_MEMSIZE);
+  UnreliableRDMA(size_t mem_size, bool huge);
   UnreliableRDMA(size_t mem_size, int numaNode);
+  UnreliableRDMA(size_t mem_size, bool huge, int numaNode);
+  UnreliableRDMA(size_t mem_size, MEMORY_TYPE memType);
+
+  /**
+   * Parameters huge and numaNode are only used if memory type is MAIN
+   */
+  UnreliableRDMA(size_t mem_size, MEMORY_TYPE memType, bool huge, int numaNode);
+  /**
+   * Parameters huge and numaNode are only used if memory type is MAIN
+   */
+  UnreliableRDMA(size_t mem_size, int memType, bool huge, int numaNode);
+
+  UnreliableRDMA(Memory *buffer);
+  UnreliableRDMA(Memory *buffer, bool passBufferOwnership);
+
   ~UnreliableRDMA();
 
   void initQPWithSuppliedID(const rdmaConnID suppliedID) override;
-  void initQPWithSuppliedID( ib_qp_t **, ib_conn_t **) override;
+  void initQPWithSuppliedID( ib_qp_t **, ib_conn_t **);
   void initQP(rdmaConnID &retRdmaConnID) override;
   void connectQP(const rdmaConnID rdmaConnID) override;
+  void disconnectQP(const rdmaConnID rdmaConnID) override;
 
   void send(const rdmaConnID rdmaConnID, const void *memAddr, size_t size,
             bool signaled) override;
   void receive(const rdmaConnID rdmaConnID, const void *memAddr,
                size_t size) override;
   int pollReceive(const rdmaConnID rdmaConnID,  bool doPoll = true,uint32_t* = nullptr) override;
-  void pollSend(const rdmaConnID rdmaConnID, bool doPoll) override;
+  void pollSend(const rdmaConnID rdmaConnID, bool doPoll, uint32_t *imm = nullptr) override;
 
   void *localAlloc(const size_t &size) override;
   void localFree(const void *ptr) override;
@@ -88,7 +106,8 @@ class UnreliableRDMA : public BaseRDMA {
   std::vector<rdma_mcast_conn_t> m_udpMcastConns;
   std::vector<size_t> m_sendMCastCount;
 
-  mutex m_cqCreateLock;
+  std::mutex m_cqCreateLock;
+  std::mutex m_qpLock;
 
 };
 

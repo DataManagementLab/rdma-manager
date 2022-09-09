@@ -24,6 +24,19 @@ class ProtoSendSocket {
 
   int getPort() { return m_port; }
 
+  
+  bool setOption(int option_name, const void *option_value, size_t option_len = sizeof(int));
+
+  int64_t getSendTimeout();
+
+  bool setSendTimeout(int64_t milliseconds = -1);
+
+  int64_t getRecvTimeout();
+
+  bool setRecvTimeout(int64_t milliseconds = -1);
+
+  bool hasConnection();
+
  private:
   string m_address;
   int m_port;

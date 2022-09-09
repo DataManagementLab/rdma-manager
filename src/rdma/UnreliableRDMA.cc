@@ -1,12 +1,24 @@
 #include "UnreliableRDMA.h"
 
+#ifndef HUGEPAGE
+#define HUGEPAGE false
+#endif
+
 using namespace rdma;
 
-/********** constructor and destructor **********/
-UnreliableRDMA::UnreliableRDMA(size_t mem_size) : UnreliableRDMA(mem_size, (int)Config::RDMA_NUMAREGION) {
-}
+UnreliableRDMA::UnreliableRDMA(size_t mem_size) : UnreliableRDMA(mem_size, HUGEPAGE){}
+UnreliableRDMA::UnreliableRDMA(size_t mem_size, bool huge) : UnreliableRDMA(mem_size, huge, (int)Config::RDMA_NUMAREGION){}
+UnreliableRDMA::UnreliableRDMA(size_t mem_size, int numaNode) : UnreliableRDMA(mem_size, HUGEPAGE, numaNode){}
+UnreliableRDMA::UnreliableRDMA(size_t mem_size, bool huge, int numaNode) : UnreliableRDMA(new Memory(mem_size, huge, numaNode), true){}
+UnreliableRDMA::UnreliableRDMA(size_t mem_size, MEMORY_TYPE memType) : UnreliableRDMA(new Memory(mem_size, memType), true){}
 
-UnreliableRDMA::UnreliableRDMA(size_t mem_size, int numaNode) : BaseRDMA(mem_size, numaNode) {
+UnreliableRDMA::UnreliableRDMA(size_t mem_size, MEMORY_TYPE memType, bool huge, int numaNode) : UnreliableRDMA(mem_size, (int)memType, huge, numaNode){}
+UnreliableRDMA::UnreliableRDMA(size_t mem_size, int memType, bool huge, int numaNode) : UnreliableRDMA(
+  memType <= (int)MEMORY_TYPE::MAIN ? new Memory(mem_size, huge, numaNode) : new Memory(mem_size, memType, numaNode), true
+){}
+
+UnreliableRDMA::UnreliableRDMA(Memory *buffer) : UnreliableRDMA(buffer, false){}
+UnreliableRDMA::UnreliableRDMA(Memory *buffer, bool passBufferOwnership) : BaseRDMA(buffer, passBufferOwnership) {
   m_qpType = IBV_QPT_UD;
   m_lastMCastConnKey = 0;
 
@@ -27,23 +39,20 @@ UnreliableRDMA::~UnreliableRDMA() {
 }
 
 void* UnreliableRDMA::localAlloc(const size_t& size) {
-  rdma_mem_t memRes = internalAlloc(size + Config::RDMA_UD_OFFSET);
+  rdma_mem_t memRes = m_buffer->internalAlloc(size + Config::RDMA_UD_OFFSET);
   if (!memRes.isnull) {
-    return ((char*)m_res.buffer + memRes.offset +
-                   Config::RDMA_UD_OFFSET);
+    return ((char*)m_buffer->pointer() + memRes.offset + Config::RDMA_UD_OFFSET);
   }
   throw runtime_error("UnreliableRDMA allocating local memory failed! Size: " + to_string(size));
 }
 
-void UnreliableRDMA::localFree(const size_t& offset) {
-  internalFree(offset);
-}
+void UnreliableRDMA::localFree(const size_t& offset) { m_buffer->internalFree(offset); }
 
 void UnreliableRDMA::localFree(const void* ptr) {
-  char* begin = (char*)m_res.buffer;
+  char* begin = (char*)m_buffer->pointer();
   char* end = (char*)ptr;
   size_t offset = (end - begin) - Config::RDMA_UD_OFFSET;
-  internalFree(offset);
+  m_buffer->internalFree(offset);
 }
 
 void UnreliableRDMA::initQPWithSuppliedID(const rdmaConnID rdmaConnID) {
@@ -69,13 +78,9 @@ void UnreliableRDMA::initQPWithSuppliedID(const rdmaConnID rdmaConnID) {
   // create local connection data
   union ibv_gid my_gid;
   memset(&my_gid, 0, sizeof my_gid);
-  // context, port_num, index, gid
-  if (m_gidIdx != -1 && m_gidIdx <= m_res.port_attr.gid_tbl_len)
-    ibv_query_gid(m_res.ib_ctx, m_ibPort, m_gidIdx, &my_gid);
-
-  qpConn->buffer = (uintptr_t)m_res.buffer;
+  qpConn->buffer = (uintptr_t)m_buffer->pointer();
   qpConn->qp_num = m_udqp.qp->qp_num;
-  qpConn->lid = m_res.port_attr.lid;
+  qpConn->lid = m_buffer->ib_port_attributes().lid;
   memcpy(qpConn->gid, &my_gid, sizeof my_gid);
   qpConn->ud.psn = lrand48() & 0xffffff;
   qpConn->ud.ah = nullptr;
@@ -120,13 +125,9 @@ void UnreliableRDMA::initQPWithSuppliedID(ib_qp_t** qpp, ib_conn_t** localcon) {
     // create local connection data
     union ibv_gid my_gid;
     memset(&my_gid, 0, sizeof my_gid);
-    // context, port_num, index, gid
-    if (m_gidIdx != -1 && m_gidIdx <= m_res.port_attr.gid_tbl_len)
-        ibv_query_gid(m_res.ib_ctx, m_ibPort, m_gidIdx, &my_gid);
-
-    qpConn->buffer = (uintptr_t)m_res.buffer;
+    qpConn->buffer = (uintptr_t)m_buffer->pointer();
     qpConn->qp_num = m_udqp.qp->qp_num;
-    qpConn->lid = m_res.port_attr.lid;
+    qpConn->lid = m_buffer->ib_port_attributes().lid;
     memcpy(qpConn->gid, &my_gid, sizeof my_gid);
     qpConn->ud.psn = lrand48() & 0xffffff;
     qpConn->ud.ah = nullptr;
@@ -154,8 +155,9 @@ void UnreliableRDMA::initQP(rdmaConnID& retRdmaConnID) {
 }
 
 void UnreliableRDMA::connectQP(const rdmaConnID rdmaConnID) {
+  std::unique_lock<std::mutex> lck(m_qpLock);
   // if QP is connected return
-  if (m_connected.find(rdmaConnID) != m_connected.end()) {
+  if (m_connected.find(rdmaConnID) != m_connected.end() && !m_connected[rdmaConnID]) {
     return;
   }
 
@@ -166,26 +168,30 @@ void UnreliableRDMA::connectQP(const rdmaConnID rdmaConnID) {
   ah_attr.dlid = m_rconns[rdmaConnID].lid;
   ah_attr.sl = 0;
   ah_attr.src_path_bits = 0;
-  ah_attr.port_num = m_ibPort;
-  if (-1 != m_gidIdx) {
-    ah_attr.is_global = 1;
-    memcpy(&ah_attr.grh.dgid, m_rconns[rdmaConnID].gid, 16);
-    ah_attr.grh.flow_label = 0;
-    ah_attr.grh.hop_limit = 1;
-    ah_attr.grh.sgid_index = m_gidIdx;
-    ah_attr.grh.traffic_class = 0;
-  }
-  struct ibv_ah* ah = ibv_create_ah(m_res.pd, &ah_attr);
+  ah_attr.port_num = m_buffer->getIBPort();
+  struct ibv_ah* ah = ibv_create_ah(m_buffer->ib_pd(), &ah_attr);
   m_rconns[rdmaConnID].ud.ah = ah;
 
   m_connected[rdmaConnID] = true;
   Logging::debug(__FILE__, __LINE__, "Connected UD queue pair!");
 }
 
+void UnreliableRDMA::disconnectQP(const rdmaConnID rdmaConnID){
+  std::unique_lock<std::mutex> lck(m_qpLock);
+
+  if (m_connected.find(rdmaConnID) != m_connected.end() && m_connected[rdmaConnID])
+  {
+    ibv_destroy_ah(m_rconns[rdmaConnID].ud.ah);
+    m_connected[rdmaConnID] = false;
+  }
+}
+
 void UnreliableRDMA::destroyQPs() {
+  std::unique_lock<std::mutex> lck(m_qpLock);
+
   if (m_udqp.qp != nullptr) {
     if (ibv_destroy_qp(m_udqp.qp) != 0) {
-      throw runtime_error("Error, ibv_destroy_qp() failed");
+      throw runtime_error("Error, ibv_destroy_qp() failed while destroying QPs");
     }
 
     destroyCQ(m_udqp.send_cq, m_udqp.recv_cq);
@@ -194,7 +200,7 @@ void UnreliableRDMA::destroyQPs() {
 
   if (m_udqpMgmt.qp != nullptr) {
     if (ibv_destroy_qp(m_udqpMgmt.qp) != 0) {
-      throw runtime_error("Error, ibv_destroy_qp() failed");
+      throw runtime_error("Error, ibv_destroy_qp() failed while destroying QPs");
     }
     m_udqpMgmt.qp = nullptr;
   }
@@ -213,7 +219,7 @@ void UnreliableRDMA::send(const rdmaConnID rdmaConnID, const void* memAddr,
   struct ibv_sge sge;
   memset(&sge, 0, sizeof(sge));
   sge.addr = (uintptr_t)memAddr;
-  sge.lkey = m_res.mr->lkey;
+  sge.lkey = m_buffer->ib_mr()->lkey;
   sge.length = size;
   memset(&sr, 0, sizeof(sr));
   sr.sg_list = &sge;
@@ -262,7 +268,7 @@ void UnreliableRDMA::receive(const rdmaConnID, const void* memAddr,
   memset(&sge, 0, sizeof(sge));
   sge.addr = (uintptr_t)(((char*)memAddr) - Config::RDMA_UD_OFFSET);
   sge.length = size + Config::RDMA_UD_OFFSET;
-  sge.lkey = m_res.mr->lkey;
+  sge.lkey = m_buffer->ib_mr()->lkey;
 
   memset(&wr, 0, sizeof(wr));
   wr.wr_id = 0;
@@ -271,7 +277,7 @@ void UnreliableRDMA::receive(const rdmaConnID, const void* memAddr,
   wr.next = nullptr;
 
   if ((errno = ibv_post_recv(localQP.qp, &wr, &bad_wr)) != 0) {
-    throw runtime_error("RECV has not been posted successfully! errno: " + std::string(std::strerror(errno)));
+    throw runtime_error("RECV has not been posted successfully in receive()! errno: " + std::string(std::strerror(errno)));
   }
 }
 
@@ -301,7 +307,7 @@ int UnreliableRDMA::pollReceive(const rdmaConnID, bool doPoll,uint32_t* imm) {
   return ne;
 }
 
-void UnreliableRDMA::pollSend(const rdmaConnID, bool doPoll) {
+void UnreliableRDMA::pollSend(const rdmaConnID, bool doPoll, uint32_t *imm) {
   int ne;
   struct ibv_wc wc;
 
@@ -316,6 +322,10 @@ void UnreliableRDMA::pollSend(const rdmaConnID, bool doPoll) {
       throw runtime_error("RDMA completion event in CQ with error! " + to_string(wc.status));
     }
   } while (ne == 0 && doPoll);
+
+  if(imm != nullptr && ne > 0){
+      *imm = wc.imm_data;
+  }
 
   if (doPoll) {
     if (ne < 0) {
@@ -374,7 +384,7 @@ void UnreliableRDMA::joinMCastGroup(string mCastAddress,
   }
 
   mCastConn.mr =
-      ibv_reg_mr(mCastConn.pd, m_res.buffer, m_memSize, IBV_ACCESS_LOCAL_WRITE);
+      ibv_reg_mr(mCastConn.pd, m_buffer->pointer(), m_buffer->getSize(), IBV_ACCESS_LOCAL_WRITE);
   if (!mCastConn.mr) {
     throw runtime_error("Could not assign memory region to multicast protection domain!");
   }
@@ -416,7 +426,7 @@ void UnreliableRDMA::joinMCastGroup(string mCastAddress,
 
   mCastConn.remote_qpn = event->param.ud.qp_num;
   mCastConn.remote_qkey = event->param.ud.qkey;
-  mCastConn.ah = ibv_create_ah(m_res.pd, &event->param.ud.ah_attr);
+  mCastConn.ah = ibv_create_ah(m_buffer->ib_pd(), &event->param.ud.ah_attr);
   if (!mCastConn.ah) {
     throw runtime_error("Could not join multicast address handle!");
   }
@@ -508,7 +518,7 @@ void UnreliableRDMA::receiveMCast(const rdmaConnID rdmaConnID,
 
   void* buffer = (void*)(((char*)memAddr) - Config::RDMA_UD_OFFSET);
   
-  assert(buffer > m_res.buffer || (char *)buffer + size < (char *)m_res.buffer + m_res.mr->length);
+  assert(buffer > m_buffer->pointer() || (char *)buffer + size < (char *)m_buffer->pointer() + m_buffer->ib_mr()->length);
   
   if (rdma_post_recv(mCastConn.id, nullptr, buffer, size + Config::RDMA_UD_OFFSET, mCastConn.mr) != 0) {
     throw runtime_error("Receiving multicast data failed");
@@ -556,7 +566,7 @@ void UnreliableRDMA::createQP(struct ib_qp_t* qp) {
   qp_init_attr.cap.max_recv_sge = Config::RDMA_MAX_SGE;
 
   // create queue pair
-  if (!(qp->qp = ibv_create_qp(m_res.pd, &qp_init_attr))) {
+  if (!(qp->qp = ibv_create_qp(m_buffer->ib_pd(), &qp_init_attr))) {
     throw runtime_error("Cannot create queue pair!");
   }
 }
@@ -567,7 +577,7 @@ void UnreliableRDMA::modifyQPToInit(struct ibv_qp* qp) {
 
   memset(&attr, 0, sizeof(attr));
   attr.qp_state = IBV_QPS_INIT;
-  attr.port_num = m_ibPort;
+  attr.port_num = m_buffer->getIBPort();
   attr.pkey_index = 0;
   attr.qkey = 0x11111111;
 

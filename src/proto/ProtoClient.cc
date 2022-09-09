@@ -27,3 +27,39 @@ void ProtoClient::exchangeProtoMsg(std::string ipAndPortString, Any* sendMsg,
 }
 
 //------------------------------------------------------------------------------------//
+
+int64_t ProtoClient::getSendTimeout(std::string ipAndPortString){
+  auto* sendSocket = m_connections[ipAndPortString];
+  return sendSocket->getSendTimeout();
+}
+
+bool ProtoClient::setSendTimeout(int64_t milliseconds, std::string ipAndPortString){
+  if(ipAndPortString.empty()){
+    bool v = true;
+    for(auto entry : m_connections){
+      v &= entry.second->setSendTimeout(milliseconds);
+    }
+    return v;
+  } else {
+    auto* sendSocket = m_connections[ipAndPortString];
+    return sendSocket->setSendTimeout(milliseconds);
+  }
+}
+
+int64_t ProtoClient::getRecvTimeout(std::string ipAndPortString){
+  auto* sendSocket = m_connections[ipAndPortString];
+  return sendSocket->getRecvTimeout();
+}
+
+bool ProtoClient::setRecvTimeout(int64_t milliseconds, std::string ipAndPortString){
+  if(ipAndPortString.empty()){
+    bool v = true;
+    for(auto entry : m_connections){
+      v &= entry.second->setRecvTimeout(milliseconds);
+    }
+    return v;
+  } else {
+    auto* sendSocket = m_connections[ipAndPortString];
+    return sendSocket->setRecvTimeout(milliseconds);
+  }
+}

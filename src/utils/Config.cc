@@ -33,6 +33,7 @@ uint32_t Config::RDMA_NUMAREGION = 1;
 std::string Config::RDMA_DEVICE_FILE_PATH;
 uint32_t Config::RDMA_IBPORT = 1;
 uint32_t Config::RDMA_GID_INDEX = -1;
+std::string Config::RDMA_SERVER_ADDRESSES = "172.18.94.10"; // ip node01 RDMA_INTERFACEs
 uint32_t Config::RDMA_PORT = 5200;
 uint32_t Config::RDMA_MAX_WR = 4096;
 

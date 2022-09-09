@@ -18,7 +18,7 @@ public:
         return (uint8_t)(std::rand() % 256);
     }
 
-    inline static void randomizeMainMemory(char* arr, const size_t offset, const size_t count){
+    inline static void randomizeMemory(char* arr, const size_t offset, const size_t count){
         std::srand ( unsigned(std::time(0)) );
         arr = (char*)((size_t)arr + offset);
         for(size_t i=0; i<count; i++){

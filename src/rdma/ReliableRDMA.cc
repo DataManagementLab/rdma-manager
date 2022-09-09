@@ -2,20 +2,27 @@
 
 #include "ReliableRDMA.h"
 
+#ifndef HUGEPAGE
+#define HUGEPAGE false
+#endif
+
 using namespace rdma;
 
-/********** constructor and destructor **********/
-ReliableRDMA::ReliableRDMA() : ReliableRDMA(Config::RDMA_MEMSIZE) {}
-
 //------------------------------------------------------------------------------------//
 
-ReliableRDMA::ReliableRDMA(size_t mem_size) : BaseRDMA(mem_size) {
-  m_qpType = IBV_QPT_RC;
-}
+ReliableRDMA::ReliableRDMA(size_t mem_size) : ReliableRDMA(mem_size, HUGEPAGE){}
+ReliableRDMA::ReliableRDMA(size_t mem_size, int numaNode) : ReliableRDMA(mem_size, HUGEPAGE, numaNode){}
+ReliableRDMA::ReliableRDMA(size_t mem_size, bool huge) : ReliableRDMA(mem_size, huge, (int)Config::RDMA_NUMAREGION){}
+ReliableRDMA::ReliableRDMA(size_t mem_size, bool huge, int numaNode) : ReliableRDMA(new Memory(mem_size, huge, numaNode), true){}
+ReliableRDMA::ReliableRDMA(size_t mem_size, MEMORY_TYPE memType) : ReliableRDMA(new Memory(mem_size, memType), true){}
 
-//------------------------------------------------------------------------------------//
+ReliableRDMA::ReliableRDMA(size_t mem_size, MEMORY_TYPE memType, bool huge, int numaNode) : ReliableRDMA(mem_size, (int)memType, huge, numaNode){}
+ReliableRDMA::ReliableRDMA(size_t mem_size, int memType, bool huge, int numaNode) : ReliableRDMA(
+  memType <= (int)MEMORY_TYPE::MAIN ? new Memory(mem_size, huge, numaNode) : new Memory(mem_size, memType, numaNode), true
+){}
 
-ReliableRDMA::ReliableRDMA(size_t mem_size, int numaNode) : BaseRDMA(mem_size, numaNode) {
+ReliableRDMA::ReliableRDMA(Memory* buffer) : ReliableRDMA(buffer, false){}
+ReliableRDMA::ReliableRDMA(Memory* buffer, bool passBufferOwnership) : BaseRDMA(buffer, passBufferOwnership){
   m_qpType = IBV_QPT_RC;
 }
 
@@ -29,26 +36,15 @@ ReliableRDMA::~ReliableRDMA() {
 
 //------------------------------------------------------------------------------------//
 
-void *ReliableRDMA::localAlloc(const size_t &size) {
-  rdma_mem_t memRes = internalAlloc(size);
-  if (!memRes.isnull) {
-    return reinterpret_cast<char*>(m_res.buffer) + memRes.offset;
-  }
-  throw runtime_error("Could not allocate local rdma memory. Requested size: " + to_string(size) + ". Total buffer size: " + to_string(m_memSize));
-}
+void *ReliableRDMA::localAlloc(const size_t &size) { return m_buffer->malloc(size)->pointer(); }
 
 //------------------------------------------------------------------------------------//
 
-void ReliableRDMA::localFree(const size_t &offset) { internalFree(offset); }
+void ReliableRDMA::localFree(const size_t &offset) { return m_buffer->internalFree(offset); }
 
 //------------------------------------------------------------------------------------//
 
-void ReliableRDMA::localFree(const void *ptr) {
-  char *begin = (char *)m_res.buffer;
-  char *end = (char *)ptr;
-  size_t offset = end - begin;
-  internalFree(offset);
-}
+void ReliableRDMA::localFree(const void *ptr) { return m_buffer->internalFree(ptr); }
 
 //------------------------------------------------------------------------------------//
 
@@ -64,14 +60,11 @@ void ReliableRDMA::initQPWithSuppliedID(const rdmaConnID rdmaConnID) {
   struct ib_conn_t localConn;
   union ibv_gid my_gid;
   memset(&my_gid, 0, sizeof my_gid);
-  // context, port_num, index, gid
-  if (m_gidIdx != -1 && m_gidIdx <= m_res.port_attr.gid_tbl_len)
-    ibv_query_gid(m_res.ib_ctx, m_ibPort, m_gidIdx, &my_gid);
 
-  localConn.buffer = (uint64_t)m_res.buffer;
-  localConn.rc.rkey = m_res.mr->rkey;
+  localConn.buffer = (uint64_t)m_buffer->pointer();
+  localConn.rc.rkey = m_buffer->ib_mr()->rkey;
   localConn.qp_num = qp.qp->qp_num;
-  localConn.lid = m_res.port_attr.lid;
+  localConn.lid = m_buffer->ib_port_attributes().lid;
   memcpy(localConn.gid, &my_gid, sizeof my_gid);
 
   // init queue pair
@@ -96,14 +89,11 @@ void ReliableRDMA::initQPWithSuppliedID(struct ib_qp_t** qp ,struct ib_conn_t **
     //struct ib_conn_t localConn;
     union ibv_gid my_gid;
     memset(&my_gid, 0, sizeof my_gid);
-    // context, port_num, index, gid
-    if (m_gidIdx != -1 && m_gidIdx <= m_res.port_attr.gid_tbl_len)
-        ibv_query_gid(m_res.ib_ctx, m_ibPort, m_gidIdx, &my_gid);
 
-    (*localConn)->buffer = (uint64_t)m_res.buffer;
-    (*localConn)->rc.rkey = m_res.mr->rkey;
+    (*localConn)->buffer = (uint64_t)m_buffer->pointer();
+    (*localConn)->rc.rkey = m_buffer->ib_mr()->rkey;
     (*localConn)->qp_num = (*qp)->qp->qp_num;
-    (*localConn)->lid = m_res.port_attr.lid;
+    (*localConn)->lid = m_buffer->ib_port_attributes().lid;
     memcpy((*localConn)->gid, &my_gid, sizeof my_gid);
 
     // init queue pair
@@ -144,16 +134,46 @@ void ReliableRDMA::connectQP(const rdmaConnID rdmaConnID) {
 
 //------------------------------------------------------------------------------------//
 
+void ReliableRDMA::disconnectQP(const rdmaConnID rdmaConnID){
+
+  std::unique_lock<std::mutex> lck(m_qpLock);
+  // check if not already disconnected
+  if(m_connected.find(rdmaConnID) == m_connected.end() || !m_connected[rdmaConnID]){
+    return;
+  }
+
+  struct ib_qp_t &qp = m_qps[rdmaConnID];
+  if(qp.qp != nullptr){
+    if(ibv_destroy_qp(qp.qp) != 0){
+      throw runtime_error("Error, ibv_destroy_qp() failed while disconnecting QP");
+    }
+    qp.qp = nullptr;
+    destroyCQ(qp.send_cq, qp.recv_cq);
+  }
+
+  m_connected[rdmaConnID] = false;
+}
+
+//------------------------------------------------------------------------------------//
+
 void ReliableRDMA::destroyQPs() {
+  std::unique_lock<std::mutex> lck(m_qpLock);
   for (auto &qp : m_qps) {
     if (qp.qp != nullptr) {
-      if (ibv_destroy_qp(qp.qp) != 0) {
-        throw runtime_error("Error, ibv_destroy_qp() failed");
+      auto err = ibv_destroy_qp(qp.qp);
+        if (err == EBUSY) {
+          Logging::info(
+            "Could not destroy send queue in destroyCQ(): One or more Work "
+            "Queues is still associated with the CQ");
+      } else if (err != 0) {
+          throw runtime_error("Error, ibv_destroy_qp() failed while destroying QPs. errno: " + to_string(err));
       }
+      qp.qp = nullptr;
 
       destroyCQ(qp.send_cq, qp.recv_cq);
     }
   }
+  m_qps.clear();
 
   // destroy srq's
   for (auto &kv : m_srqs) {
@@ -162,6 +182,7 @@ void ReliableRDMA::destroyQPs() {
           "ReliableRDMASRQ::destroyQPs: ibv_destroy_srq() failed");
     }
   }
+  m_srqs.clear();
 }
 
 //------------------------------------------------------------------------------------//
@@ -201,6 +222,7 @@ void ReliableRDMA::requestRead(const rdmaConnID rdmaConnID, size_t offset,
 void ReliableRDMA::fetchAndAdd(const rdmaConnID rdmaConnID, size_t offset,
                                const void *memAddr, size_t size,
                                bool signaled) {
+  checkSignaled(signaled, rdmaConnID);
   struct ib_qp_t localQP = m_qps[rdmaConnID];
   struct ib_conn_t remoteConn = m_rconns[rdmaConnID];
 
@@ -209,7 +231,7 @@ void ReliableRDMA::fetchAndAdd(const rdmaConnID rdmaConnID, size_t offset,
   struct ibv_sge sge;
   memset(&sge, 0, sizeof(sge));
   sge.addr = (uintptr_t)memAddr;
-  sge.lkey = m_res.mr->lkey;
+  sge.lkey = m_buffer->ib_mr()->lkey;
   sge.length = size;
   memset(&sr, 0, sizeof(sr));
   sr.sg_list = &sge;
@@ -256,6 +278,7 @@ void ReliableRDMA::compareAndSwap(const rdmaConnID rdmaConnID, size_t offset,
                                   const void *memAddr, int toCompare,
                                   int toSwap, size_t size, bool signaled) {
   // connect local and remote QP
+  checkSignaled(signaled, rdmaConnID);
 
   struct ib_qp_t localQP = m_qps[rdmaConnID];
   struct ib_conn_t remoteConn = m_rconns[rdmaConnID];
@@ -266,7 +289,7 @@ void ReliableRDMA::compareAndSwap(const rdmaConnID rdmaConnID, size_t offset,
   struct ibv_sge sge;
   memset(&sge, 0, sizeof(sge));
   sge.addr = (uintptr_t)memAddr;
-  sge.lkey = m_res.mr->lkey;
+  sge.lkey = m_buffer->ib_mr()->lkey;
   sge.length = size;
   memset(&sr, 0, sizeof(sr));
   sr.sg_list = &sge;
@@ -312,11 +335,18 @@ void ReliableRDMA::compareAndSwap(const rdmaConnID rdmaConnID, size_t offset,
 
 //------------------------------------------------------------------------------------//
 
-void ReliableRDMA::send(const rdmaConnID rdmaConnID, const void *memAddr,
-                        size_t size, bool signaled) {
+void ReliableRDMA::send(const rdmaConnID rdmaConnID, const void* memAddr, size_t size, bool signaled){
+  sendImpl(rdmaConnID, memAddr, size, signaled, nullptr);
+}
+
+void ReliableRDMA::sendImm(const rdmaConnID rdmaConnID, const void* memAddr, size_t size, uint32_t imm, bool signaled){
+  sendImpl(rdmaConnID, memAddr, size, signaled, &imm);
+}
+
+void ReliableRDMA::sendImpl(const rdmaConnID rdmaConnID, const void *memAddr, size_t size, bool signaled, uint32_t *imm) {
   DebugCode(
-      if (memAddr < m_res.buffer ||
-          (char *)memAddr + size > (char *)m_res.buffer + m_res.mr->length) {
+      if (memAddr < m_buffer->pointer() ||
+          (char *)memAddr + size > (char *)m_buffer->pointer() + m_buffer->ib_mr()->length) {
         throw runtime_error("Passed memAddr falls out of buffer addr space");
       });
   checkSignaled(signaled, rdmaConnID);
@@ -327,12 +357,12 @@ void ReliableRDMA::send(const rdmaConnID rdmaConnID, const void *memAddr,
   struct ibv_sge sge;
   memset(&sge, 0, sizeof(sge));
   sge.addr = (uintptr_t)memAddr;
-  sge.lkey = m_res.mr->lkey;
+  sge.lkey = m_buffer->ib_mr()->lkey;
   sge.length = size;
   memset(&sr, 0, sizeof(sr));
   sr.sg_list = &sge;
   sr.num_sge = 1;
-  sr.opcode = IBV_WR_SEND;
+  sr.opcode = (imm==nullptr ? IBV_WR_SEND : IBV_WR_SEND_WITH_IMM);
   sr.next = NULL;
 
   if (signaled) {
@@ -340,6 +370,9 @@ void ReliableRDMA::send(const rdmaConnID rdmaConnID, const void *memAddr,
   } else {
     sr.send_flags = 0;
   }
+
+  if(imm!= nullptr)
+    sr.imm_data = *imm;
 
   struct ibv_send_wr *bad_wr = NULL;
   if ((errno = ibv_post_send(localQP.qp, &sr, &bad_wr))) {
@@ -354,7 +387,7 @@ void ReliableRDMA::send(const rdmaConnID rdmaConnID, const void *memAddr,
       ne = ibv_poll_cq(localQP.send_cq, 1, &wc);
 
       if (wc.status != IBV_WC_SUCCESS) {
-        throw runtime_error("RDMA completion event in CQ with error! " +
+        throw runtime_error("RDMA completion event for OP ("+to_string(wc.opcode)+") in CQ with error in sendImpl()! status: " +
                             to_string(wc.status) +
                             " errno: " + std::string(std::strerror(errno)));
       }
@@ -371,13 +404,13 @@ void ReliableRDMA::send(const rdmaConnID rdmaConnID, const void *memAddr,
 
 void ReliableRDMA::receive(const rdmaConnID rdmaConnID, const void *memAddr,
                            size_t size) {
-  DebugCode(if (memAddr < m_res.buffer ||
-                memAddr > (char *)m_res.buffer + m_res.mr->length) {
+  DebugCode(if(memAddr != nullptr && size > 0 && 
+      (memAddr < m_buffer->pointer() || memAddr > (char *)m_buffer->pointer() + m_buffer->ib_mr()->length)) {
     Logging::error(__FILE__, __LINE__,
                    "Passed memAddr falls out of buffer addr space");
   })
 
-      struct ib_qp_t localQP = m_qps[rdmaConnID];
+  struct ib_qp_t localQP = m_qps[rdmaConnID];
   struct ibv_sge sge;
   struct ibv_recv_wr wr;
   struct ibv_recv_wr *bad_wr;
@@ -385,7 +418,7 @@ void ReliableRDMA::receive(const rdmaConnID rdmaConnID, const void *memAddr,
   memset(&sge, 0, sizeof(sge));
   sge.addr = (uintptr_t)memAddr;
   sge.length = size;
-  sge.lkey = m_res.mr->lkey;
+  sge.lkey = m_buffer->ib_mr()->lkey;
 
   memset(&wr, 0, sizeof(wr));
   wr.wr_id = 0;
@@ -393,14 +426,44 @@ void ReliableRDMA::receive(const rdmaConnID rdmaConnID, const void *memAddr,
   wr.num_sge = 1;
 
   if ((errno = ibv_post_recv(localQP.qp, &wr, &bad_wr))) {
-    throw runtime_error("RECV has not been posted successfully! errno: " +
+    throw runtime_error("RECV has not been posted successfully in receive()! errno: " +
                         std::string(std::strerror(errno)));
   }
 }
 
 //------------------------------------------------------------------------------------//
 
-int ReliableRDMA::pollReceive(const rdmaConnID rdmaConnID, bool doPoll,uint32_t* imm) {
+void ReliableRDMA::receive(const rdmaConnID rdmaConnID, const void *memAddr, size_t size, uint64_t wr_id) {
+  DebugCode(if(memAddr != nullptr && size > 0 && 
+      (memAddr < m_buffer->pointer() || memAddr > (char *)m_buffer->pointer() + m_buffer->ib_mr()->length)) {
+    Logging::error(__FILE__, __LINE__,
+                   "Passed memAddr falls out of buffer addr space");
+  })
+
+  struct ib_qp_t localQP = m_qps[rdmaConnID];
+  struct ibv_sge sge;
+  struct ibv_recv_wr wr;
+  struct ibv_recv_wr *bad_wr;
+
+  memset(&sge, 0, sizeof(sge));
+  sge.addr = (uintptr_t)memAddr;
+  sge.length = size;
+  sge.lkey = m_buffer->ib_mr()->lkey;
+
+  memset(&wr, 0, sizeof(wr));
+  wr.wr_id = wr_id;
+  wr.sg_list = &sge;
+  wr.num_sge = 1;
+
+  if ((errno = ibv_post_recv(localQP.qp, &wr, &bad_wr))) {
+    throw runtime_error("RECV has not been posted successfully in receive()! errno: " +
+                        std::string(std::strerror(errno)));
+  }
+}
+
+//------------------------------------------------------------------------------------//
+
+int ReliableRDMA::pollReceive(const rdmaConnID rdmaConnID, bool doPoll, uint32_t* imm) {
   int ne;
   struct ibv_wc wc;
 
@@ -411,7 +474,7 @@ int ReliableRDMA::pollReceive(const rdmaConnID rdmaConnID, bool doPoll,uint32_t*
     ne = ibv_poll_cq(localQP.recv_cq, 1, &wc);
 
     if (wc.status != IBV_WC_SUCCESS) {
-      throw runtime_error("RDMA completion event in CQ with error! " +
+      throw runtime_error("RDMA completion event in CQ with error in pollReceive()! " +
                           to_string(wc.status));
     }
   } while (ne == 0 && doPoll);
@@ -419,8 +482,39 @@ int ReliableRDMA::pollReceive(const rdmaConnID rdmaConnID, bool doPoll,uint32_t*
   if (ne < 0) {
     throw runtime_error("RDMA polling from CQ failed!");
   }
-  if(imm !=nullptr&& ne > 0){
+  if(imm !=nullptr && ne > 0){
     *imm = wc.imm_data;
+  }
+
+  return ne;
+}
+
+
+//------------------------------------------------------------------------------------//
+
+int ReliableRDMA::pollReceive(const rdmaConnID rdmaConnID, bool doPoll, uint64_t &wr_id, uint32_t* imm) {
+  int ne;
+  struct ibv_wc wc;
+
+  struct ib_qp_t localQP = m_qps[rdmaConnID];
+
+  do {
+    wc.status = IBV_WC_SUCCESS;
+    ne = ibv_poll_cq(localQP.recv_cq, 1, &wc);
+
+    if (wc.status != IBV_WC_SUCCESS) {
+      throw runtime_error("RDMA completion event in CQ with error in pollReceive()! " +
+                          to_string(wc.status));
+    }
+  } while (ne == 0 && doPoll);
+
+  if (ne < 0) {
+    throw runtime_error("RDMA polling from CQ failed!");
+  }
+  if (ne > 0){
+    wr_id = wc.wr_id;
+    if (wc.wc_flags & IBV_WC_WITH_IMM && imm !=nullptr)
+        *imm = wc.imm_data;
   }
 
   return ne;
@@ -428,7 +522,7 @@ int ReliableRDMA::pollReceive(const rdmaConnID rdmaConnID, bool doPoll,uint32_t*
 
 //------------------------------------------------------------------------------------//
 
-void ReliableRDMA::pollSend(const rdmaConnID rdmaConnID, bool doPoll) {
+void ReliableRDMA::pollSend(const rdmaConnID rdmaConnID, bool doPoll, uint32_t *imm) {
   int ne;
   struct ibv_wc wc;
 
@@ -443,6 +537,10 @@ void ReliableRDMA::pollSend(const rdmaConnID rdmaConnID, bool doPoll) {
                           to_string(wc.status));
     }
   } while (ne == 0 && doPoll);
+
+  if(imm != nullptr && ne > 0){
+    *imm = wc.imm_data;
+  }
 
   if (doPoll) {
     if (ne < 0) {
@@ -459,13 +557,14 @@ void ReliableRDMA::pollSend(const rdmaConnID rdmaConnID, bool doPoll) {
 
 void ReliableRDMA::createQP(struct ib_qp_t *qp) {
   // initialize QP attributes
+  struct ibv_device_attr device_attr;
   struct ibv_qp_init_attr qp_init_attr;
   memset(&qp_init_attr, 0, sizeof(qp_init_attr));
-  memset(&(m_res.device_attr), 0, sizeof(m_res.device_attr));
+  memset(&(device_attr), 0, sizeof(device_attr));
   // m_res.device_attr.comp_mask |= IBV_EXP_DEVICE_ATTR_EXT_ATOMIC_ARGS
   //         | IBV_EXP_DEVICE_ATTR_EXP_CAP_FLAGS;
 
-  if (ibv_query_device(m_res.ib_ctx, &(m_res.device_attr))) {
+  if (ibv_query_device(m_buffer->ib_context(), &(device_attr))) {
     throw runtime_error("Error, ibv_query_device() failed");
   }
 
@@ -491,7 +590,7 @@ void ReliableRDMA::createQP(struct ib_qp_t *qp) {
   qp_init_attr.cap.max_recv_sge = Config::RDMA_MAX_SGE;
 
   // create queue pair
-  if (!(qp->qp = ibv_create_qp(m_res.pd, &qp_init_attr))) {
+  if (!(qp->qp = ibv_create_qp(m_buffer->ib_pd(), &qp_init_attr))) {
     throw runtime_error("Cannot create queue pair!");
   }
 }
@@ -505,7 +604,7 @@ void ReliableRDMA::modifyQPToInit(struct ibv_qp *qp) {
 
   memset(&attr, 0, sizeof(attr));
   attr.qp_state = IBV_QPS_INIT;
-  attr.port_num = m_ibPort;
+  attr.port_num = m_buffer->getIBPort();
   attr.pkey_index = 0;
   attr.qp_access_flags = IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ |
                          IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_ATOMIC;
@@ -533,7 +632,7 @@ void ReliableRDMA::modifyQPToRTR(struct ibv_qp *qp, uint32_t remote_qpn,
   attr.ah_attr.dlid = dlid;
   attr.ah_attr.sl = 0;
   attr.ah_attr.src_path_bits = 0;
-  attr.ah_attr.port_num = m_ibPort;
+  attr.ah_attr.port_num = m_buffer->getIBPort();
   if (-1 != m_gidIdx) {
     attr.ah_attr.is_global = 1;
     attr.ah_attr.port_num = 1;
@@ -573,6 +672,7 @@ void ReliableRDMA::modifyQPToRTS(struct ibv_qp *qp) {
 void rdma::ReliableRDMA::fetchAndAdd(const rdmaConnID rdmaConnID, size_t offset,
                                      const void *memAddr, size_t value_to_add,
                                      size_t size, bool signaled) {
+  checkSignaled(signaled, rdmaConnID);
   struct ib_qp_t localQP = m_qps[rdmaConnID];
   struct ib_conn_t remoteConn = m_rconns[rdmaConnID];
 
@@ -581,7 +681,7 @@ void rdma::ReliableRDMA::fetchAndAdd(const rdmaConnID rdmaConnID, size_t offset,
   struct ibv_sge sge;
   memset(&sge, 0, sizeof(sge));
   sge.addr = (uintptr_t)memAddr;
-  sge.lkey = m_res.mr->lkey;
+  sge.lkey = m_buffer->ib_mr()->lkey;
   sge.length = size;
   memset(&sr, 0, sizeof(sr));
   sr.sg_list = &sge;
@@ -632,7 +732,7 @@ void ReliableRDMA::receiveSRQ(size_t srq_id, const void *memAddr, size_t size) {
   memset(&sge, 0, sizeof(sge));
   sge.addr = (uintptr_t)memAddr;
   sge.length = size;
-  sge.lkey = m_res.mr->lkey;
+  sge.lkey = m_buffer->ib_mr()->lkey;
 
   memset(&wr, 0, sizeof(wr));
   wr.wr_id = 0;
@@ -640,7 +740,7 @@ void ReliableRDMA::receiveSRQ(size_t srq_id, const void *memAddr, size_t size) {
   wr.num_sge = 1;
 
   if ((errno = ibv_post_srq_recv(m_srqs.at(srq_id).shared_rq, &wr, &bad_wr))) {
-    throw runtime_error("RECV has not been posted successfully! errno: " +
+    throw runtime_error("RECV has not been posted successfully in receiveSRQ()! errno: " +
                         std::string(std::strerror(errno)));
   }
 }
@@ -766,7 +866,7 @@ void ReliableRDMA::receiveSRQ(size_t srq_id, size_t memoryIndex ,const void *mem
     memset(&sge, 0, sizeof(sge));
     sge.addr = (uintptr_t)memAddr;
     sge.length = size;
-    sge.lkey = m_res.mr->lkey;
+    sge.lkey = m_buffer->ib_mr()->lkey;
 
     memset(&wr, 0, sizeof(wr));
     // wr.wr_id = 0;
@@ -775,7 +875,7 @@ void ReliableRDMA::receiveSRQ(size_t srq_id, size_t memoryIndex ,const void *mem
     wr.num_sge = 1;
 
     if ((errno = ibv_post_srq_recv(m_srqs.at(srq_id).shared_rq, &wr, &bad_wr))) {
-        throw runtime_error("RECV has not been posted successfully! errno: " +
+        throw runtime_error("RECV has not been posted successfully in receiveSRQ()! errno: " +
                             std::string(std::strerror(errno)));
     }
 
@@ -851,7 +951,7 @@ void ReliableRDMA::createSharedReceiveQueue(size_t &ret_srq_id) {
   srq_init_attr.attr.max_wr = Config::RDMA_MAX_WR;
   srq_init_attr.attr.max_sge = Config::RDMA_MAX_SGE;
 
-  srq.shared_rq = ibv_create_srq(m_res.pd, &srq_init_attr);
+  srq.shared_rq = ibv_create_srq(m_buffer->ib_pd(), &srq_init_attr);
   if (!srq.shared_rq) {
     throw runtime_error("Error, ibv_create_srq() failed!");
   }
@@ -884,14 +984,11 @@ void ReliableRDMA::initQPForSRQWithSuppliedID(size_t srq_id,
   struct ib_conn_t localConn;
   union ibv_gid my_gid;
   memset(&my_gid, 0, sizeof my_gid);
-  // context, port_num, index, gid
-  if (m_gidIdx != -1 && m_gidIdx <= m_res.port_attr.gid_tbl_len)
-    ibv_query_gid(m_res.ib_ctx, m_ibPort, m_gidIdx, &my_gid);
 
-  localConn.buffer = (uint64_t)m_res.buffer;
-  localConn.rc.rkey = m_res.mr->rkey;
+  localConn.buffer = (uint64_t)m_buffer->pointer();
+  localConn.rc.rkey = m_buffer->ib_mr()->rkey;
   localConn.qp_num = qp.qp->qp_num;
-  localConn.lid = m_res.port_attr.lid;
+  localConn.lid = m_buffer->ib_port_attributes().lid;
   memcpy(localConn.gid, &my_gid, sizeof my_gid);
 
   // init queue pair
@@ -916,17 +1013,18 @@ void ReliableRDMA::initQPForSRQ(size_t srq_id, rdmaConnID &retRdmaConnID) {
 void ReliableRDMA::createQP(size_t srq_id, struct ib_qp_t &qp) {
   // initialize QP attributes
   struct ibv_qp_init_attr qp_init_attr;
+  struct ibv_device_attr device_attr;
   memset(&qp_init_attr, 0, sizeof(qp_init_attr));
-  memset(&(m_res.device_attr), 0, sizeof(m_res.device_attr));
+  memset(&(device_attr), 0, sizeof(device_attr));
   // m_res.device_attr.comp_mask |= IBV_EXP_DEVICE_ATTR_EXT_ATOMIC_ARGS
   //         | IBV_EXP_DEVICE_ATTR_EXP_CAP_FLAGS;
 
-  if (ibv_query_device(m_res.ib_ctx, &(m_res.device_attr))) {
+  if (ibv_query_device(m_buffer->ib_context(), &(device_attr))) {
     throw runtime_error("Error, ibv_query_device() failed");
   }
 
   // send queue
-  if (!(qp.send_cq = ibv_create_cq(m_res.ib_ctx, Config::RDMA_MAX_WR + 1,
+  if (!(qp.send_cq = ibv_create_cq(m_buffer->ib_context(), Config::RDMA_MAX_WR + 1,
                                    nullptr, nullptr, 0))) {
     throw runtime_error("Cannot create send CQ!");
   }
@@ -955,7 +1053,7 @@ void ReliableRDMA::createQP(size_t srq_id, struct ib_qp_t &qp) {
   qp_init_attr.cap.max_recv_sge = Config::RDMA_MAX_SGE;
 
   // create queue pair
-  if (!(qp.qp = ibv_create_qp(m_res.pd, &qp_init_attr))) {
+  if (!(qp.qp = ibv_create_qp(m_buffer->ib_pd(), &qp_init_attr))) {
     throw runtime_error("Cannot create queue pair!");
   }
 }

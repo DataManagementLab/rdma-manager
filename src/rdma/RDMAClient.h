@@ -7,6 +7,7 @@
 #ifndef RDMAClient_H_
 #define RDMAClient_H_
 
+#include "../memory/Memory.h"
 #include "../proto/ProtoClient.h"
 #include "../utils/Config.h"
 #include "BaseRDMA.h"
@@ -22,17 +23,72 @@ namespace rdma {
 template <typename RDMA_API_T>
 class RDMAClient : public RDMA_API_T, public ProtoClient {
  protected:
-  RDMAClient(size_t mem_size, std::string name, std::string ownIpPort, NodeType::Enum nodeType, int numaNode) : RDMA_API_T(mem_size, numaNode), m_name(name), m_ownIpPort(ownIpPort), m_nodeType(nodeType)
-  {
-  }
+    // original internal constructor
+    RDMAClient(size_t mem_size, std::string name, std::string ownIpPort, NodeType::Enum nodeType, int numaNode) : RDMA_API_T(mem_size, numaNode), m_name(name), m_ownIpPort(ownIpPort), m_nodeType(nodeType)
+    {
+        setSendTimeout(Config::PROTO_SEND_TIMEOUT);
+        setRecvTimeout(Config::PROTO_RECV_TIMEOUT);
+    }
+
+    // internal constructor for memory types
+    RDMAClient(size_t mem_size, int mem_type, bool huge, int numaNode, std::string name, std::string ownIpPort, NodeType::Enum nodeType, std::string sequencerIpPort) :  RDMA_API_T(mem_size, mem_type, huge, numaNode), m_name(name), m_ownIpPort(ownIpPort), m_nodeType(nodeType), m_sequencerIpPort(sequencerIpPort)
+    {
+        setSendTimeout(Config::PROTO_SEND_TIMEOUT);
+        setRecvTimeout(Config::PROTO_RECV_TIMEOUT);
+    }
+
+    // internal constructor for memory object
+    RDMAClient(Memory *memory, std::string name, std::string ownIpPort, NodeType::Enum nodeType, std::string sequencerIpPort) : RDMA_API_T(memory), m_name(name), m_ownIpPort(ownIpPort), m_nodeType(nodeType), m_sequencerIpPort(sequencerIpPort)
+    {
+        setSendTimeout(Config::PROTO_SEND_TIMEOUT);
+        setRecvTimeout(Config::PROTO_RECV_TIMEOUT);
+    }
+
  public:
-  RDMAClient() : RDMAClient(Config::RDMA_MEMSIZE) {}
-  RDMAClient(size_t mem_size) : RDMAClient(mem_size, "RDMAClient") {}
-  RDMAClient(size_t mem_size, std::string name) : RDMAClient(mem_size, name, (int)Config::RDMA_NUMAREGION) {}  
-  RDMAClient(size_t mem_size, std::string name, int numaNode) : RDMAClient(mem_size, name, Config::getIP(Config::RDMA_INTERFACE), NodeType::Enum::CLIENT, numaNode)
-  {
-  }
+    RDMAClient() : RDMAClient(Config::RDMA_MEMSIZE) {}
+    RDMAClient(size_t mem_size) : RDMAClient(mem_size, "RDMAClient") {}
+    RDMAClient(size_t mem_size, std::string name) : RDMAClient(mem_size, name, (int)Config::RDMA_NUMAREGION) {}  
+    RDMAClient(size_t mem_size, std::string name, int numaNode) : RDMAClient(mem_size, name, Config::getIP(Config::RDMA_INTERFACE), NodeType::Enum::CLIENT, numaNode){}
   
+    // no ownIpPort, sequencerIpPort, name
+    RDMAClient(size_t mem_size, bool huge) : RDMAClient(mem_size, huge, (int)Config::RDMA_NUMAREGION) {}
+    RDMAClient(size_t mem_size, int numaNode) : RDMAClient(mem_size, HUGEPAGE, numaNode) {}
+    RDMAClient(size_t mem_size, bool huge, int numaNode) : RDMAClient(mem_size, (int)MEMORY_TYPE::MAIN, huge, numaNode) {}
+    RDMAClient(size_t mem_size, MEMORY_TYPE mem_type) : RDMAClient(mem_size, (int)mem_type) {}
+    RDMAClient(size_t mem_size, MEMORY_TYPE mem_type, bool huge, int numaNode) : RDMAClient(mem_size, (int)mem_type, huge, numaNode) {}
+    RDMAClient(size_t mem_size, int mem_type, bool huge, int numaNode) : RDMAClient(mem_size, mem_type, huge, numaNode, "RDMAClient") {}
+
+    // no ownIpPort, sequencerIpPort
+    RDMAClient(size_t mem_size, bool huge, std::string name) : RDMAClient(mem_size, huge, (int)Config::RDMA_NUMAREGION, name) {}
+    RDMAClient(size_t mem_size, int numaNode, std::string name) : RDMAClient(mem_size, HUGEPAGE, numaNode, name) {}
+    RDMAClient(size_t mem_size, bool huge, int numaNode, std::string name) : RDMAClient(mem_size, (int)MEMORY_TYPE::MAIN, huge, numaNode, name) {}
+    RDMAClient(size_t mem_size, MEMORY_TYPE mem_type, std::string name) : RDMAClient(mem_size, (int)mem_type, name) {}
+    RDMAClient(size_t mem_size, MEMORY_TYPE mem_type, bool huge, int numaNode, std::string name) : RDMAClient(mem_size, (int)mem_type, huge, numaNode, name) {}
+    RDMAClient(size_t mem_size, int mem_type, bool huge, int numaNode, std::string name) : RDMAClient(mem_size, mem_type, huge, numaNode, name, Config::SEQUENCER_IP + ":" + to_string(Config::SEQUENCER_PORT)) {}
+
+    // no ownIpPort
+    RDMAClient(size_t mem_size, std::string name, std::string sequencerIpPort) : RDMAClient(mem_size, HUGEPAGE, (int)Config::RDMA_NUMAREGION, name, sequencerIpPort) {}
+    RDMAClient(size_t mem_size, bool huge, std::string name, std::string sequencerIpPort) : RDMAClient(mem_size, huge, (int)Config::RDMA_NUMAREGION, name, sequencerIpPort) {}
+    RDMAClient(size_t mem_size, int numaNode, std::string name, std::string sequencerIpPort) : RDMAClient(mem_size, HUGEPAGE, numaNode, name, sequencerIpPort) {}
+    RDMAClient(size_t mem_size, bool huge, int numaNode, std::string name, std::string sequencerIpPort) : RDMAClient(mem_size, (int)MEMORY_TYPE::MAIN, huge, numaNode, name, sequencerIpPort) {}
+    RDMAClient(size_t mem_size, MEMORY_TYPE mem_type, std::string name, std::string sequencerIpPort) : RDMAClient(mem_size, (int)mem_type, name, sequencerIpPort) {}
+    RDMAClient(size_t mem_size, MEMORY_TYPE mem_type, bool huge, int numaNode, std::string name, std::string sequencerIpPort) : RDMAClient(mem_size, (int)mem_type, huge, numaNode, name, sequencerIpPort) {}
+    RDMAClient(size_t mem_size, int mem_type, bool huge, int numaNode, std::string name, std::string sequencerIpPort) : RDMAClient(mem_size, mem_type, huge, numaNode, name, Config::getIP(Config::RDMA_INTERFACE), sequencerIpPort) {}
+
+    RDMAClient(size_t mem_size, std::string name, std::string ownIpPort, std::string sequencerIpPort) : RDMAClient(mem_size, HUGEPAGE, (int)Config::RDMA_NUMAREGION, name, ownIpPort, NodeType::Enum::CLIENT, sequencerIpPort) {}
+    RDMAClient(size_t mem_size, bool huge, std::string name, std::string ownIpPort, std::string sequencerIpPort) : RDMAClient(mem_size, huge, (int)Config::RDMA_NUMAREGION, name, ownIpPort, NodeType::Enum::CLIENT, sequencerIpPort) {}
+    RDMAClient(size_t mem_size, int numaNode, std::string name, std::string ownIpPort, std::string sequencerIpPort) : RDMAClient(mem_size, HUGEPAGE, numaNode, name, ownIpPort, NodeType::Enum::CLIENT, sequencerIpPort) {}
+    RDMAClient(size_t mem_size, bool huge, int numaNode, std::string name, std::string ownIpPort, std::string sequencerIpPort) : RDMAClient(mem_size, (int)MEMORY_TYPE::MAIN, huge, numaNode, name, ownIpPort, NodeType::Enum::CLIENT, sequencerIpPort) {}
+    RDMAClient(size_t mem_size, MEMORY_TYPE mem_type, std::string name, std::string ownIpPort, std::string sequencerIpPort) : RDMAClient(mem_size, (int)mem_type, HUGEPAGE, (int)Config::RDMA_NUMAREGION, name, ownIpPort, NodeType::Enum::CLIENT, sequencerIpPort) {}
+    RDMAClient(size_t mem_size, MEMORY_TYPE mem_type, bool huge, int numaNode, std::string name, std::string ownIpPort, std::string sequencerIpPort) : RDMAClient(mem_size, (int)mem_type, huge, numaNode, name, ownIpPort, NodeType::Enum::CLIENT, sequencerIpPort) {}
+    RDMAClient(size_t mem_size, int mem_type, bool huge, int numaNode, std::string name, std::string ownIpPort, std::string sequencerIpPort) : RDMAClient(mem_size, mem_type, huge, numaNode, name, ownIpPort, NodeType::Enum::CLIENT, sequencerIpPort){}
+
+
+    RDMAClient(Memory *memory) : RDMAClient(memory, "RDMAClient") {}
+    RDMAClient(Memory *memory, std::string name) : RDMAClient(memory, name, Config::getIP(Config::RDMA_INTERFACE)) {}
+    RDMAClient(Memory *memory, std::string name, std::string ownIpPort) : RDMAClient(memory, name, ownIpPort, Config::SEQUENCER_IP + ":" + to_string(Config::SEQUENCER_PORT)) {}
+    RDMAClient(Memory *memory, std::string name, std::string ownIpPort, std::string sequencerIpPort) : RDMAClient(memory, name, ownIpPort, NodeType::Enum::CLIENT, sequencerIpPort){}
+
   ~RDMAClient() {}
 
   // memory management
@@ -91,7 +147,7 @@ class RDMAClient : public RDMA_API_T, public ProtoClient {
     return false;
   }
 
-  void* getBuffer(const size_t offset) {
+  inline void* getBuffer(const size_t offset = 0) {
     return ((char*)RDMA_API_T::getBuffer() + offset);
   }
 

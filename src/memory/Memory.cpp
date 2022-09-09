@@ -12,7 +12,6 @@
 #include <sys/mman.h>
 #include <vector>
 
-
 #ifndef HUGEPAGE
 #define HUGEPAGE false
 #endif
@@ -52,7 +51,7 @@ Memory::Memory(bool registerIbv, size_t memSize, bool huge, int numaNode, int ib
             this->buffer = numa_alloc_onnode(this->memSize, this->numaNode);
         }
     #else
-        this->buffer = malloc(this->memSize);
+        this->buffer = std::malloc(this->memSize);
     #endif
 
     if (this->buffer == 0) {
@@ -100,7 +99,7 @@ Memory::Memory(bool registerIbv, size_t memSize, int deviceIndex, int ibNuma) : 
 Memory::~Memory(){
     // if child memory simply free reserved space on parent
     if(this->parent != nullptr){
-        this->parent->free(this->buffer);
+        this->parent->internalFree(this->buffer);
         this->parent = nullptr;
         this->buffer = nullptr;
         return;
@@ -130,15 +129,25 @@ Memory::~Memory(){
     }
 
     // release memory (same as in MemoryFactory)
-    #ifdef LINUX
-        if(this->huge){
-            munmap(this->buffer, this->memSize);
-        } // TODO else {
-        numa_free(this->buffer, this->memSize);
-        // TODO }
-    #else
-        free(this->buffer);
-    #endif
+    if(mainMem){
+
+        // main memory
+        #ifdef LINUX
+            if(this->huge){
+                munmap(this->buffer, this->memSize);
+            } // TODO else {
+            numa_free(this->buffer, this->memSize);
+            // TODO }
+        #else
+            std::free(this->buffer);
+        #endif
+
+    } else {
+
+        // gpu memory
+        checkCudaError(cudaFree(this->buffer), "Memory::~Memory could not free GPU memory\n");
+
+    }
     this->buffer = nullptr;
 }
 
@@ -329,15 +338,15 @@ inline void Memory::printBuffer() {
 }
 
 
-inline void Memory::free(const void* ptr){
+inline void Memory::internalFree(const void* ptr){
     char *begin = (char *)buffer;
     char *end = (char *)ptr;
     size_t offset = end - begin;
-    free(offset);
+    internalFree(offset);
 }
 
 
-inline void Memory::free(const size_t &offset){
+inline void Memory::internalFree(const size_t &offset){
     std::unique_lock<std::recursive_mutex> lock(m_lockMem);
     size_t lastOffset = 0;
     rdma_mem_t memResFree = m_usedRdmaMem[offset];
@@ -396,8 +405,14 @@ inline bool Memory::isChild(){
     return this->parent != nullptr;
 }
 
-inline bool Memory::isRootParent(){
+inline bool Memory::isRoot(){
     return this->parent == nullptr;
+}
+
+inline size_t Memory::getRootOffset(){
+    Memory *root = this;
+    while(root->parent != nullptr) root = root->getParent();
+    return (size_t)this->pointer() - (size_t) root->pointer();
 }
 
 inline Memory* Memory::getParent(){
@@ -460,7 +475,7 @@ inline ibv_context* Memory::ib_context(){
 }
 
 
-inline Memory* Memory::alloc(size_t memSize){
+inline Memory* Memory::malloc(size_t memSize){
     rdma_mem_t memRes = internalAlloc(memSize);
     if(!memRes.isnull)
         return new Memory(this, memRes.offset, memSize);
@@ -486,7 +501,7 @@ inline std::string Memory::toString(size_t offset, size_t count){
     } else {
         // gpu memory
         #ifndef NO_CUDA /* defined in CMakeLists.txt to globally enable/disable CUDA support */
-        char* arr = (char*)malloc(count * sizeof(char)); // allocate in main memory
+        char* arr = (char*)std::malloc(count * sizeof(char)); // allocate in main memory
         copyTo(arr, 0, offset, count, MEMORY_TYPE::MAIN); // copy GPU memory to main memory
 
         // print 
@@ -496,13 +511,12 @@ inline std::string Memory::toString(size_t offset, size_t count){
             oss << ((int)arr[i + offset]);
         }
 
-        free(arr); // release main memory again
+        std::free(arr); // release main memory again
         #else
         oss << " not compiled with CUDA, remove NO_CUDA flag ";
         #endif
     }
     oss << "]";
-    // TODO free(arr) if GPU 
     return oss.str();
 }
 
@@ -550,7 +564,7 @@ inline void Memory::setRandom(){
 inline void Memory::setRandom(size_t offset, size_t count){
     if(this->mainMem){
         // main memory
-        RandomHelper::randomizeMainMemory((char*)this->buffer, 0, this->memSize);
+        RandomHelper::randomizeMemory((char*)this->buffer, 0, this->memSize);
     } else {
         // gpu memory
         std::vector<uint8_t> rd = RandomHelper::generateRandomVector(count);

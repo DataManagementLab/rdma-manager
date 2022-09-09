@@ -92,30 +92,9 @@ protected:
     // Thread safe alloc/free
     std::recursive_mutex m_lockMem;
 
-    inline void preInit();
-    inline void postInit();
-    inline const std::list<rdma_mem_t> getFreeMemList() const { return m_rdmaMem; }
-    inline void mergeFreeMem(std::list<rdma_mem_t>::iterator &iter);
-    inline rdma_mem_t internalAlloc(size_t size);
-    inline void printBuffer();
-
-    /* Function: free
-     * ---------------
-     * Releases an allocated memory part based on the pointer
-     * 
-     * ptr:  pointer to the allocated memory
-     * 
-     */
-    void free(const void* ptr);
-
-    /* Function: free
-     * ---------------
-     * Releases an allocated memory part based on the offset
-     * 
-     * offset:  offset to the allocated memory part
-     * 
-     */
-    void free(const size_t &offset);
+    void preInit();
+    void postInit();
+    void mergeFreeMem(std::list<rdma_mem_t>::iterator &iter);
 
 
     #ifndef NO_CUDA
@@ -274,7 +253,7 @@ public:
      * 
      * return:  true if child of a parent memory object
      */
-    inline bool isChild();
+    bool isChild();
 
 
     /* Function:  isRootParent
@@ -284,7 +263,17 @@ public:
      * 
      * return: true if not child of a parent memory object
      */
-    inline bool isRootParent();
+    bool isRoot();
+
+    /* Function:  getRootOffset
+     * ---------------------
+     * Returns the offset of the (child) memory compared
+     * to the underlying physical buffer.
+     * If this memory is already the root then zero will be returned.
+     * 
+     * return: offset to underlying physical buffer of this abstract memory object
+     */
+    size_t getRootOffset();
 
     /* Function:  getParent
      * ---------------------
@@ -295,7 +284,7 @@ public:
      * 
      * return: Parent or nullptr if already root parent
      */
-    inline Memory* getParent();
+    Memory* getParent();
 
 
     /* Function:  getSize
@@ -304,7 +293,7 @@ public:
      * 
      * return:  size of handled memory
      */
-    inline size_t getSize();
+    size_t getSize();
 
     /* Function:  setSize
      * ---------------------
@@ -313,7 +302,7 @@ public:
      * 
      * memSize:  size of the handled memory
      */
-    inline void setSize(size_t memSize);
+    void setSize(size_t memSize);
 
     /* Function:  pointer
      * ---------------------
@@ -323,7 +312,7 @@ public:
      *
      * return:  pointer of the handled memory
      */
-    inline void* pointer();
+    void* pointer();
 
     /* Function:  pointer
      * ---------------------
@@ -334,19 +323,19 @@ public:
      * offset:  offset that should be added onto the pointer in bytes
      * return:  pointer of the handled memory
      */
-    inline void* pointer(const size_t offset);
+    void* pointer(const size_t offset);
 
     /* Function:  isMainMemory
      * --------------------
      * Returns true if the memory is allocated in main memory
      */ 
-    inline bool isMainMemory();
+    bool isMainMemory();
 
     /* Function:  isGPUMemory
      * --------------------
      * Returns true if the memory is allocated on a GPU
      */ 
-    inline bool isGPUMemory();
+    bool isGPUMemory();
 
     /* Function: getNumaNode
      * -------------
@@ -361,7 +350,7 @@ public:
      * --------------------
      * Returns true if the main memory is allocated as huge page (LINUX only)
      */
-    inline bool isHuge();
+    bool isHuge();
 
 
     /* Function:  getDeviceIndex
@@ -371,7 +360,7 @@ public:
      * return:  index of the device or negative if at that time selected 
      *          device was used
      */
-    inline int getDeviceIndex();
+    int getDeviceIndex();
 
 
     /* Function: isIBV
@@ -380,7 +369,7 @@ public:
      * 
      * return:  true if IBV memory
      */
-    inline bool isIBV();
+    bool isIBV();
 
     /* Function: getIBPort
      * ---------------
@@ -388,7 +377,7 @@ public:
      *
      * return:  IB port
      */
-    inline int getIBPort();
+    int getIBPort();
 
     /* Function: ib_pd
      * ---------------
@@ -396,7 +385,7 @@ public:
      *
      * return:  IB protection domain handle
      */
-    inline ibv_pd* ib_pd();
+    ibv_pd* ib_pd();
 
     /* Function: ib_mr
      * ---------------
@@ -404,7 +393,7 @@ public:
      *
      * return:  IB memory registration handle
      */
-    inline ibv_mr* ib_mr();
+    ibv_mr* ib_mr();
 
     /* Function: ib_port_attributes
      * ---------------
@@ -412,7 +401,7 @@ public:
      *
      * return:  IB port attributes handle
      */
-    inline ibv_port_attr ib_port_attributes();
+    ibv_port_attr ib_port_attributes();
 
     /* Function: ib_context
      * ---------------
@@ -420,7 +409,53 @@ public:
      *
      * return:  IB context handle
      */
-    inline ibv_context* ib_context();
+    ibv_context* ib_context();
+
+
+    /* Function: getFreeMemList
+     * ---------------
+     * Returns the internal tracking list of available memory regions
+     * on top of the physical buffer.
+     * Not relevant, just for debugging
+     */
+    const std::list<rdma_mem_t> getFreeMemList() const { return m_rdmaMem; }
+
+
+    /* Function: internalAlloc
+     * ---------------
+     * Allocates a memory space on top of the physical buffer.
+     * Used when using malloc() method of this class.
+     * 
+     * Use malloc() instead!
+     */
+    rdma_mem_t internalAlloc(size_t size);
+
+    /* Function: printBuffer
+     * ---------------
+     * Prints information about to internal memory
+     * management structures that work on top of
+     * the physical memory.
+     * Not relevant, just for debugging
+     */
+    void printBuffer();
+
+    /* Function: internalFree
+     * ---------------
+     * Releases an allocated memory part based on the pointer
+     * 
+     * ptr:  pointer to the allocated memory
+     * 
+     */
+    void internalFree(const void* ptr);
+
+    /* Function: internalFree
+     * ---------------
+     * Releases an allocated memory part based on the offset
+     * 
+     * offset:  offset to the allocated memory part
+     * 
+     */
+    void internalFree(const size_t &offset);
 
 
     /* Function: alloc
@@ -431,7 +466,7 @@ public:
      *
      * return:  New child memory instance or nullptr if not enough space left
      */
-    inline Memory* alloc(size_t memSize);
+    Memory* malloc(size_t memSize);
 
 
     /* Function: toString
@@ -440,7 +475,7 @@ public:
      * 
      * return:  byte values as string
      */
-    inline std::string toString();
+    std::string toString();
 
      /* Function: toString
      * ----------------------
@@ -452,14 +487,14 @@ public:
      * 
      * return:  byte values as string
      */
-    inline std::string toString(size_t offset, size_t count);
+    std::string toString(size_t offset, size_t count);
 
     /* Function: print
      * ----------------------
      * Prints all bytes of this memory
      * 
      */
-    inline void print();
+    void print();
 
     /* Function: print
      * ----------------------
@@ -469,7 +504,7 @@ public:
      * count:  how many bytes should be printed
      * 
      */
-    inline void print(size_t offset, size_t count);
+    void print(size_t offset, size_t count);
 
     /* Function: openContext
      * ---------------------
@@ -482,7 +517,7 @@ public:
      * Multiple openContext() can be called as long as 
      * same amount of closeContext() are called again.
      */
-    inline void openContext();
+    void openContext();
 
     /* Function: closeContext
      * ---------------------
@@ -490,14 +525,14 @@ public:
      * another memory operating on the same device 
      * can use it again
      */
-    inline void closeContext();
+    void closeContext();
 
     /* Function:  setRandom
      * ---------------------
      * Randomly initializes each byte of the buffer
      * 
      */
-    inline void setRandom();
+    void setRandom();
 
     /* Function:  setRandom
      * ---------------------
@@ -505,7 +540,7 @@ public:
      * offset:  Offset where to start randomizing
      * count:  How many bytes should be randomized
      */
-    inline void setRandom(size_t offset, size_t count);
+    void setRandom(size_t offset, size_t count);
 
     /* Function:  setMemory
      * ---------------------
@@ -515,7 +550,7 @@ public:
      * value:  value that should be set for each byte
      *
      */
-    inline void setMemory(int value);
+    void setMemory(int value);
 
     /* Function:  setMemory
      * ---------------------
@@ -526,7 +561,7 @@ public:
      * count:    how many bytes should be set
      *
      */
-    inline void setMemory(int value, size_t count) ;
+    void setMemory(int value, size_t count) ;
 
     /* Function:  setMemory
      * ---------------------
@@ -538,7 +573,7 @@ public:
      * count:    how many bytes should be set
      *
      */
-    inline void setMemory(int value, size_t offset, size_t count) ;
+    void setMemory(int value, size_t offset, size_t count) ;
 
 
     /* Function:  copyTo
@@ -549,7 +584,7 @@ public:
      * destination:  the data in the handled memory should be copied to
      * memType:      memory type of the destination (default to main memory, which GPU doesn't matter)
      */
-    inline void copyTo(void *destination, MEMORY_TYPE memType=MEMORY_TYPE::MAIN) ;
+    void copyTo(void *destination, MEMORY_TYPE memType=MEMORY_TYPE::MAIN) ;
 
     /* Function:  copyTo
      * ---------------------
@@ -560,7 +595,7 @@ public:
      * count:          how many bytes should be copied
      * memType:      memory type of the destination (default to main memory, which GPU doesn't matter)
      */
-    inline void copyTo(void *destination, size_t count, MEMORY_TYPE memType=MEMORY_TYPE::MAIN) ;
+    void copyTo(void *destination, size_t count, MEMORY_TYPE memType=MEMORY_TYPE::MAIN) ;
 
     /* Function:  copyTo
      * ---------------------
@@ -573,7 +608,7 @@ public:
      * count:          how many bytes should be copied
      * memType:      memory type of the destination (default to main memory, which GPU doesn't matter)
      */
-    inline void copyTo(void *destination, size_t destOffset, size_t srcOffset, size_t count, MEMORY_TYPE memType=MEMORY_TYPE::MAIN) ;
+    void copyTo(void *destination, size_t destOffset, size_t srcOffset, size_t count, MEMORY_TYPE memType=MEMORY_TYPE::MAIN) ;
 
     /* Function:  copyFrom
      * ---------------------
@@ -583,7 +618,7 @@ public:
      * source:  the data that should be copied to
      * memType: memory type of the source (default from main memory, which GPU doesn't matter)
      */
-    inline void copyFrom(const void *source, MEMORY_TYPE memType=MEMORY_TYPE::MAIN) ;
+    void copyFrom(const void *source, MEMORY_TYPE memType=MEMORY_TYPE::MAIN) ;
 
     /* Function:  copyFrom
      * ---------------------
@@ -594,7 +629,7 @@ public:
      * count:     how many bytes should be copied
      * memType: memory type of the source (default from main memory, which GPU doesn't matter)
      */
-    inline void copyFrom(const void *source, size_t count, MEMORY_TYPE memType=MEMORY_TYPE::MAIN) ;
+    void copyFrom(const void *source, size_t count, MEMORY_TYPE memType=MEMORY_TYPE::MAIN) ;
 
     /* Function:  copyFrom
      * ---------------------
@@ -607,7 +642,7 @@ public:
      * count:     how many bytes should be copied
      * memType: memory type of the source (default from main memory, which GPU doesn't matter)
      */
-    inline void copyFrom(const void *source, size_t srcOffset, size_t destOffset, size_t count, MEMORY_TYPE memType=MEMORY_TYPE::MAIN) ;
+    void copyFrom(const void *source, size_t srcOffset, size_t destOffset, size_t count, MEMORY_TYPE memType=MEMORY_TYPE::MAIN) ;
 
 
     /* Function:  getChar
@@ -617,7 +652,7 @@ public:
      * offset: where to start reading
      * return: read char
      */
-    inline char getChar(size_t offset) ;
+    char getChar(size_t offset) ;
 
     /* Function:  set
      * ---------------------
@@ -627,7 +662,7 @@ public:
      * offset: where to start writing
      * 
      */
-    inline void set(char value, size_t offset) ;
+    void set(char value, size_t offset) ;
 
     /* Function:  getInt8
      * ---------------------
@@ -636,7 +671,7 @@ public:
      * offset: where to start reading
      * return: read int
      */
-    inline int8_t getInt8(size_t offset) ;
+    int8_t getInt8(size_t offset) ;
 
     /* Function:  set
      * ---------------------
@@ -646,7 +681,7 @@ public:
      * offset: where to start writing
      * 
      */
-    inline void set(int8_t value, size_t offset) ;
+    void set(int8_t value, size_t offset) ;
 
     /* Function:  getUInt8
      * ---------------------
@@ -655,7 +690,7 @@ public:
      * offset: where to start reading
      * return: read int
      */
-    inline uint8_t getUInt8(size_t offset) ;
+    uint8_t getUInt8(size_t offset) ;
 
     /* Function:  set
      * ---------------------
@@ -665,7 +700,7 @@ public:
      * offset: where to start writing
      * 
      */
-    inline void set(uint8_t value, size_t offset) ;
+    void set(uint8_t value, size_t offset) ;
 
     /* Function:  getInt16
      * ---------------------
@@ -674,7 +709,7 @@ public:
      * offset: where to start reading
      * return: read int
      */
-    inline int16_t getInt16(size_t offset) ;
+    int16_t getInt16(size_t offset) ;
 
     /* Function:  set
      * ---------------------
@@ -684,7 +719,7 @@ public:
      * offset: where to start writing
      * 
      */
-    inline void set(int16_t value, size_t offset) ;
+    void set(int16_t value, size_t offset) ;
 
     /* Function:  getUInt16
      * ---------------------
@@ -693,7 +728,7 @@ public:
      * offset: where to start reading
      * return: read int
      */
-    inline uint16_t getUInt16(size_t offset) ;
+    uint16_t getUInt16(size_t offset) ;
 
     /* Function:  set
      * ---------------------
@@ -703,7 +738,7 @@ public:
      * offset: where to start writing
      * 
      */
-    inline void set(uint16_t value, size_t offset) ;
+    void set(uint16_t value, size_t offset) ;
 
     /* Function:  getInt32
      * ---------------------
@@ -712,7 +747,7 @@ public:
      * offset: where to start reading
      * return: read int
      */
-    inline int32_t getInt32(size_t offset) ;
+    int32_t getInt32(size_t offset) ;
 
     /* Function:  set
      * ---------------------
@@ -722,7 +757,7 @@ public:
      * offset: where to start writing
      * 
      */
-    inline void set(int32_t value, size_t offset) ;
+    void set(int32_t value, size_t offset) ;
 
     /* Function:  getUInt32
      * ---------------------
@@ -731,7 +766,7 @@ public:
      * offset: where to start reading
      * return: read int
      */
-    inline uint32_t getUInt32(size_t offset) ;
+    uint32_t getUInt32(size_t offset) ;
 
     /* Function:  set
      * ---------------------
@@ -741,7 +776,7 @@ public:
      * offset: where to start writing
      * 
      */
-    inline void set(uint32_t value, size_t offset) ;
+    void set(uint32_t value, size_t offset) ;
 
     /* Function:  getInt64
      * ---------------------
@@ -750,7 +785,7 @@ public:
      * offset: where to start reading
      * return: read int
      */
-    inline int64_t getInt64(size_t offset) ;
+    int64_t getInt64(size_t offset) ;
 
     /* Function:  set
      * ---------------------
@@ -760,7 +795,7 @@ public:
      * offset: where to start writing
      * 
      */
-    inline void set(int64_t value, size_t offset) ;
+    void set(int64_t value, size_t offset) ;
 
     /* Function:  getUInt64
      * ---------------------
@@ -769,7 +804,7 @@ public:
      * offset: where to start reading
      * return: read int
      */
-    inline uint64_t getUInt64(size_t offset) ;
+    uint64_t getUInt64(size_t offset) ;
 
     /* Function:  set
      * ---------------------
@@ -779,7 +814,7 @@ public:
      * offset: where to start writing
      * 
      */
-    inline void set(uint64_t value, size_t offset) ;
+    void set(uint64_t value, size_t offset) ;
 };
 
 }

@@ -145,3 +145,36 @@ bool ProtoSocket::closeContext() {
 
   return false;
 }
+
+
+bool ProtoSocket::setOption(int option_name, const void *option_value, size_t option_len){
+  int status = zmq_setsockopt(m_pSock, option_name, option_value, option_len);
+ return status == 0;
+}
+
+int64_t ProtoSocket::getSendTimeout(){
+  return this->m_send_timeout;
+}
+
+bool ProtoSocket::setSendTimeout(int64_t milliseconds){
+  if(setOption(ZMQ_SNDTIMEO, &milliseconds, sizeof(milliseconds))){
+    this->m_send_timeout = milliseconds;
+    return true;
+  } return false;
+}
+
+int64_t ProtoSocket::getRecvTimeout(){
+  return this->m_recv_timeout;
+}
+
+bool ProtoSocket::setRecvTimeout(int64_t milliseconds){
+  if(setOption(ZMQ_RCVTIMEO, &milliseconds, sizeof(milliseconds))){
+    this->m_recv_timeout = milliseconds;
+    return true;
+  } return false;
+}
+
+bool ProtoSocket::hasConnection(){
+  // if connection is closed this operation fails
+  return setSendTimeout(this->m_send_timeout);
+}

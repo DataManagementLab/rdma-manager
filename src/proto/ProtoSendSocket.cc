@@ -45,3 +45,29 @@ void ProtoSendSocket::send(Any* sendMsg, Any* recMsg) {
     }
   }
 }
+
+
+
+bool ProtoSendSocket::setOption(int option_name, const void *option_value, size_t option_len){
+  return m_pSocket->setOption(option_name, option_value, option_len);
+}
+
+int64_t ProtoSendSocket::getSendTimeout(){
+  return m_pSocket->getSendTimeout();
+}
+
+bool ProtoSendSocket::setSendTimeout(int64_t milliseconds){
+  return m_pSocket->setSendTimeout(milliseconds);
+}
+
+int64_t ProtoSendSocket::getRecvTimeout(){
+  return m_pSocket->getRecvTimeout();
+}
+
+bool ProtoSendSocket::setRecvTimeout(int64_t milliseconds){
+  return m_pSocket->setRecvTimeout(milliseconds);
+}
+
+bool ProtoSendSocket::hasConnection(){
+  return m_pSocket->hasConnection();
+}

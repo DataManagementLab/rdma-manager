@@ -7,31 +7,20 @@
 #ifndef BaseRDMA_H_
 #define BaseRDMA_H_
 
+#include "../memory/Memory.h"
 #include "../proto/ProtoClient.h"
 #include "../utils/Config.h"
 
 #include <infiniband/verbs.h>
 #include <list>
+#include <memory>
 #include <mutex>
 #include <unordered_map>
 #include <sys/mman.h>
 
-
 namespace rdma {
 
 enum rdma_transport_t { rc, ud };
-
-struct ib_resource_t {
-  /* Memory region */
-  void *buffer;      /* memory buffer pointer */
-  struct ibv_pd *pd; /* PD handle */
-  struct ibv_mr *mr; /* MR handle for buf */
-
-  /* Device attributes */
-  struct ibv_device_attr device_attr;
-  struct ibv_port_attr port_attr; /* IB port attributes */
-  struct ibv_context *ib_ctx;     /* device handle */
-};
 
 struct ib_qp_t {
   struct ibv_qp *qp;      /* Queue pair */
@@ -56,39 +45,90 @@ struct ib_conn_t {
   } ud;
 };
 
-struct rdma_mem_t {
-  size_t size; /* size of memory region */
-  bool free;
-  size_t offset;
-  bool isnull;
-
-  rdma_mem_t(size_t initSize, bool initFree, size_t initOffset)
-      : size(initSize), free(initFree), offset(initOffset), isnull(false) {}
-
-  rdma_mem_t() : size(0), free(false), offset(0), isnull(true) {}
-};
-
 class BaseRDMA {
  protected:
   typedef size_t rdmaConnID;  // Indexs m_qps
 
  public:
   // constructors and destructor
-  BaseRDMA(size_t mem_size);
+  BaseRDMA(Memory *buffer);
+  BaseRDMA(Memory *buffer, bool passBufferOwnership);
+
+  BaseRDMA(size_t mem_size=Config::RDMA_MEMSIZE);
+  BaseRDMA(size_t mem_size, bool huge);
   BaseRDMA(size_t mem_size, int numaNode);
+  BaseRDMA(size_t mem_size, bool huge, int numaNode);
+  BaseRDMA(size_t mem_size, MEMORY_TYPE memType);
 
   virtual ~BaseRDMA();
 
   // unicast transfer methods
+
+  /* Function: send
+   * ----------------
+   * Sends data of a given array to the remote side. 
+   * The remote side has to first call receive and 
+   * then handle the incoming data.
+   * 
+   * rdmaConnID:  id of the remote
+   * memAddr:     address of the local array containing the data 
+   *              that should be sent
+   * size:        how many bytes should be transfered
+   * signaled:    if true the function blocks until the send has fully been 
+   *              completed. Multiple sends can be called. 
+   *              At max Config::RDMA_MAX_WR fetches can be performed at once 
+   *              without signaled=true.
+   */
   virtual void send(const rdmaConnID rdmaConnID, const void *memAddr,
                     size_t size, bool signaled) = 0;
+  
+  /* Function receive
+   * ----------------
+   * Receives data that has been sent. 
+   * Must be called before the actual send gets executed. 
+   * Multiple calls up to Config::RDMA_MAX_WR are allowed 
+   * without a send call inbetween.
+   * To actually wait for the data and receive it call 
+   * pollReceive() afterwards.
+   * 
+   * rdmaConnID:  id of the remote
+   * memAddr:     address of the local array where the received 
+   *              data should be written into
+   * size:        how many bytes are expected to receive
+   * 
+   */
   virtual void receive(const rdmaConnID rdmaConnID, const void *memAddr,
                        size_t size) = 0;
-  virtual int pollReceive(const rdmaConnID rdmaConnID, bool doPoll = true,uint32_t* = nullptr) = 0;
+  
+  /* Function receiveWriteImm
+   * ----------------
+   * Must be called before remote calls writeImm().
+   * To wait until the actual write happended and to 
+   * receive the sent immediate value call pollReceive() afterwards.
+   * 
+   * rdmaConnID:  id of the remote
+   * 
+   */
+  void receiveWriteImm(const rdmaConnID rdmaConnID){
+    receive(rdmaConnID, nullptr, 0);
+  }
+  
+  /* Function: pollReceive
+   * ----------------
+   * Checks if data from a receive has arrived.
+   * 
+   * rdmaConnID:  id of the remote
+   * doPoll:      if true then function blocks until 
+   *              data has arrived
+   * imm:         Pointer to variable where received immediate value
+   *              can be stored or nullptr (optional)
+   * return:      how many receives arrived or zero
+   */
+  virtual int pollReceive(const rdmaConnID rdmaConnID, bool doPoll = true, uint32_t* imm = nullptr) = 0;
   // virtual void pollReceive(const rdmaConnID rdmaConnID, uint32_t &ret_qp_num)
   // = 0;
 
-  virtual void pollSend(const rdmaConnID rdmaConnID, bool doPoll = true) = 0;
+  virtual void pollSend(const rdmaConnID rdmaConnID, bool doPoll = true, uint32_t *imm = nullptr) = 0;
 
   // unicast connection management
   virtual void initQPWithSuppliedID(const rdmaConnID suppliedID) = 0;
@@ -96,6 +136,7 @@ class BaseRDMA {
   virtual void initQP(rdmaConnID &retRdmaConnID) = 0;
 
   virtual void connectQP(const rdmaConnID rdmaConnID) = 0;
+  virtual void disconnectQP(const rdmaConnID rdmaConnID) = 0;
 
   uint64_t getQPNum(const rdmaConnID rdmaConnID) {
     return m_qps[rdmaConnID].qp->qp_num;
@@ -112,29 +153,88 @@ class BaseRDMA {
   void setRemoteConnData(const rdmaConnID rdmaConnID, ib_conn_t &conn);
 
   // memory management
+
+  /* Function: localAlloc
+   * ----------------
+   * Allocates a memory part from the local buffer.
+   * Typ of memory same as buffer type.
+   * Use localMalloc() to abstract memory type
+   * 
+   * size:    how big the memory part should be in bytes
+   * return:  pointer of memory part.
+   *          Must be released with localFree().
+   *          Memory type depends on buffer type
+   */
   virtual void *localAlloc(const size_t &size) = 0;
+
+  /* Function: localFree
+   * ----------------
+   * Releases an allocated memory part again.
+   * 
+   * ptr: pointer of the memory part
+   * 
+   */
   virtual void localFree(const void *ptr) = 0;
+
+  /* Function: localFree
+   * ----------------
+   * Releases an allocated memory part again 
+   * based of its offset in the buffer.
+   * 
+   * offset:  offset in the buffer to 
+   *          the memory part
+   * 
+   */
   virtual void localFree(const size_t &offset) = 0;
 
-  void *getBuffer() { return m_res.buffer; }
-
-  const list<rdma_mem_t> getFreeMemList() const { return m_rdmaMem; }
-
-  void *convertOffsetToPointer(size_t offset) {
-    // check if already allocated
-    return (void *)((char *)m_res.buffer + offset);
+  /* Function: localMalloc
+   * ----------------
+   * Allocates a memory part from the local buffer
+   * 
+   * size:    how big the memory part should be in bytes
+   * return:  memory part handler object. 
+   *          Delete it to release memory part again
+   */
+  inline Memory *localMalloc(const size_t &size){
+    return m_buffer->malloc(size);
   }
 
-  size_t convertPointerToOffset(void* ptr) {
+  /* Function: getBuffer
+   * ----------------
+   * Returns pointer of the local buffer.
+   * Memory type of buffer must be known 
+   * from context. 
+   * Use getBufferObj() to abstract memory type
+   * 
+   * return:  pointer of local buffer
+   */
+  inline void *getBuffer() { return m_buffer->pointer(); }
+
+  /* Function: getBufferObj
+   * ----------------
+   * Returns local buffer
+   * 
+   * return:  local buffer
+   */
+  inline Memory *getBufferObj(){ return m_buffer; }
+
+  inline const list<rdma_mem_t> getFreeMemList() const { return m_buffer->getFreeMemList(); }
+
+  inline void *convertOffsetToPointer(size_t offset) {
     // check if already allocated
-    return (size_t)((char *)ptr - (char*) m_res.buffer);
+    return (void *)((char *)m_buffer->pointer() + offset);
   }
 
-  size_t getBufferSize() { return m_memSize; }
+  inline size_t convertPointerToOffset(void* ptr) {
+    // check if already allocated
+    return (size_t)((char *)ptr - (char*) m_buffer->pointer());
+  }
+
+  inline size_t getBufferSize() { return m_buffer->getSize(); }
 
   void printBuffer();
 
-  std::vector<size_t> getConnectedConnIDs() {
+  inline std::vector<size_t> getConnectedConnIDs() {
     std::vector<size_t> connIDs;
     for (auto iter = m_connected.begin(); iter != m_connected.end(); iter++)
     {
@@ -146,12 +246,6 @@ class BaseRDMA {
 
  protected:
   virtual void destroyQPs() = 0;
-
-  void openIbDevice();
-  // memory management
-  void createBuffer();
-
-  void mergeFreeMem(list<rdma_mem_t>::iterator &iter);
 
   rdma_mem_t internalAlloc(const size_t &size);
 
@@ -184,11 +278,9 @@ class BaseRDMA {
   vector<size_t> m_countWR;
 
   ibv_qp_type m_qpType;
-  size_t m_memSize;
-  int m_ibPort;
-  int m_gidIdx;
-
-  struct ib_resource_t m_res;
+  Memory *m_buffer;
+  bool m_buffer_owner = false;
+  int m_gidIdx = -1;
 
   vector<ib_qp_t> m_qps;  // rdmaConnID is the index of the vector
   vector<ib_conn_t> m_rconns;
@@ -197,18 +289,6 @@ class BaseRDMA {
   unordered_map<uint64_t, bool> m_connected;
   unordered_map<uint64_t, rdmaConnID> m_qpNum2connID;
 
-  list<rdma_mem_t> m_rdmaMem;
-  unordered_map<size_t, rdma_mem_t> m_usedRdmaMem;
-
-  static rdma_mem_t s_nillmem;
-
-  const int m_numaNode;
-
-static void* malloc_huge(size_t size) {
-   void* p = mmap(NULL, size, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
-   madvise(p, size, MADV_HUGEPAGE);
-   return p;
-} 
 };
 
 }  // namespace rdma

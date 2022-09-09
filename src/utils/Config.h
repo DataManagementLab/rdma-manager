@@ -67,6 +67,7 @@ class Config
 
     //RDMA
     static size_t RDMA_MEMSIZE;
+    static string RDMA_SERVER_ADDRESSES; // if localhost should be same as IP behind CONFIG::RDMA_INTERFACE
     static uint32_t RDMA_PORT;
     static uint32_t RDMA_NUMAREGION;
     static std::string RDMA_DEVICE_FILE_PATH;
@@ -79,7 +80,12 @@ class Config
     
     static uint32_t RDMA_UD_MTU;
 
+    const static uint32_t RDMA_MINIMUM_MSG_SIZE = 1; // can be used for debugging
+    const static uint32_t GPUDIRECT_MINIMUM_MSG_SIZE = 1; // can be used for debugging
+
     const static int PROTO_MAX_SOCKETS = 1024;
+    const static int PROTO_SEND_TIMEOUT = 50; // milliseconds
+    const static int PROTO_RECV_TIMEOUT = 50; // milliseconds
 
     static std::string SEQUENCER_IP;
     static uint32_t SEQUENCER_PORT;
@@ -107,6 +113,9 @@ class Config
 
     //TEST
     static int HELLO_PORT;
+
+    // PERFORMANCE TEST SERVER START ADVANTAGE
+    const static int PERFORMANCE_TEST_SERVER_TIME_ADVANTAGE = 600 * 1000; // 600ms
 
     // static string& getIPFromNodeId(NodeID& nodeid);
     // static string& getIPFromNodeId(const NodeID& nodeid);
