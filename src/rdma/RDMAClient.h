@@ -49,7 +49,7 @@ class RDMAClient : public RDMA_API_T, public ProtoClient {
     RDMAClient(size_t mem_size) : RDMAClient(mem_size, "RDMAClient") {}
     RDMAClient(size_t mem_size, std::string name) : RDMAClient(mem_size, name, (int)Config::RDMA_NUMAREGION) {}  
     RDMAClient(size_t mem_size, std::string name, int numaNode) : RDMAClient(mem_size, name, Config::getIP(Config::RDMA_INTERFACE), NodeType::Enum::CLIENT, numaNode){}
-  
+    
     // no ownIpPort, sequencerIpPort, name
     RDMAClient(size_t mem_size, bool huge) : RDMAClient(mem_size, huge, (int)Config::RDMA_NUMAREGION) {}
     RDMAClient(size_t mem_size, int numaNode) : RDMAClient(mem_size, HUGEPAGE, numaNode) {}
@@ -343,9 +343,9 @@ class RDMAClient : public RDMA_API_T, public ProtoClient {
   unordered_map<string, NodeID> m_connections;
   
   std::string m_name;
-  std::string m_sequencerIpPort = Config::SEQUENCER_IP + ":" + to_string(Config::SEQUENCER_PORT);
   std::string m_ownIpPort;
   NodeType::Enum m_nodeType;
+  std::string m_sequencerIpPort = Config::SEQUENCER_IP + ":" + to_string(Config::SEQUENCER_PORT);
 
   //Can be overwritten for special use-cases where NodeIDSequencer is insufficient
   virtual NodeID requestNodeID(std::string sequencerIpPort, std::string ownIpPort, NodeType::Enum nodeType)

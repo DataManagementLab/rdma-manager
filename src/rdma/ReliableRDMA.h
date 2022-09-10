@@ -8,6 +8,7 @@
 #define ReliableRDMA_H_
 
 #include "../utils/Config.h"
+#include "../memory/Memory.h"
 #include <atomic>
 #include "BaseRDMA.h"
 

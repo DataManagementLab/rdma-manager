@@ -8,7 +8,7 @@
 #define UnreliableRDMA_H_
 
 #include "../utils/Config.h"
-
+#include "../memory/Memory.h"
 #include "BaseRDMA.h"
 
 #include <arpa/inet.h>

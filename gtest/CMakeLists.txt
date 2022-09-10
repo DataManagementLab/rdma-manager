@@ -32,8 +32,6 @@ ENDMACRO()
 
 SUBDIRLIST(SUBDIRS ".")
 
-
-
   include_directories(${GTEST_INCLUDE_DIRS})
   foreach(subdir ${SUBDIRS})
   include_directories(${subdir})

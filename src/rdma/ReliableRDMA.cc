@@ -1,5 +1,3 @@
-
-
 #include "ReliableRDMA.h"
 
 #ifndef HUGEPAGE
