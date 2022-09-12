@@ -2,19 +2,22 @@ cmake_minimum_required(VERSION 3.9)
 
 project(rdma)
 
-
 # ---------------------------------------------------------------------------------------------------------------------
 # --- [ SETTINGS ] ----------------------------------------------------------------------------------------------------
 
 # How this project should be build. Possible values are:
 # - Release     Best performance without additional overhead
 # - Debug       Adds debug infos and enables sanitizers
-set(CMAKE_BUILD_TYPE Release)
+if(NOT DEFINED CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE "Release")
+endif()
 
 # Compiler Options
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DLINUX -std=c++17 -Wall -Wextra -DHUGEPAGE")
 
-# If CUDA and therefore GPUDirect is supported. Otherwise set to 'OFF' to compile without CUDA and onyl support RDMA
+# If CUDA and therefore GPUDirect is supported. 
+# Set to 'OFF' to compile without CUDA and only support RDMA.
+# External projects can overwrite by setting option 'CUDA_ENABLED' or 'NO_CUDA' to ON/OFF!
 option(CUDA_SUPPORTED "CUDA enabled" ON)
 
 # Path where the CMake modules are located to find all required libraries 
@@ -26,11 +29,26 @@ set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR}/bin)
 # --- [ END SETTINGS ] ------------------------------------------------------------------------------------------------
 # ---------------------------------------------------------------------------------------------------------------------
 
-
-# Allows CUDA_ENABLED flag to be set by other projects 
-if(NOT DEFINED NO_CUDA AND NOT CUDA_SUPPORTED)
-    set(NO_CUDA true)
+# Allows NO_CUDA flag to be set by other projects 
+if(NOT DEFINED NO_CUDA)
+    if(DEFINED CUDA_ENABLED)
+        if(CUDA_ENABLED)
+            set(NO_CUDA OFF)
+        else()
+            set(NO_CUDA ON)
+        endif()
+    elseif(DEFINED CUDA_SUPPORTED)
+        if(CUDA_SUPPORTED)
+            set(NO_CUDA OFF)
+        else()
+            set(NO_CUDA ON)
+        endif()
+    else()
+        set(NO_CUDA OFF) # by default CUDA is supported
+    endif()
 endif()
+
+
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
     MESSAGE(STATUS "  BUILD TYPE:     DEBUG  (not suitable for release)")

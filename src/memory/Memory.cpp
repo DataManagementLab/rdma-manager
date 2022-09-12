@@ -83,6 +83,7 @@ Memory::Memory(bool registerIbv, size_t memSize, int deviceIndex, int ibNuma) : 
     if(registerIbv) this->preInit();
 
     // allocate CUDA memory
+    #ifndef NO_CUDA /* defined in CMakeLists.txt to globally enable/disable CUDA support */
     openContext();
     checkCudaError(cudaMalloc(&(this->buffer), memSize), "Memory::Memory could not allocate GPU memory\n");
 
@@ -90,8 +91,10 @@ Memory::Memory(bool registerIbv, size_t memSize, int deviceIndex, int ibNuma) : 
         checkCudaError(cudaMemset(this->buffer, 0, memSize), "Memory::Memory could not set allocated GPU memory to zero\n");
         this->postInit();
     }
-
     closeContext();
+    #else
+    throw new std::runtime_error("Tried creating CUDA memory of size "+std::to_string(memSize)+" without being compiled with CUDA support enabled");
+    #endif
 }
 
 
@@ -145,7 +148,9 @@ Memory::~Memory(){
     } else {
 
         // gpu memory
+        #ifndef NO_CUDA /* defined in CMakeLists.txt to globally enable/disable CUDA support */
         checkCudaError(cudaFree(this->buffer), "Memory::~Memory could not free GPU memory\n");
+        #endif
 
     }
     this->buffer = nullptr;
