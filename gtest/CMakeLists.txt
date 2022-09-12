@@ -7,6 +7,7 @@ enable_testing()
 #    endif()
 
 
+# add_subdirectory(memory)
 # add_subdirectory(proto)
 # add_subdirectory(rdma)
 # add_subdirectory(thread)

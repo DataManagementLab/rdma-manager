@@ -153,7 +153,7 @@ Memory::~Memory(){
 
 
 
-inline void Memory::preInit(){
+void Memory::preInit(){
     // Logging::debug(__FILE__, __LINE__, "Create memory region");
 
     if(!m_ibv) return; // skip if memory should not be registered with IBV
@@ -207,7 +207,7 @@ inline void Memory::preInit(){
 }
 
 
-inline void Memory::postInit(){
+void Memory::postInit(){
 
     if(!m_ibv) return; // skip if memory should not be registered with IBV
 
@@ -229,7 +229,7 @@ inline void Memory::postInit(){
 }
 
 
-inline void Memory::mergeFreeMem(list<rdma_mem_t>::iterator &listIter) {
+void Memory::mergeFreeMem(list<rdma_mem_t>::iterator &listIter) {
     std::unique_lock<std::recursive_mutex> lock(m_lockMem);
     size_t freeSpace = (*listIter).size;
     size_t offset = (*listIter).offset;
@@ -274,7 +274,7 @@ inline void Memory::mergeFreeMem(list<rdma_mem_t>::iterator &listIter) {
 }
 
 
-inline rdma_mem_t Memory::internalAlloc(size_t size){
+rdma_mem_t Memory::internalAlloc(size_t size){
     std::unique_lock<std::recursive_mutex> lock(m_lockMem);
     auto listIter = m_rdmaMem.begin();
     for (; listIter != m_rdmaMem.end(); ++listIter) {
@@ -309,7 +309,7 @@ inline rdma_mem_t Memory::internalAlloc(size_t size){
 }
 
 
-inline void Memory::printBuffer() {
+void Memory::printBuffer() {
     std::unique_lock<std::recursive_mutex> lock(m_lockMem);
     std::cout << "Free Buffer(" << m_rdmaMem.size() << ")=[";
     bool next = false;
@@ -338,7 +338,7 @@ inline void Memory::printBuffer() {
 }
 
 
-inline void Memory::internalFree(const void* ptr){
+void Memory::internalFree(const void* ptr){
     char *begin = (char *)buffer;
     char *end = (char *)ptr;
     size_t offset = end - begin;
@@ -346,7 +346,7 @@ inline void Memory::internalFree(const void* ptr){
 }
 
 
-inline void Memory::internalFree(const size_t &offset){
+void Memory::internalFree(const size_t &offset){
     std::unique_lock<std::recursive_mutex> lock(m_lockMem);
     size_t lastOffset = 0;
     rdma_mem_t memResFree = m_usedRdmaMem[offset];
@@ -401,93 +401,99 @@ inline void Memory::internalFree(const size_t &offset){
 
 
 
-inline bool Memory::isChild(){
+bool Memory::isChild(){
     return this->parent != nullptr;
 }
 
-inline bool Memory::isRoot(){
+bool Memory::isRoot(){
     return this->parent == nullptr;
 }
 
-inline size_t Memory::getRootOffset(){
+size_t Memory::getRootOffset(){
     Memory *root = this;
     while(root->parent != nullptr) root = root->getParent();
     return (size_t)this->pointer() - (size_t) root->pointer();
 }
 
-inline Memory* Memory::getParent(){
+Memory* Memory::getParent(){
     return this->parent;
 }
 
-inline size_t Memory::getSize(){
+size_t Memory::getSize(){
     return this->memSize;
 }
 
-inline void Memory::setSize(size_t memSize){
+void Memory::setSize(size_t memSize){
     this->memSize = memSize;
 }
 
-inline void* Memory::pointer(){
+void* Memory::pointer(){
     return this->buffer;
 }
 
-inline void* Memory::pointer(size_t offset){
+void* Memory::pointer(size_t offset){
     return ((char*)buffer + offset);
 }
 
-inline int Memory::getNumaNode(){
+bool Memory::isMainMemory(){
+    return this->mainMem;
+}
+
+bool Memory::isGPUMemory(){
+    return !this->mainMem;
+}
+
+int Memory::getNumaNode(){
     return this->numaNode;
 }
 
 
-inline bool Memory::isHuge(){
+bool Memory::isHuge(){
     return this->huge;
 }
 
 
-inline int Memory::getDeviceIndex(){
+int Memory::getDeviceIndex(){
     return this->deviceIndex;
 }
 
 
-inline bool Memory::isIBV(){
+bool Memory::isIBV(){
     return this->m_ibv;
 }
 
-inline int Memory::getIBPort(){
+int Memory::getIBPort(){
     return this->ib_port;
 }
 
-inline ibv_pd* Memory::ib_pd(){
+ibv_pd* Memory::ib_pd(){
     return this->pd;
 }
 
-inline ibv_mr* Memory::ib_mr(){
+ibv_mr* Memory::ib_mr(){
     return this->mr;
 }
 
-inline ibv_port_attr Memory::ib_port_attributes(){
+ibv_port_attr Memory::ib_port_attributes(){
     return this->port_attr;
 }
 
-inline ibv_context* Memory::ib_context(){
+ibv_context* Memory::ib_context(){
     return this->ib_ctx;
 }
 
-
-inline Memory* Memory::malloc(size_t memSize){
+Memory* Memory::malloc(size_t memSize){
     rdma_mem_t memRes = internalAlloc(memSize);
     if(!memRes.isnull)
         return new Memory(this, memRes.offset, memSize);
     throw runtime_error(std::string("Memory::alloc: Could not allocate child memory, requested size: %lu", memSize));
 }
 
-
-inline std::string Memory::toString(){
+std::string Memory::toString(){
     return this->toString(0, this->memSize);
 }
 
-inline std::string Memory::toString(size_t offset, size_t count){
+std::string Memory::toString(size_t offset, size_t count){
     std::ostringstream oss;
     oss << "[";
     if(this->mainMem){
@@ -520,15 +526,15 @@ inline std::string Memory::toString(size_t offset, size_t count){
     return oss.str();
 }
 
-inline void Memory::print(){
+void Memory::print(){
     print(0, this->memSize);
 }
 
-inline void Memory::print(size_t offset, size_t count){
+void Memory::print(size_t offset, size_t count){
     std::cout << toString(offset, count) << std::endl;
 }
 
-inline void Memory::openContext(){
+void Memory::openContext(){
     if(this->mainMem) return;
 
     // gpu memory
@@ -543,7 +549,7 @@ inline void Memory::openContext(){
     #endif
 }
 
-inline void Memory::closeContext(){
+void Memory::closeContext(){
     if(this->mainMem) return;
 
     // gpu memory
@@ -557,11 +563,11 @@ inline void Memory::closeContext(){
     #endif
 }
 
-inline void Memory::setRandom(){
+void Memory::setRandom(){
     setRandom(0, this->memSize);
 }
 
-inline void Memory::setRandom(size_t offset, size_t count){
+void Memory::setRandom(size_t offset, size_t count){
     if(this->mainMem){
         // main memory
         RandomHelper::randomizeMemory((char*)this->buffer, 0, this->memSize);
@@ -573,15 +579,15 @@ inline void Memory::setRandom(size_t offset, size_t count){
     }
 }
 
-inline void Memory::setMemory(int value){
+void Memory::setMemory(int value){
     setMemory(value, 0, this->memSize);
 }
 
-inline void Memory::setMemory(int value, size_t count){
+void Memory::setMemory(int value, size_t count){
     setMemory(value, 0, count);
 }
 
-inline void Memory::setMemory(int value, size_t offset, size_t count){
+void Memory::setMemory(int value, size_t offset, size_t count){
     if(this->mainMem){
         // main memory
         memset((void*)((size_t)this->buffer + offset), value, count);
@@ -593,16 +599,16 @@ inline void Memory::setMemory(int value, size_t offset, size_t count){
     }
 }
 
-inline void Memory::copyTo(void *destination, MEMORY_TYPE memType){
+void Memory::copyTo(void *destination, MEMORY_TYPE memType){
     size_t s = sizeof(destination);
     copyTo(destination, (s < this->memSize ? s : this->memSize), memType);
 }
 
-inline void Memory::copyTo(void *destination, size_t count, MEMORY_TYPE memType){
+void Memory::copyTo(void *destination, size_t count, MEMORY_TYPE memType){
     copyTo(destination, 0, 0, count, memType);
 }
 
-inline void Memory::copyTo(void *destination, size_t destOffset, size_t srcOffset, size_t count, MEMORY_TYPE memType){
+void Memory::copyTo(void *destination, size_t destOffset, size_t srcOffset, size_t count, MEMORY_TYPE memType){
     destination = (void*)((size_t)destination + destOffset);
     void* source = (void*)((size_t)this->buffer + srcOffset);
     if(this->mainMem){
@@ -637,16 +643,16 @@ inline void Memory::copyTo(void *destination, size_t destOffset, size_t srcOffse
     }
 }
 
-inline void Memory::copyFrom(const void *source, MEMORY_TYPE memType){
+void Memory::copyFrom(const void *source, MEMORY_TYPE memType){
     size_t s = sizeof(source);
     copyFrom(source, (s < this->memSize ? s : this->memSize), memType);
 }
 
-inline void Memory::copyFrom(const void *source, size_t count, MEMORY_TYPE memType){
+void Memory::copyFrom(const void *source, size_t count, MEMORY_TYPE memType){
     copyFrom(source, 0, 0, count, memType);
 }
 
-inline void Memory::copyFrom(const void *source, size_t srcOffset, size_t destOffset, size_t count, MEMORY_TYPE memType){
+void Memory::copyFrom(const void *source, size_t srcOffset, size_t destOffset, size_t count, MEMORY_TYPE memType){
     source = (void*)((size_t)source + srcOffset);
     void* destination = (void*)((size_t)this->buffer + destOffset);
     if(this->mainMem){
@@ -682,7 +688,7 @@ inline void Memory::copyFrom(const void *source, size_t srcOffset, size_t destOf
 }
 
 
-inline char Memory::getChar(size_t offset){
+char Memory::getChar(size_t offset){
     // main memory
     if(this->mainMem) return ((char*)this->buffer)[offset];
 
@@ -692,7 +698,7 @@ inline char Memory::getChar(size_t offset){
     return tmp[0];
 }
 
-inline void Memory::set(char value, size_t offset){
+void Memory::set(char value, size_t offset){
     // main memory
     if(this->mainMem){ ((char*)this->buffer)[offset] = value; return; }
     
@@ -700,7 +706,7 @@ inline void Memory::set(char value, size_t offset){
     copyFrom((void*)&value, 0, offset, sizeof(value), MEMORY_TYPE::MAIN);
 }
 
-inline int8_t Memory::getInt8(size_t offset){
+int8_t Memory::getInt8(size_t offset){
     // main memory
     if(this->mainMem) return *(int8_t*)((size_t)this->buffer + offset);
     
@@ -710,7 +716,7 @@ inline int8_t Memory::getInt8(size_t offset){
     return tmp[0];
 }
 
-inline void Memory::set(int8_t value, size_t offset){
+void Memory::set(int8_t value, size_t offset){
     // main memory
     if(this->mainMem){
         int8_t *tmp = (int8_t*)((size_t)this->buffer + offset);
@@ -721,7 +727,7 @@ inline void Memory::set(int8_t value, size_t offset){
     copyFrom((void*)&value, 0, offset, sizeof(value), MEMORY_TYPE::MAIN);
 }
 
-inline uint8_t Memory::getUInt8(size_t offset){
+uint8_t Memory::getUInt8(size_t offset){
     // main memory
     if(this->mainMem) return *(uint8_t*)((size_t)this->buffer + offset);
     
@@ -731,7 +737,7 @@ inline uint8_t Memory::getUInt8(size_t offset){
     return tmp[0];
 }
 
-inline void Memory::set(uint8_t value, size_t offset){
+void Memory::set(uint8_t value, size_t offset){
     // main memory
     if(this->mainMem){
         uint8_t *tmp = (uint8_t*)((size_t)this->buffer + offset);
@@ -742,7 +748,7 @@ inline void Memory::set(uint8_t value, size_t offset){
     copyFrom((void*)&value, 0, offset, sizeof(value), MEMORY_TYPE::MAIN);
 }
 
-inline int16_t Memory::getInt16(size_t offset){
+int16_t Memory::getInt16(size_t offset){
     // main memory
     if(this->mainMem) return *(int16_t*)((size_t)this->buffer + offset);
     
@@ -752,7 +758,7 @@ inline int16_t Memory::getInt16(size_t offset){
     return tmp[0];
 }
 
-inline void Memory::set(int16_t value, size_t offset){
+void Memory::set(int16_t value, size_t offset){
     // main memory
     if(this->mainMem){
         int16_t *tmp = (int16_t*)((size_t)this->buffer + offset);
@@ -763,7 +769,7 @@ inline void Memory::set(int16_t value, size_t offset){
     copyFrom((void*)&value, 0, offset, sizeof(value), MEMORY_TYPE::MAIN);
 }
 
-inline uint16_t Memory::getUInt16(size_t offset){
+uint16_t Memory::getUInt16(size_t offset){
     // main memory
     if(this->mainMem) return *(uint16_t*)((size_t)this->buffer + offset);
     
@@ -773,7 +779,7 @@ inline uint16_t Memory::getUInt16(size_t offset){
     return tmp[0];
 }
 
-inline void Memory::set(uint16_t value, size_t offset){
+void Memory::set(uint16_t value, size_t offset){
     // main memory
     if(this->mainMem){
         uint16_t *tmp = (uint16_t*)((size_t)this->buffer + offset);
@@ -784,7 +790,7 @@ inline void Memory::set(uint16_t value, size_t offset){
     copyFrom((void*)&value, 0, offset, sizeof(value), MEMORY_TYPE::MAIN);
 }
 
-inline int32_t Memory::getInt32(size_t offset){
+int32_t Memory::getInt32(size_t offset){
     // main memory
     if(this->mainMem) return *(int32_t*)((size_t)this->buffer + offset);
     
@@ -794,7 +800,7 @@ inline int32_t Memory::getInt32(size_t offset){
     return tmp[0];
 }
 
-inline void Memory::set(int32_t value, size_t offset){
+void Memory::set(int32_t value, size_t offset){
     // main memory
     if(this->mainMem){
         int32_t *tmp = (int32_t*)((size_t)this->buffer + offset);
@@ -805,7 +811,7 @@ inline void Memory::set(int32_t value, size_t offset){
     copyFrom((void*)&value, 0, offset, sizeof(value), MEMORY_TYPE::MAIN);
 }
 
-inline uint32_t Memory::getUInt32(size_t offset){
+uint32_t Memory::getUInt32(size_t offset){
     // main memory
     if(this->mainMem) return *(uint32_t*)((size_t)this->buffer + offset);
     
@@ -815,7 +821,7 @@ inline uint32_t Memory::getUInt32(size_t offset){
     return tmp[0];
 }
 
-inline void Memory::set(uint32_t value, size_t offset){
+void Memory::set(uint32_t value, size_t offset){
     // main memory
     if(this->mainMem){
         uint32_t *tmp = (uint32_t*)((size_t)this->buffer + offset);
@@ -826,7 +832,7 @@ inline void Memory::set(uint32_t value, size_t offset){
     copyFrom((void*)&value, 0, offset, sizeof(value), MEMORY_TYPE::MAIN);
 }
 
-inline int64_t Memory::getInt64(size_t offset){
+int64_t Memory::getInt64(size_t offset){
     // main memory
     if(this->mainMem) return *(int64_t*)((size_t)this->buffer + offset);
     
@@ -836,7 +842,7 @@ inline int64_t Memory::getInt64(size_t offset){
     return tmp[0];
 }
 
-inline void Memory::set(int64_t value, size_t offset){
+void Memory::set(int64_t value, size_t offset){
     // main memory
     if(this->mainMem){
         int64_t *tmp = (int64_t*)((size_t)this->buffer + offset);
@@ -847,7 +853,7 @@ inline void Memory::set(int64_t value, size_t offset){
     copyFrom((void*)&value, 0, offset, sizeof(value), MEMORY_TYPE::MAIN);
 }
 
-inline uint64_t Memory::getUInt64(size_t offset){
+uint64_t Memory::getUInt64(size_t offset){
     // main memory
     if(this->mainMem) return *(int64_t*)((size_t)this->buffer + offset);
     
@@ -857,7 +863,7 @@ inline uint64_t Memory::getUInt64(size_t offset){
     return tmp[0];
 }
 
-inline void Memory::set(uint64_t value, size_t offset){
+void Memory::set(uint64_t value, size_t offset){
     // main memory
     if(this->mainMem){
         uint64_t *tmp = (uint64_t*)((size_t)this->buffer + offset);
