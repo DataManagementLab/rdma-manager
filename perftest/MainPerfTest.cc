@@ -488,6 +488,10 @@ int main(int argc, char *argv[]){
     std::string sequencerIpAddr = FLAGS_seqaddr+":"+to_string(FLAGS_seqport);
 
 
+    std::cout << "INFO:  MyIP=" << ownIpPort << 
+                        "  Server=" << (FLAGS_server ? "THIS" : (addresses.size() > 1 ? "MULTIPLE" : addresses[0])) <<
+                        "  SEQ=" << sequencerIpAddr << std::endl;
+
     // INTIAL SYNC
     if(FLAGS_server){
         std::cout << "Waiting for " << FLAGS_clients << " clients to connect..." << std::endl;
