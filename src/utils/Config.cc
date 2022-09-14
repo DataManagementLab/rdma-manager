@@ -161,6 +161,10 @@ void Config::set(string key, string value) {
     Config::RDMA_INTERFACE = value;
   }else if (key.compare("RDMA_DEV_NAME") == 0) {
     Config::RDMA_DEV_NAME = value;
+  }else if (key.compare("SEQUENCER_IP") == 0) {
+    Config::SEQUENCER_IP = value;
+  } else if (key.compare("SEQUENCER_PORT") == 0) {
+    Config::SEQUENCER_PORT = stoi(value);
   }
 }
 
