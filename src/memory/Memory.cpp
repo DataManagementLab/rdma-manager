@@ -38,7 +38,7 @@ Memory::Memory(size_t memSize, bool huge) : Memory(memSize, huge, -1){}
 Memory::Memory(size_t memSize, bool huge, int numaNode) : Memory(true, memSize, huge, numaNode, Config::RDMA_IBPORT){}
 Memory::Memory(bool registerIbv, size_t memSize, bool huge, int numaNode, int ibPort) : memSize(memSize), mainMem(true), numaNode(numaNode), parent(nullptr), huge(huge), m_ibv(registerIbv), ib_port(ibPort) {
     this->m_rdmaMem.push_back(rdma_mem_t(memSize, true, 0));
-
+    
     if(registerIbv) this->preInit();
 
     // allocate memory (same as in MemoryFactory)
@@ -180,6 +180,7 @@ void Memory::preInit(){
         numa_node_file.open(std::string(dev_list[i]->ibdev_path)+"/device/numa_node");
         int numa = -1;
         numa_node_file >> numa;
+    
         if (numa == numaNode) {
             ib_dev = dev_list[i];
             found = true;

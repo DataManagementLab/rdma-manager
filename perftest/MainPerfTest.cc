@@ -487,8 +487,7 @@ int main(int argc, char *argv[]){
     std::string ownIpPort = FLAGS_ownaddr+":"+to_string(FLAGS_port);
     std::string sequencerIpAddr = FLAGS_seqaddr+":"+to_string(FLAGS_seqport);
 
-
-    std::cout << "INFO:  MyIP=" << ownIpPort << 
+    std::cout << "INFO:  MyIP=" << ownIpPort << " | " << rdma::Network::getOwnAddress() << 
                         "  Server=" << (FLAGS_server ? "THIS" : (addresses.size() > 1 ? "MULTIPLE" : addresses[0])) <<
                         "  SEQ=" << sequencerIpAddr << std::endl;
 
