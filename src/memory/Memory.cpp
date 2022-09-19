@@ -183,6 +183,7 @@ void Memory::preInit(){
     
         if (numa == numaNode) {
             ib_dev = dev_list[i];
+            Logging::info("Memory: choosing IB device '" + (std::string)ib_dev->name + "' at numa node " + std::to_string(numa));
             found = true;
             break;
         }

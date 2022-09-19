@@ -92,7 +92,11 @@ void NodeIDSequencer::handle(Any *anyReq, Any *anyResp)
     }
     else
     {
-      Logging::info("NodeIDSequencer handling message GetNodeIDForIpPortRequest: could not find nodeid for IP: " + ipPort);
+      std::string info = "NodeIDSequencer handling message GetNodeIDForIpPortRequest: could not find nodeid for IP: " + ipPort + " in [";
+      for(const auto &entry : m_ipPortToNodeIDMapping)
+        info = info + entry.first + "=" + to_string(entry.second) + ", ";
+
+      Logging::info(info + "]");
       connResp.set_return_(MessageErrors::NODEID_NOT_FOUND);
     }
     anyResp->PackFrom(connResp);
