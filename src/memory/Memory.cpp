@@ -173,23 +173,44 @@ void Memory::preInit(){
     }
 
     bool found = false;
-    //Choose rdma device on the correct numa node
-    for (int i = 0; i < num_devices; i++) {
-        // choose rdma device on the correct numa node
-        ifstream numa_node_file;
-        numa_node_file.open(std::string(dev_list[i]->ibdev_path)+"/device/numa_node");
-        int numa = -1;
-        numa_node_file >> numa;
-    
-        if (numa == numaNode) {
+    if(Config::RDMA_DEV_NAME.size() > 0) for (int i = 0; i < num_devices; i++) {
+        // Choose rdma device based on the correct name
+        if(Config::RDMA_DEV_NAME == std::string(dev_list[i]->name)) {
+            ifstream numa_node_file;
+            numa_node_file.open(std::string(dev_list[i]->ibdev_path) + "/device/numa_node");
+            int numa_node = -1;
+            if (numa_node_file) {
+                numa_node_file >> numa_node;
+            }
+            if (numa_node != -1 && numa_node != numaNode) {
+                Logging::warn("Device was selected even though numa_node is not the right one (device has numa_node " + std::to_string(numa_node) + ", you selected " + std::to_string(numaNode) + ")");
+            }
             ib_dev = dev_list[i];
-            Logging::info("Memory: choosing IB device '" + (std::string)ib_dev->name + "' at numa node " + std::to_string(numa));
             found = true;
             break;
         }
     }
+    if(!found) for (int i = 0; i < num_devices; i++) {
+        // Choose rdma device based on the correct numa node
+        ifstream numa_node_file;
+        numa_node_file.open(std::string(dev_list[i]->ibdev_path) + "/device/numa_node");
+        int numa_node = -1;
+        if (numa_node_file) {
+            numa_node_file >> numa_node;
+        }
+        if (numa_node != -1 && numa_node == numaNode)
+        {
+            ib_dev = dev_list[i];
+            found = true;
+            break;
+        }
+    }
+    if(!found){
+        ibv_free_device_list(dev_list);
+        throw runtime_error("Did not find a device connected to specified numa node or by name: " + std::to_string(numaNode) + "/'" + Config::RDMA_DEV_NAME + "' (Set in Config::RDMA_NUMAREGION/RDMA_DEV_NAME or constructor)");
+    }
     ibv_free_device_list(dev_list);
-    if (!found){
+    if(!found){
         throw runtime_error("Did not find a device connected to specified numa node (Config::RDMA_NUMAREGION)");
     }
     Config::RDMA_DEVICE_FILE_PATH = ib_dev->ibdev_path;

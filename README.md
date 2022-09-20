@@ -35,7 +35,8 @@ Binaries can the be found in ./build/bin/
 
 ## Setup
 Default settings should be defined in './build/bin/conf/RDMA.conf' for the RDMA-Manager to properly work.
-- RDMA_NUMAREGION:  ID of the NUMA node at which the RDMA-enabled NIC is connected to
+- RDMA_NUMAREGION:  ID of the NUMA node at which the RDMA-enabled NIC is connected to (either RDMA_NUMAREGION or RDMA_DEV_NAME)
+- RDMA_DEV_NAME: IB device name that should be selected (either RDMA_NUMAREGION or RDMA_DEV_NAME)
 - RDMA_INTERFACE:  Name of the RDMA interface
 - RDMA_IBPORT:  InfiniBand port that should be used
 - RDMA_SERVER_ADDRESSES:  IP of the RDMA-enabled NIC where the server should run
