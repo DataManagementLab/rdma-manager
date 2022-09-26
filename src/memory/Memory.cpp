@@ -205,14 +205,22 @@ void Memory::preInit(){
             break;
         }
     }
-    if(!found){
-        ibv_free_device_list(dev_list);
-        throw runtime_error("Did not find a device connected to specified numa node or by name: " + std::to_string(numaNode) + "/'" + Config::RDMA_DEV_NAME + "' (Set in Config::RDMA_NUMAREGION/RDMA_DEV_NAME or constructor)");
+
+    if(!found)
+        Logging::warn("Did not find a device connected to specified numa node or by name: " + std::to_string(numaNode) + " / '" + Config::RDMA_DEV_NAME + "' (Set in Config::RDMA_NUMAREGION/RDMA_DEV_NAME or constructor)");
+    
+
+    if(!found && num_devices > 0) {
+        // Choose first rdma device
+        ib_dev = dev_list[0];
+        found = true;
+        Logging::info("Selected first RDMA device found" + (std::string)ib_dev->dev_name + " | " + (std::string)ib_dev->ibdev_path);
     }
+    
     ibv_free_device_list(dev_list);
-    if(!found){
-        throw runtime_error("Did not find a device connected to specified numa node (Config::RDMA_NUMAREGION)");
-    }
+
+    if(!found) throw new std::runtime_error("No RDMA devices found!");
+
     Config::RDMA_DEVICE_FILE_PATH = ib_dev->ibdev_path;
 
     if (!Filehelper::isDirectory(Config::RDMA_DEVICE_FILE_PATH + "/device/net/" + Config::RDMA_INTERFACE)){
