@@ -41,6 +41,8 @@ Memory::Memory(bool registerIbv, size_t memSize, bool huge, int numaNode, int ib
     
     if(registerIbv) this->preInit();
 
+    this->numaNode = this->numaNode >= 0 ? this->numaNode : (Config::RDMA_NUMAREGION < 0 ? 0 : Config::RDMA_NUMAREGION);
+
     // allocate memory (same as in MemoryFactory)
     #ifdef LINUX
         if(huge){
