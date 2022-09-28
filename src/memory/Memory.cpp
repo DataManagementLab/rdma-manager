@@ -47,11 +47,14 @@ Memory::Memory(bool registerIbv, size_t memSize, bool huge, int numaNode, int ib
             this->buffer = mmap(NULL, this->memSize, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
             madvise(this->buffer, this->memSize, MADV_HUGEPAGE);
             numa_tonode_memory(this->buffer, this->memSize, this->numaNode);
+            Logging::debug(__FILE__, __LINE__, "Allocated main memory of size " + std::to_string(memSize) + " (huge=true, numa=" + std::to_string(this->numaNode) + ")");
         } else {
             this->buffer = numa_alloc_onnode(this->memSize, this->numaNode);
+            Logging::debug(__FILE__, __LINE__, "Allocated main memory of size " + std::to_string(memSize) + " (huge=false, numa=" + std::to_string(this->numaNode) + ")");
         }
     #else
         this->buffer = std::malloc(this->memSize);
+        Logging::debug(__FILE__, __LINE__, "Allocated main memory of size " + std::to_string(memSize) + " (huge=false)");
     #endif
 
     if (this->buffer == 0) {
@@ -86,6 +89,7 @@ Memory::Memory(bool registerIbv, size_t memSize, int deviceIndex, int ibNuma) : 
     #ifndef NO_CUDA /* defined in CMakeLists.txt to globally enable/disable CUDA support */
     openContext();
     checkCudaError(cudaMalloc(&(this->buffer), memSize), "Memory::Memory could not allocate GPU memory\n");
+    Logging::debug(__FILE__, __LINE__, "Allocated GPU memory of size " + std::to_string(memSize));
 
     if(registerIbv){
         checkCudaError(cudaMemset(this->buffer, 0, memSize), "Memory::Memory could not set allocated GPU memory to zero\n");
@@ -138,18 +142,19 @@ Memory::~Memory(){
         #ifdef LINUX
             if(this->huge){
                 munmap(this->buffer, this->memSize);
-            } // TODO else {
+            }
             numa_free(this->buffer, this->memSize);
-            // TODO }
         #else
             std::free(this->buffer);
         #endif
+        Logging::debug(__FILE__, __LINE__, "Released allocated main memory of size " + std::to_string(memSize));
 
     } else {
 
         // gpu memory
         #ifndef NO_CUDA /* defined in CMakeLists.txt to globally enable/disable CUDA support */
         checkCudaError(cudaFree(this->buffer), "Memory::~Memory could not free GPU memory\n");
+        Logging::debug(__FILE__, __LINE__, "Released allocated GPU memory of size " + std::to_string(memSize));
         #endif
 
     }
@@ -214,7 +219,7 @@ void Memory::preInit(){
         // Choose first rdma device
         ib_dev = dev_list[0];
         found = true;
-        Logging::info("Selected first RDMA device found" + (std::string)ib_dev->dev_name + " | " + (std::string)ib_dev->ibdev_path);
+        Logging::info("Selected first RDMA device found " + (std::string)ib_dev->name + " | " + (std::string)ib_dev->ibdev_path);
     }
     
     ibv_free_device_list(dev_list);
