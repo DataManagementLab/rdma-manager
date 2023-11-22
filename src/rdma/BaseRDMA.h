@@ -318,7 +318,7 @@ class BaseRDMA {
   ibv_qp_type m_qpType;
   BaseMemory *m_buffer;
   bool m_buffer_owner = false;
-  int m_gidIdx = -1;
+  int m_gidIdx = Config::RDMA_GID_INDEX;
 
   vector<ib_qp_t> m_qps;  // rdmaConnID is the index of the vector
   vector<ib_conn_t> m_rconns;

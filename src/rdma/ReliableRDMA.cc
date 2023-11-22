@@ -58,6 +58,10 @@ void ReliableRDMA::initQPWithSuppliedID(const rdmaConnID rdmaConnID) {
   union ibv_gid my_gid;
   memset(&my_gid, 0, sizeof my_gid);
 
+    
+  if (m_gidIdx != -1 && m_gidIdx <= m_buffer->ib_port_attributes().gid_tbl_len)
+    ibv_query_gid(m_buffer->ib_context(), m_buffer->getIBPort(), m_gidIdx, &my_gid);
+
   localConn.buffer = (uint64_t)m_buffer->pointer();
   localConn.rc.rkey = m_buffer->ib_mr()->rkey;
   localConn.qp_num = qp.qp->qp_num;
@@ -86,6 +90,11 @@ void ReliableRDMA::initQPWithSuppliedID(struct ib_qp_t** qp ,struct ib_conn_t **
     //struct ib_conn_t localConn;
     union ibv_gid my_gid;
     memset(&my_gid, 0, sizeof my_gid);
+
+        
+    if (m_gidIdx != -1 && m_gidIdx <= m_buffer->ib_port_attributes().gid_tbl_len)
+        ibv_query_gid(m_buffer->ib_context(), m_buffer->getIBPort(), m_gidIdx, &my_gid);
+
 
     (*localConn)->buffer = (uint64_t)m_buffer->pointer();
     (*localConn)->rc.rkey = m_buffer->ib_mr()->rkey;
@@ -620,7 +629,8 @@ void ReliableRDMA::modifyQPToRTR(struct ibv_qp *qp, uint32_t remote_qpn,
               IBV_QP_RQ_PSN | IBV_QP_MAX_DEST_RD_ATOMIC | IBV_QP_MIN_RNR_TIMER;
   memset(&attr, 0, sizeof(attr));
   attr.qp_state = IBV_QPS_RTR;
-  attr.path_mtu = IBV_MTU_4096;
+  attr.path_mtu = IBV_MTU_1024;
+//   attr.path_mtu = IBV_MTU_4096;
   attr.dest_qp_num = remote_qpn;
   attr.rq_psn = 0;
   attr.max_dest_rd_atomic = 16;
@@ -981,6 +991,11 @@ void ReliableRDMA::initQPForSRQWithSuppliedID(size_t srq_id,
   struct ib_conn_t localConn;
   union ibv_gid my_gid;
   memset(&my_gid, 0, sizeof my_gid);
+
+      
+  if (m_gidIdx != -1 && m_gidIdx <= m_buffer->ib_port_attributes().gid_tbl_len)
+    ibv_query_gid(m_buffer->ib_context(), m_buffer->getIBPort(), m_gidIdx, &my_gid);
+
 
   localConn.buffer = (uint64_t)m_buffer->pointer();
   localConn.rc.rkey = m_buffer->ib_mr()->rkey;

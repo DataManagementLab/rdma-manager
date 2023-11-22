@@ -73,6 +73,7 @@ class Config
     static uint32_t RDMA_NUMAREGION;
     static std::string RDMA_DEVICE_FILE_PATH;
     static uint32_t RDMA_IBPORT;
+    static uint32_t RDMA_GID_INDEX; // if set to -1 do not use the gid, else use the gid on the port with the given index
     static uint32_t RDMA_MAX_WR;
     const static uint32_t RDMA_MAX_SGE = 1;
     const static size_t RDMA_UD_OFFSET = 40;
@@ -91,6 +92,7 @@ class Config
     static uint16_t SEQUENCER_PORT;
 
     static std::string RDMA_INTERFACE;
+    static std::string RDMA_DEV_NAME;
 
     const static uint32_t MAX_RC_INLINE_SEND = 220;
     const static uint32_t MAX_UD_INLINE_SEND = 188;

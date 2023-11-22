@@ -44,14 +44,25 @@ void BaseMemory::preInit(){
     }
 
     bool found = false;
-    //Choose rdma device on the correct numa node
+    //Choose rdma device based on the name or based on the correct numa node
     for (int i = 0; i < num_devices; i++) {
         // choose rdma device on the correct numa node
         ifstream numa_node_file;
-        numa_node_file.open(std::string(dev_list[i]->ibdev_path)+"/device/numa_node");
-        int numa = -1;
-        numa_node_file >> numa;
-        if (numa == numa_node) {
+        numa_node_file.open(std::string(dev_list[i]->ibdev_path) + "/device/numa_node");
+        int numa_node = -1;
+        if (numa_node_file) {
+            numa_node_file >> numa_node;
+        }
+        if(Config::RDMA_DEV_NAME.size() > 0 && Config::RDMA_DEV_NAME == std::string(dev_list[i]->name)) {
+        // this device could be selected by the config
+        if (numa_node != -1 && numa_node != this->numa_node) {
+            Logging::warn("Device was selected even though numa_node is not the right one (device has numa_node " + std::to_string(numa_node) + ", you selected " + std::to_string(this->numa_node) + ")");
+        }
+        ib_dev = dev_list[i];
+        found = true;
+        break;
+        }
+        else if (numa_node != -1 && numa_node == this->numa_node) {
             ib_dev = dev_list[i];
             found = true;
             break;
